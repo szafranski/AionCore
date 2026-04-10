@@ -54,7 +54,7 @@
 | 9 | 通道集成 | 09-channel.md | `process/channels/`, `process/bridge/channelBridge.ts`, `process/bridge/weixinLoginBridge.ts`, `process/webserver/routes/weixinLoginRoutes.ts` | ✅ 已完成 |
 | 10 | 团队模式 | 10-team.md | `process/team/` | ✅ 已完成 |
 | 11 | 定时任务 | 11-cron.md | `process/services/cron/`, `process/bridge/cronBridge.ts` | ✅ 已完成 |
-| 12 | MCP 协议 | 12-mcp.md | `process/services/mcpServices/`, `process/bridge/mcpBridge.ts` | ⬜ 未开始 |
+| 12 | MCP 协议 | 12-mcp.md | `process/services/mcpServices/`, `process/bridge/mcpBridge.ts` | ✅ 已完成 |
 | 13 | 扩展系统 | 13-extension.md | `process/extensions/`, `process/bridge/extensionsBridge.ts`, `process/bridge/hubBridge.ts` | ⬜ 未开始 |
 | 14 | 应用生命周期 | 14-app-lifecycle.md | `process/bridge/updateBridge.ts`, `process/bridge/applicationBridge.ts`, `process/bridge/webuiBridge.ts`, `process/bridge/webuiQR.ts`, `process/bridge/notificationBridge.ts`, `process/webserver/config/`, `process/webserver/middleware/`, `process/webserver/types/`, `common/update/` | ⬜ 未开始 |
 | 15 | Pet 系统 | 15-pet.md | `process/pet/` | ⬜ 未开始 |

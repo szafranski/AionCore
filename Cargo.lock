@@ -180,16 +180,17 @@ dependencies = [
 name = "aionui-conversation"
 version = "0.1.0"
 dependencies = [
- "aionui-ai-agent",
  "aionui-api-types",
+ "aionui-auth",
  "aionui-common",
  "aionui-db",
- "aionui-file",
  "aionui-realtime",
- "aionui-system",
+ "async-trait",
+ "axum",
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -74,7 +74,9 @@ pub fn extract_token_from_ws_headers(headers: &HeaderMap) -> Option<String> {
 pub fn extract_cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
     let cookie_header = headers.get(header::COOKIE)?.to_str().ok()?;
     for part in cookie_header.split(';') {
-        let (key, value) = part.trim().split_once('=')?;
+        let Some((key, value)) = part.trim().split_once('=') else {
+            continue;
+        };
         if key.trim() == name {
             let v = value.trim();
             if !v.is_empty() {
@@ -267,5 +269,42 @@ mod tests {
     fn cookie_value_no_cookie_header() {
         let headers = HeaderMap::new();
         assert_eq!(extract_cookie_value(&headers, "any"), None);
+    }
+
+    #[test]
+    fn cookie_value_skips_malformed_entries() {
+        // Entry without '=' should be skipped, not abort the entire search
+        let headers = headers_with(&[("cookie", "malformed; target=found; also_bad")]);
+        assert_eq!(
+            extract_cookie_value(&headers, "target"),
+            Some("found".into())
+        );
+    }
+
+    #[test]
+    fn cookie_value_all_malformed_returns_none() {
+        let headers = headers_with(&[("cookie", "no_equals; also_none")]);
+        assert_eq!(extract_cookie_value(&headers, "target"), None);
+    }
+
+    #[test]
+    fn cookie_value_malformed_before_target() {
+        // Malformed entry appears before the target cookie
+        let headers = headers_with(&[("cookie", "bad_entry; aionui-session=tok123")]);
+        assert_eq!(
+            extract_cookie_value(&headers, "aionui-session"),
+            Some("tok123".into())
+        );
+    }
+
+    #[test]
+    fn token_from_cookie_with_malformed_entries() {
+        // End-to-end: extract_token_from_headers should still find the
+        // session cookie even when other entries lack '='
+        let headers = headers_with(&[("cookie", "garbage; aionui-session=abc; nope")]);
+        assert_eq!(
+            extract_token_from_headers(&headers),
+            Some("abc".into())
+        );
     }
 }

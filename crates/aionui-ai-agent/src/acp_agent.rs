@@ -80,6 +80,16 @@ struct AcpState {
     has_messages: bool,
 }
 
+/// Inject optional `files` and `injectSkills` into a JSON payload's `data` object.
+fn inject_files_and_skills(payload: &mut Value, data: &SendMessageData) {
+    if !data.files.is_empty() {
+        payload["data"]["files"] = json!(data.files);
+    }
+    if !data.inject_skills.is_empty() {
+        payload["data"]["injectSkills"] = json!(data.inject_skills);
+    }
+}
+
 /// Manages a single ACP Agent instance.
 ///
 /// ACP is the most complex agent type, supporting 20+ CLI sub-backends
@@ -376,91 +386,51 @@ impl AcpAgentManager {
 
     /// Resume an existing session and send a message.
     async fn session_resume_and_send(&self, data: &SendMessageData) -> Result<(), AppError> {
-        let state = self.state.read().await;
-        let session_id = state.session_id.clone();
-        drop(state);
-
+        let session_id = self.state.read().await.session_id.clone();
         let strategy = SessionResumeStrategy::for_backend(self.backend);
 
-        match strategy {
-            SessionResumeStrategy::SessionLoad => {
-                // Codex: use session/load first, then sendMessage
-                if let Some(ref sid) = session_id {
-                    let load_payload = json!({
-                        "type": protocol::SESSION_LOAD,
-                        "data": {
-                            "sessionId": sid,
-                        }
-                    });
-                    self.process.send(&load_payload).await?;
-                }
-                self.send_message_to_process(data).await
+        // Codex: session/load first, then sendMessage
+        if strategy == SessionResumeStrategy::SessionLoad {
+            if let Some(ref sid) = session_id {
+                let load = json!({ "type": protocol::SESSION_LOAD, "data": { "sessionId": sid } });
+                self.process.send(&load).await?;
             }
+            return self.send_message_to_process(data).await;
+        }
+
+        // Claude/CodeBuddy and others: session/new with resume info
+        let mut payload = json!({
+            "type": protocol::SESSION_NEW,
+            "data": { "message": data.content, "msgId": data.msg_id }
+        });
+
+        match strategy {
             SessionResumeStrategy::ClaudeResumeMeta => {
-                // Claude/CodeBuddy: session/new with resume metadata
-                let mut payload = json!({
-                    "type": protocol::SESSION_NEW,
-                    "data": {
-                        "message": data.content,
-                        "msgId": data.msg_id,
-                        "_meta": {
-                            "claudeCode": {
-                                "options": {
-                                    "resume": true,
-                                }
-                            }
-                        }
-                    }
-                });
+                let mut opts = json!({ "resume": true });
                 if let Some(ref sid) = session_id {
-                    payload["data"]["_meta"]["claudeCode"]["options"]["sessionId"] = json!(sid);
+                    opts["sessionId"] = json!(sid);
                 }
-                if !data.files.is_empty() {
-                    payload["data"]["files"] = json!(data.files);
-                }
-                if !data.inject_skills.is_empty() {
-                    payload["data"]["injectSkills"] = json!(data.inject_skills);
-                }
-                self.process.send(&payload).await
+                payload["data"]["_meta"] = json!({ "claudeCode": { "options": opts } });
             }
             SessionResumeStrategy::ResumeSessionId => {
-                // Others: session/new with resumeSessionId
-                let mut payload = json!({
-                    "type": protocol::SESSION_NEW,
-                    "data": {
-                        "message": data.content,
-                        "msgId": data.msg_id,
-                    }
-                });
                 if let Some(ref sid) = session_id {
                     payload["data"]["resumeSessionId"] = json!(sid);
                 }
-                if !data.files.is_empty() {
-                    payload["data"]["files"] = json!(data.files);
-                }
-                if !data.inject_skills.is_empty() {
-                    payload["data"]["injectSkills"] = json!(data.inject_skills);
-                }
-                self.process.send(&payload).await
             }
+            SessionResumeStrategy::SessionLoad => unreachable!(),
         }
+
+        inject_files_and_skills(&mut payload, data);
+        self.process.send(&payload).await
     }
 
     /// Send a message to the CLI process (for use after session is already established).
     async fn send_message_to_process(&self, data: &SendMessageData) -> Result<(), AppError> {
         let mut payload = json!({
             "type": protocol::SEND_MESSAGE,
-            "data": {
-                "content": data.content,
-                "msgId": data.msg_id,
-            }
+            "data": { "content": data.content, "msgId": data.msg_id }
         });
-        if !data.files.is_empty() {
-            payload["data"]["files"] = json!(data.files);
-        }
-        if !data.inject_skills.is_empty() {
-            payload["data"]["injectSkills"] = json!(data.inject_skills);
-        }
+        inject_files_and_skills(&mut payload, data);
         self.process.send(&payload).await
     }
 

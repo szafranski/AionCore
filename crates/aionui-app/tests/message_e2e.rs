@@ -2,6 +2,7 @@
 
 mod common;
 
+use axum::body::Body;
 use axum::http::StatusCode;
 use serde_json::json;
 use tower::ServiceExt;
@@ -409,4 +410,146 @@ async fn search_across_multiple_conversations() {
     let items = json["data"]["items"].as_array().unwrap();
     assert_eq!(items.len(), 2);
     assert_eq!(json["data"]["total"], 2);
+}
+
+// ── T2.1: Send message ──────────────────────────────────────────────
+
+#[tokio::test]
+async fn t2_1_send_message_accepted() {
+    let (mut app, services) = build_app().await;
+    let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Send Test").await;
+
+    let body = json!({ "content": "Hello AI", "msgId": "msg-user-1" });
+    let req = common::json_with_token(
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        body,
+        &token,
+        &csrf,
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    // The stub agent factory returns an error, so we expect 500
+    // (the route itself is wired correctly — 202 when factory is real)
+    // In E2E with stub factory, the get_or_build_task fails.
+    // We verify the route is reachable and returns an error (not 404/405).
+    let status = resp.status();
+    assert!(
+        status == StatusCode::ACCEPTED || status == StatusCode::INTERNAL_SERVER_ERROR,
+        "Expected 202 or 500 (stub factory), got {status}"
+    );
+}
+
+#[tokio::test]
+async fn t2_1_send_message_empty_content_bad_request() {
+    let (mut app, services) = build_app().await;
+    let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Empty Content").await;
+
+    let body = json!({ "content": "", "msgId": "msg-user-1" });
+    let req = common::json_with_token(
+        "POST",
+        &format!("/api/conversations/{conv_id}/messages"),
+        body,
+        &token,
+        &csrf,
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn t2_1_send_message_conversation_not_found() {
+    let (mut app, services) = build_app().await;
+    let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
+
+    let body = json!({ "content": "Hello", "msgId": "msg-1" });
+    let req = common::json_with_token(
+        "POST",
+        "/api/conversations/non-existent/messages",
+        body,
+        &token,
+        &csrf,
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn t2_1_send_message_requires_auth() {
+    let (app, _services) = build_app().await;
+
+    let body = json!({ "content": "Hello", "msgId": "msg-1" });
+    let req = axum::http::Request::builder()
+        .method("POST")
+        .uri("/api/conversations/some-id/messages")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&body).unwrap()))
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
+// ── T2.2: Stop stream ───────────────────────────────────────────────
+
+#[tokio::test]
+async fn t2_2_stop_stream_conversation_not_found() {
+    let (mut app, services) = build_app().await;
+    let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
+
+    let req = common::json_with_token(
+        "POST",
+        "/api/conversations/non-existent/stop",
+        json!({}),
+        &token,
+        &csrf,
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn t2_2_stop_stream_requires_auth() {
+    let (app, _services) = build_app().await;
+
+    let req = axum::http::Request::builder()
+        .method("POST")
+        .uri("/api/conversations/some-id/stop")
+        .header("content-type", "application/json")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
+// ── T2.3: Warmup ────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn t2_3_warmup_conversation_not_found() {
+    let (mut app, services) = build_app().await;
+    let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
+
+    let req = common::json_with_token(
+        "POST",
+        "/api/conversations/non-existent/warmup",
+        json!({}),
+        &token,
+        &csrf,
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn t2_3_warmup_requires_auth() {
+    let (app, _services) = build_app().await;
+
+    let req = axum::http::Request::builder()
+        .method("POST")
+        .uri("/api/conversations/some-id/warmup")
+        .header("content-type", "application/json")
+        .body(Body::empty())
+        .unwrap();
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }

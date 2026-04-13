@@ -40,6 +40,18 @@ pub struct CloneConversationRequest {
     pub migrate_cron: Option<bool>,
 }
 
+/// Body for `POST /api/conversations/:id/messages`.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendMessageRequest {
+    pub content: String,
+    pub msg_id: String,
+    #[serde(default)]
+    pub files: Vec<String>,
+    #[serde(default)]
+    pub inject_skills: Vec<String>,
+}
+
 // ── Query types ────────────────────────────────────────────────────
 
 /// Query parameters for `GET /api/conversations`.
@@ -499,6 +511,45 @@ mod tests {
             serde_json::from_str(&serialized).unwrap();
         assert_eq!(deserialized.message_id, "msg_x");
         assert_eq!(deserialized.conversation_name, "Search Test");
+    }
+
+    // ── SendMessageRequest ──────────────────────────────────────────
+
+    #[test]
+    fn deserialize_send_message_full() {
+        let raw = json!({
+            "content": "Review this code",
+            "msgId": "msg-001",
+            "files": ["/tmp/a.rs"],
+            "injectSkills": ["security-review"]
+        });
+        let req: SendMessageRequest = serde_json::from_value(raw).unwrap();
+        assert_eq!(req.content, "Review this code");
+        assert_eq!(req.msg_id, "msg-001");
+        assert_eq!(req.files, vec!["/tmp/a.rs"]);
+        assert_eq!(req.inject_skills, vec!["security-review"]);
+    }
+
+    #[test]
+    fn deserialize_send_message_minimal() {
+        let raw = json!({ "content": "Hi", "msgId": "m1" });
+        let req: SendMessageRequest = serde_json::from_value(raw).unwrap();
+        assert_eq!(req.content, "Hi");
+        assert_eq!(req.msg_id, "m1");
+        assert!(req.files.is_empty());
+        assert!(req.inject_skills.is_empty());
+    }
+
+    #[test]
+    fn deserialize_send_message_missing_content() {
+        let raw = json!({ "msgId": "m1" });
+        assert!(serde_json::from_value::<SendMessageRequest>(raw).is_err());
+    }
+
+    #[test]
+    fn deserialize_send_message_missing_msg_id() {
+        let raw = json!({ "content": "Hello" });
+        assert!(serde_json::from_value::<SendMessageRequest>(raw).is_err());
     }
 
     // ── Paginated type aliases ──────────────────────────────────────

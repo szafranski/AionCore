@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use aionui_ai_agent::{BuildTaskOptions, IWorkerTaskManager, SendMessageData};
 use aionui_api_types::{
     CloneConversationRequest, ConversationListResponse, ConversationResponse,
     CreateConversationRequest, ListConversationsQuery, ListMessagesQuery, MessageListResponse,
-    MessageResponse, MessageSearchResponse, SearchMessagesQuery, UpdateConversationRequest,
-    WebSocketMessage,
+    MessageResponse, MessageSearchResponse, SearchMessagesQuery, SendMessageRequest,
+    UpdateConversationRequest, WebSocketMessage,
 };
 use aionui_common::{
     generate_id, now_ms, AppError, ConversationSource, ConversationStatus, PaginatedResult,
@@ -13,9 +14,12 @@ use aionui_db::{
     ConversationFilters, ConversationRowUpdate, IConversationRepository, SortOrder,
 };
 use aionui_realtime::EventBroadcaster;
+use tracing::debug;
+
 use crate::convert::{
     row_to_message_response, row_to_response, search_row_to_item, string_to_enum,
 };
+use crate::stream_relay::StreamRelay;
 
 /// Business logic for conversation CRUD operations.
 ///
@@ -369,6 +373,186 @@ impl ConversationService {
             items,
             total: result.total,
             has_more: result.has_more,
+        })
+    }
+
+    // ── Message Flow ─────────────────────────────────────────────────
+
+    /// Send a user message to the conversation.
+    ///
+    /// 1. Validates the conversation belongs to the user
+    /// 2. Stores the user message (position: "right", status: "finish")
+    /// 3. Gets or builds the agent task
+    /// 4. Sends the message to the agent
+    /// 5. Spawns a background relay (agent events → WebSocket + DB)
+    /// 6. Returns immediately (202 Accepted semantics)
+    pub async fn send_message(
+        &self,
+        user_id: &str,
+        conversation_id: &str,
+        req: SendMessageRequest,
+        task_manager: &Arc<dyn IWorkerTaskManager>,
+    ) -> Result<(), AppError> {
+        if req.content.trim().is_empty() {
+            return Err(AppError::BadRequest("Message content must not be empty".into()));
+        }
+
+        // Verify conversation exists and belongs to user
+        let row = self
+            .repo
+            .get(conversation_id)
+            .await?
+            .filter(|r| r.user_id == user_id)
+            .ok_or_else(|| {
+                AppError::NotFound(format!("Conversation {conversation_id} not found"))
+            })?;
+
+        // Check if conversation is already processing (simple guard)
+        let status: ConversationStatus = string_to_enum(&row.status)?;
+        if status == ConversationStatus::Running {
+            return Err(AppError::Conflict(
+                "Conversation is already processing a message".into(),
+            ));
+        }
+
+        // Store user message
+        let user_msg = aionui_db::models::MessageRow {
+            id: generate_id(),
+            conversation_id: conversation_id.to_owned(),
+            msg_id: Some(req.msg_id.clone()),
+            r#type: "text".into(),
+            content: serde_json::json!({ "content": req.content }).to_string(),
+            position: Some("right".into()),
+            status: Some("finish".into()),
+            hidden: false,
+            created_at: now_ms(),
+        };
+        self.repo.insert_message(&user_msg).await?;
+
+        // Build task options from conversation row
+        let build_opts = self.build_task_options(&row)?;
+        let agent = task_manager.get_or_build_task(conversation_id, build_opts)?;
+
+        // Update conversation status to running
+        let update = ConversationRowUpdate {
+            status: Some(enum_to_db(&ConversationStatus::Running)?),
+            updated_at: Some(now_ms()),
+            ..Default::default()
+        };
+        self.repo.update(conversation_id, &update).await?;
+
+        // Subscribe to agent events before sending (no events lost)
+        let rx = agent.subscribe();
+
+        // Send message to the agent
+        let send_data = SendMessageData {
+            content: req.content,
+            msg_id: req.msg_id,
+            files: req.files,
+            inject_skills: req.inject_skills,
+        };
+        agent.send_message(send_data).await?;
+
+        // Spawn background relay: agent stream → WebSocket + DB
+        let relay = StreamRelay::new(
+            conversation_id.to_owned(),
+            generate_id(),
+            Arc::clone(&self.repo),
+            Arc::clone(&self.broadcaster),
+        );
+        tokio::spawn(relay.run(rx));
+
+        debug!(conversation_id, "Message sent, stream relay started");
+        Ok(())
+    }
+
+    /// Stop the current streaming response for a conversation.
+    pub async fn stop_stream(
+        &self,
+        user_id: &str,
+        conversation_id: &str,
+        task_manager: &Arc<dyn IWorkerTaskManager>,
+    ) -> Result<(), AppError> {
+        // Verify conversation exists and belongs to user
+        self.repo
+            .get(conversation_id)
+            .await?
+            .filter(|r| r.user_id == user_id)
+            .ok_or_else(|| {
+                AppError::NotFound(format!("Conversation {conversation_id} not found"))
+            })?;
+
+        let agent = task_manager
+            .get_task(conversation_id)
+            .ok_or_else(|| AppError::Conflict("No active agent for this conversation".into()))?;
+
+        agent.stop().await?;
+
+        debug!(conversation_id, "Stream stopped");
+        Ok(())
+    }
+
+    /// Pre-initialize an agent task for a conversation (warmup).
+    ///
+    /// This builds the agent task without sending a message, so the
+    /// first real message can be processed faster.
+    pub async fn warmup(
+        &self,
+        user_id: &str,
+        conversation_id: &str,
+        task_manager: &Arc<dyn IWorkerTaskManager>,
+    ) -> Result<(), AppError> {
+        let row = self
+            .repo
+            .get(conversation_id)
+            .await?
+            .filter(|r| r.user_id == user_id)
+            .ok_or_else(|| {
+                AppError::NotFound(format!("Conversation {conversation_id} not found"))
+            })?;
+
+        let build_opts = self.build_task_options(&row)?;
+        let _agent = task_manager.get_or_build_task(conversation_id, build_opts)?;
+
+        debug!(conversation_id, "Agent warmed up");
+        Ok(())
+    }
+
+    /// Build [`BuildTaskOptions`] from a conversation database row.
+    fn build_task_options(
+        &self,
+        row: &aionui_db::models::ConversationRow,
+    ) -> Result<BuildTaskOptions, AppError> {
+        let agent_type = string_to_enum(&row.r#type)?;
+
+        let model = row
+            .model
+            .as_deref()
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|e| AppError::Internal(format!("Invalid model JSON: {e}")))?
+            .unwrap_or_else(|| aionui_common::ProviderWithModel {
+                provider_id: String::new(),
+                model: String::new(),
+                use_model: None,
+            });
+
+        let extra: serde_json::Value = serde_json::from_str(&row.extra)
+            .map_err(|e| AppError::Internal(format!("Invalid extra JSON: {e}")))?;
+
+        // Extract workspace from extra (common across agent types)
+        let workspace = extra
+            .get("workspace")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_owned();
+
+        Ok(BuildTaskOptions {
+            agent_type,
+            workspace,
+            model,
+            conversation_id: row.id.clone(),
+            extra,
         })
     }
 

@@ -7,14 +7,14 @@ use axum::Router;
 use aionui_api_types::{
     ApiResponse, CloneConversationRequest, ConversationListResponse, ConversationResponse,
     CreateConversationRequest, ListConversationsQuery, ListMessagesQuery, MessageListResponse,
-    MessageSearchResponse, SearchMessagesQuery, UpdateConversationRequest,
+    MessageSearchResponse, SearchMessagesQuery, SendMessageRequest, UpdateConversationRequest,
 };
 use aionui_auth::CurrentUser;
 use aionui_common::AppError;
 
 use crate::state::ConversationRouterState;
 
-/// Build the conversation router (CRUD + extended operations + messages).
+/// Build the conversation router (CRUD + message flow + extended operations).
 ///
 /// All routes require authentication (applied by the caller).
 ///
@@ -28,6 +28,9 @@ use crate::state::ConversationRouterState;
 /// - `POST   /api/conversations/:id/reset`    — reset a conversation
 /// - `GET    /api/conversations/:id/associated` — list associated conversations
 /// - `GET    /api/conversations/:id/messages`  — list messages (page pagination)
+/// - `POST   /api/conversations/:id/messages`  — send a user message (202)
+/// - `POST   /api/conversations/:id/stop`      — stop streaming response
+/// - `POST   /api/conversations/:id/warmup`    — pre-initialize agent
 /// - `GET    /api/messages/search`            — search messages across conversations
 pub fn conversation_routes(state: ConversationRouterState) -> Router {
     Router::new()
@@ -40,7 +43,12 @@ pub fn conversation_routes(state: ConversationRouterState) -> Router {
         )
         .route("/api/conversations/{id}/reset", post(reset))
         .route("/api/conversations/{id}/associated", get(associated))
-        .route("/api/conversations/{id}/messages", get(list_messages))
+        .route(
+            "/api/conversations/{id}/messages",
+            get(list_messages).post(send_message),
+        )
+        .route("/api/conversations/{id}/stop", post(stop_stream))
+        .route("/api/conversations/{id}/warmup", post(warmup))
         .route("/api/messages/search", get(search_messages))
         .with_state(state)
 }
@@ -143,6 +151,44 @@ async fn list_messages(
         .list_messages(&user.id, &id, query)
         .await?;
     Ok(Json(ApiResponse::ok(result)))
+}
+
+async fn send_message(
+    State(state): State<ConversationRouterState>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<String>,
+    body: Result<Json<SendMessageRequest>, JsonRejection>,
+) -> Result<(StatusCode, Json<ApiResponse<()>>), AppError> {
+    let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    state
+        .conversation_service
+        .send_message(&user.id, &id, req, &state.worker_task_manager)
+        .await?;
+    Ok((StatusCode::ACCEPTED, Json(ApiResponse::success())))
+}
+
+async fn stop_stream(
+    State(state): State<ConversationRouterState>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, AppError> {
+    state
+        .conversation_service
+        .stop_stream(&user.id, &id, &state.worker_task_manager)
+        .await?;
+    Ok(Json(ApiResponse::success()))
+}
+
+async fn warmup(
+    State(state): State<ConversationRouterState>,
+    Extension(user): Extension<CurrentUser>,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<()>>, AppError> {
+    state
+        .conversation_service
+        .warmup(&user.id, &id, &state.worker_task_manager)
+        .await?;
+    Ok(Json(ApiResponse::success()))
 }
 
 async fn search_messages(

@@ -182,6 +182,7 @@ dependencies = [
 name = "aionui-conversation"
 version = "0.1.0"
 dependencies = [
+ "aionui-ai-agent",
  "aionui-api-types",
  "aionui-auth",
  "aionui-common",

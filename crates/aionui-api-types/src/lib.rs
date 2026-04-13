@@ -10,7 +10,7 @@ pub use conversation::{
     CloneConversationRequest, ConversationListResponse, ConversationResponse,
     CreateConversationRequest, ListConversationsQuery, ListMessagesQuery, MessageListResponse,
     MessageResponse, MessageSearchItem, MessageSearchResponse, SearchMessagesQuery,
-    UpdateConversationRequest,
+    SendMessageRequest, UpdateConversationRequest,
 };
 pub use auth::{
     AuthStatusResponse, ChangePasswordRequest, LoginRequest, LoginResponse, PublicUser,

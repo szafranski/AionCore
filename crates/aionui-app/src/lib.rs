@@ -6,11 +6,13 @@ use axum::{Json, Router, middleware};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+use aionui_ai_agent::{AgentFactory, IWorkerTaskManager, WorkerTaskManagerImpl};
 use aionui_auth::{
     AuthRouterState, AuthState, CookieConfig, JwtService, QrTokenStore, auth_middleware,
     auth_routes, csrf_middleware, extract_token_from_ws_headers, resolve_jwt_secret,
     security_headers_middleware,
 };
+use aionui_common::AppError;
 use aionui_conversation::{ConversationRouterState, ConversationService, conversation_routes};
 use aionui_db::{
     Database, IUserRepository, SqliteClientPreferenceRepository, SqliteConversationRepository,
@@ -63,6 +65,7 @@ pub struct AppServices {
     pub qr_token_store: Arc<QrTokenStore>,
     pub ws_manager: Arc<WebSocketManager>,
     pub event_bus: Arc<BroadcastEventBus>,
+    pub worker_task_manager: Arc<dyn IWorkerTaskManager>,
     /// Raw JWT secret string, used to derive encryption keys.
     pub jwt_secret_raw: String,
 }
@@ -101,6 +104,13 @@ impl AppServices {
             tracing::info!("Generated and persisted new JWT secret");
         }
 
+        // Stub factory — real agent construction will be wired in task 6.15
+        let stub_factory: AgentFactory = Arc::new(|_| {
+            Err(AppError::Internal("Agent factory not configured".into()))
+        });
+        let worker_task_manager: Arc<dyn IWorkerTaskManager> =
+            Arc::new(WorkerTaskManagerImpl::new(stub_factory));
+
         Ok(Self {
             database,
             jwt_service: Arc::new(JwtService::new(secret.clone())),
@@ -109,6 +119,7 @@ impl AppServices {
             qr_token_store: Arc::new(QrTokenStore::new()),
             ws_manager: Arc::new(WebSocketManager::new()),
             event_bus: Arc::new(BroadcastEventBus::new(256)),
+            worker_task_manager,
             jwt_secret_raw: secret,
         })
     }
@@ -180,6 +191,7 @@ pub fn build_conversation_state(services: &AppServices) -> ConversationRouterSta
     let repo = Arc::new(SqliteConversationRepository::new(pool));
     ConversationRouterState {
         conversation_service: ConversationService::new(repo, services.event_bus.clone()),
+        worker_task_manager: services.worker_task_manager.clone(),
     }
 }
 

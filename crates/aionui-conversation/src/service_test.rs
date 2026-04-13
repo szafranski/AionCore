@@ -1,11 +1,16 @@
 use std::sync::{Arc, Mutex};
 
+use aionui_ai_agent::agent_manager::{AgentManagerHandle, IAgentManager};
+use aionui_ai_agent::stream_event::AgentStreamEvent;
+use aionui_ai_agent::types::{BuildTaskOptions, SendMessageData};
+use aionui_ai_agent::IWorkerTaskManager;
 use aionui_api_types::{
     CloneConversationRequest, CreateConversationRequest, ListConversationsQuery,
-    SearchMessagesQuery, UpdateConversationRequest, WebSocketMessage,
+    SearchMessagesQuery, SendMessageRequest, UpdateConversationRequest, WebSocketMessage,
 };
 use aionui_common::{
-    AgentType, AppError, ConversationSource, ConversationStatus, PaginatedResult,
+    AgentKillReason, AgentType, AppError, Confirmation, ConversationSource, ConversationStatus,
+    PaginatedResult, TimestampMs,
 };
 use aionui_db::models::{ConversationRow, MessageRow};
 use aionui_db::{
@@ -14,6 +19,7 @@ use aionui_db::{
 };
 use aionui_realtime::EventBroadcaster;
 use serde_json::json;
+use tokio::sync::broadcast;
 
 use crate::service::ConversationService;
 
@@ -830,4 +836,331 @@ async fn search_messages_whitespace_keyword_returns_bad_request() {
     };
     let err = svc.search_messages("user_1", query).await.unwrap_err();
     assert!(matches!(err, AppError::BadRequest(_)));
+}
+
+// ── Mock Agent ───────────────────────────────────────────────────
+
+struct MockAgent {
+    conversation_id: String,
+    event_tx: broadcast::Sender<AgentStreamEvent>,
+    stopped: Mutex<bool>,
+}
+
+impl MockAgent {
+    fn new(conversation_id: &str) -> Self {
+        let (event_tx, _) = broadcast::channel(64);
+        Self {
+            conversation_id: conversation_id.to_owned(),
+            event_tx,
+            stopped: Mutex::new(false),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl IAgentManager for MockAgent {
+    fn agent_type(&self) -> AgentType {
+        AgentType::Acp
+    }
+    fn status(&self) -> Option<ConversationStatus> {
+        None
+    }
+    fn workspace(&self) -> &str {
+        "/tmp/test"
+    }
+    fn conversation_id(&self) -> &str {
+        &self.conversation_id
+    }
+    fn last_activity_at(&self) -> TimestampMs {
+        0
+    }
+    fn subscribe(&self) -> broadcast::Receiver<AgentStreamEvent> {
+        self.event_tx.subscribe()
+    }
+    async fn send_message(&self, _data: SendMessageData) -> Result<(), AppError> {
+        // Emit finish event so the relay task completes
+        let _ = self.event_tx.send(AgentStreamEvent::Finish(
+            aionui_ai_agent::stream_event::FinishEventData::default(),
+        ));
+        Ok(())
+    }
+    async fn stop(&self) -> Result<(), AppError> {
+        *self.stopped.lock().unwrap() = true;
+        Ok(())
+    }
+    fn confirm(
+        &self,
+        _msg_id: &str,
+        _call_id: &str,
+        _data: serde_json::Value,
+    ) -> Result<(), AppError> {
+        Ok(())
+    }
+    fn get_confirmations(&self) -> Vec<Confirmation> {
+        vec![]
+    }
+    fn kill(&self, _reason: Option<AgentKillReason>) -> Result<(), AppError> {
+        Ok(())
+    }
+}
+
+// ── Mock WorkerTaskManager ──────────────────────────────────────
+
+struct MockTaskManager {
+    agents: Mutex<std::collections::HashMap<String, AgentManagerHandle>>,
+}
+
+impl MockTaskManager {
+    fn new() -> Self {
+        Self {
+            agents: Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+}
+
+impl IWorkerTaskManager for MockTaskManager {
+    fn get_task(&self, conversation_id: &str) -> Option<AgentManagerHandle> {
+        self.agents.lock().unwrap().get(conversation_id).cloned()
+    }
+
+    fn get_or_build_task(
+        &self,
+        conversation_id: &str,
+        _options: BuildTaskOptions,
+    ) -> Result<AgentManagerHandle, AppError> {
+        let mut agents = self.agents.lock().unwrap();
+        if let Some(existing) = agents.get(conversation_id) {
+            return Ok(existing.clone());
+        }
+        let agent: AgentManagerHandle = Arc::new(MockAgent::new(conversation_id));
+        agents.insert(conversation_id.to_owned(), agent.clone());
+        Ok(agent)
+    }
+
+    fn kill(&self, conversation_id: &str, _reason: Option<AgentKillReason>) -> Result<(), AppError> {
+        self.agents.lock().unwrap().remove(conversation_id);
+        Ok(())
+    }
+
+    fn clear(&self) {
+        self.agents.lock().unwrap().clear();
+    }
+
+    fn active_count(&self) -> usize {
+        self.agents.lock().unwrap().len()
+    }
+
+    fn collect_idle(&self, _idle_threshold_ms: TimestampMs) -> Vec<String> {
+        vec![]
+    }
+}
+
+// ── send_message tests ──────────────────────────────────────────
+
+fn make_send_req() -> SendMessageRequest {
+    serde_json::from_value(json!({
+        "content": "Hello",
+        "msgId": "msg-1"
+    }))
+    .unwrap()
+}
+
+#[tokio::test]
+async fn send_message_returns_accepted() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+    let result = svc
+        .send_message("user_1", &conv.id, make_send_req(), &task_mgr)
+        .await;
+
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn send_message_empty_content_returns_bad_request() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+    let req: SendMessageRequest = serde_json::from_value(json!({
+        "content": "",
+        "msgId": "msg-1"
+    }))
+    .unwrap();
+
+    let err = svc
+        .send_message("user_1", &conv.id, req, &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::BadRequest(_)));
+}
+
+#[tokio::test]
+async fn send_message_whitespace_content_returns_bad_request() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+    let req: SendMessageRequest = serde_json::from_value(json!({
+        "content": "   ",
+        "msgId": "msg-1"
+    }))
+    .unwrap();
+
+    let err = svc
+        .send_message("user_1", &conv.id, req, &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::BadRequest(_)));
+}
+
+#[tokio::test]
+async fn send_message_conversation_not_found() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let err = svc
+        .send_message("user_1", "no-such-id", make_send_req(), &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::NotFound(_)));
+}
+
+#[tokio::test]
+async fn send_message_wrong_user_returns_not_found() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+    let err = svc
+        .send_message("user_2", &conv.id, make_send_req(), &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::NotFound(_)));
+}
+
+#[tokio::test]
+async fn send_message_running_conversation_returns_conflict() {
+    let (svc, _broadcaster, repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+
+    // Manually set status to running
+    let update = ConversationRowUpdate {
+        status: Some("running".into()),
+        ..Default::default()
+    };
+    repo.update(&conv.id, &update).await.unwrap();
+
+    let err = svc
+        .send_message("user_1", &conv.id, make_send_req(), &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::Conflict(_)));
+}
+
+// ── stop_stream tests ───────────────────────────────────────────
+
+#[tokio::test]
+async fn stop_stream_with_active_agent() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+
+    // Build agent via send_message
+    svc.send_message("user_1", &conv.id, make_send_req(), &(task_mgr.clone() as Arc<dyn IWorkerTaskManager>))
+        .await
+        .unwrap();
+
+    // Stop should succeed since agent exists
+    let result = svc
+        .stop_stream("user_1", &conv.id, &(task_mgr as Arc<dyn IWorkerTaskManager>))
+        .await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn stop_stream_conversation_not_found() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let err = svc
+        .stop_stream("user_1", "no-such-id", &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::NotFound(_)));
+}
+
+#[tokio::test]
+async fn stop_stream_no_active_agent_returns_conflict() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+
+    let err = svc
+        .stop_stream("user_1", &conv.id, &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::Conflict(_)));
+}
+
+#[tokio::test]
+async fn stop_stream_wrong_user_returns_not_found() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+    let err = svc
+        .stop_stream("user_2", &conv.id, &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::NotFound(_)));
+}
+
+// ── warmup tests ────────────────────────────────────────────────
+
+#[tokio::test]
+async fn warmup_creates_agent_task() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+
+    let result = svc
+        .warmup("user_1", &conv.id, &(task_mgr.clone() as Arc<dyn IWorkerTaskManager>))
+        .await;
+    assert!(result.is_ok());
+
+    // Agent should now exist
+    assert!(task_mgr.get_task(&conv.id).is_some());
+}
+
+#[tokio::test]
+async fn warmup_conversation_not_found() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let err = svc
+        .warmup("user_1", "no-such-id", &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::NotFound(_)));
+}
+
+#[tokio::test]
+async fn warmup_wrong_user_returns_not_found() {
+    let (svc, _broadcaster, _repo) = make_service();
+    let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
+
+    let conv = svc.create("user_1", make_create_req()).await.unwrap();
+    let err = svc
+        .warmup("user_2", &conv.id, &task_mgr)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, AppError::NotFound(_)));
 }

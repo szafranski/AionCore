@@ -1,4 +1,6 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 
@@ -63,6 +65,8 @@ pub struct FileService {
     allowed_roots: Vec<std::path::PathBuf>,
     /// In-memory cache for `list_workspace_files`, keyed by canonical root.
     workspace_files_cache: DashMap<String, Vec<WorkspaceFlatFile>>,
+    /// Cancellation flags for in-progress ZIP operations, keyed by request_id.
+    zip_cancellations: DashMap<String, Arc<AtomicBool>>,
 }
 
 impl FileService {
@@ -74,6 +78,7 @@ impl FileService {
             broadcaster,
             allowed_roots,
             workspace_files_cache: DashMap::new(),
+            zip_cancellations: DashMap::new(),
         }
     }
 
@@ -545,6 +550,93 @@ fn validate_remote_image_url(
     }
 
     Ok(url)
+}
+
+/// Synchronous ZIP creation (runs in blocking thread pool).
+///
+/// Writes entries into a ZIP archive at `output_path`. Checks the
+/// `cancelled` flag between entries and aborts early if set.
+/// On cancellation, the partial ZIP file is removed.
+fn create_zip_sync(
+    output_path: &Path,
+    entries: &[ZipEntry],
+    cancelled: &AtomicBool,
+) -> Result<bool, AppError> {
+    if let Some(parent) = output_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            AppError::Internal(format!(
+                "cannot create parent directory for '{}': {e}",
+                output_path.display()
+            ))
+        })?;
+    }
+
+    let file = std::fs::File::create(output_path).map_err(|e| {
+        AppError::Internal(format!(
+            "cannot create ZIP file '{}': {e}",
+            output_path.display()
+        ))
+    })?;
+
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    for entry in entries {
+        if cancelled.load(Ordering::Relaxed) {
+            drop(zip);
+            let _ = std::fs::remove_file(output_path);
+            return Ok(false);
+        }
+
+        match entry {
+            ZipEntry::Text { name, content } => {
+                zip.start_file(name, options).map_err(|e| {
+                    AppError::Internal(format!(
+                        "ZIP: failed to start entry '{name}': {e}"
+                    ))
+                })?;
+                zip.write_all(content.as_bytes()).map_err(|e| {
+                    AppError::Internal(format!(
+                        "ZIP: failed to write entry '{name}': {e}"
+                    ))
+                })?;
+            }
+            ZipEntry::Disk { name, file_path } => {
+                let data = std::fs::read(file_path).map_err(|e| {
+                    AppError::Internal(format!(
+                        "ZIP: cannot read source file '{file_path}': {e}"
+                    ))
+                })?;
+                zip.start_file(name, options).map_err(|e| {
+                    AppError::Internal(format!(
+                        "ZIP: failed to start entry '{name}': {e}"
+                    ))
+                })?;
+                zip.write_all(&data).map_err(|e| {
+                    AppError::Internal(format!(
+                        "ZIP: failed to write entry '{name}': {e}"
+                    ))
+                })?;
+            }
+        }
+    }
+
+    // Final cancellation check before finishing
+    if cancelled.load(Ordering::Relaxed) {
+        drop(zip);
+        let _ = std::fs::remove_file(output_path);
+        return Ok(false);
+    }
+
+    zip.finish().map_err(|e| {
+        AppError::Internal(format!(
+            "ZIP: failed to finalize '{}': {e}",
+            output_path.display()
+        ))
+    })?;
+
+    Ok(true)
 }
 
 #[async_trait::async_trait]
@@ -1095,15 +1187,41 @@ impl crate::traits::IFileService for FileService {
 
     async fn create_zip(
         &self,
-        _path: &str,
-        _entries: Vec<ZipEntry>,
-        _request_id: Option<String>,
+        path: &str,
+        entries: Vec<ZipEntry>,
+        request_id: Option<String>,
     ) -> Result<bool, AppError> {
-        todo!("implemented in task 7.7")
+        let output = PathBuf::from(path);
+        let cancelled = Arc::new(AtomicBool::new(false));
+
+        if let Some(ref id) = request_id {
+            self.zip_cancellations
+                .insert(id.clone(), Arc::clone(&cancelled));
+        }
+
+        let result = tokio::task::spawn_blocking(move || {
+            create_zip_sync(&output, &entries, &cancelled)
+        })
+        .await
+        .map_err(|e| {
+            AppError::Internal(format!("ZIP creation task failed: {e}"))
+        })??;
+
+        // Clean up cancellation token after task completes
+        if let Some(ref id) = request_id {
+            self.zip_cancellations.remove(id);
+        }
+
+        Ok(result)
     }
 
-    async fn cancel_zip(&self, _request_id: &str) -> bool {
-        todo!("implemented in task 7.7")
+    async fn cancel_zip(&self, request_id: &str) -> bool {
+        if let Some((_, flag)) = self.zip_cancellations.remove(request_id) {
+            flag.store(true, Ordering::Relaxed);
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -1661,5 +1779,156 @@ mod tests {
                 "host '{host}' should be allowed"
             );
         }
+    }
+
+    // -- create_zip_sync tests --
+
+    #[test]
+    fn create_zip_sync_text_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let zip_path = dir.path().join("out.zip");
+        let entries = vec![
+            ZipEntry::Text {
+                name: "hello.txt".into(),
+                content: "Hello world".into(),
+            },
+            ZipEntry::Text {
+                name: "sub/nested.txt".into(),
+                content: "Nested content".into(),
+            },
+        ];
+        let cancelled = AtomicBool::new(false);
+
+        let result = create_zip_sync(&zip_path, &entries, &cancelled);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+        assert!(zip_path.exists());
+
+        // Verify ZIP contents
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        assert_eq!(archive.len(), 2);
+
+        {
+            let mut f0 = archive.by_name("hello.txt").unwrap();
+            let mut buf = String::new();
+            std::io::Read::read_to_string(&mut f0, &mut buf).unwrap();
+            assert_eq!(buf, "Hello world");
+        }
+        {
+            let mut f1 = archive.by_name("sub/nested.txt").unwrap();
+            let mut buf = String::new();
+            std::io::Read::read_to_string(&mut f1, &mut buf).unwrap();
+            assert_eq!(buf, "Nested content");
+        }
+    }
+
+    #[test]
+    fn create_zip_sync_disk_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let src_path = dir.path().join("source.dat");
+        fs::write(&src_path, b"binary data here").unwrap();
+
+        let zip_path = dir.path().join("out.zip");
+        let entries = vec![ZipEntry::Disk {
+            name: "packed.dat".into(),
+            file_path: src_path.to_string_lossy().into_owned(),
+        }];
+        let cancelled = AtomicBool::new(false);
+
+        let result = create_zip_sync(&zip_path, &entries, &cancelled);
+        assert!(result.unwrap());
+
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        assert_eq!(archive.len(), 1);
+
+        let mut f = archive.by_name("packed.dat").unwrap();
+        let mut buf = Vec::new();
+        std::io::Read::read_to_end(&mut f, &mut buf).unwrap();
+        assert_eq!(buf, b"binary data here");
+    }
+
+    #[test]
+    fn create_zip_sync_mixed_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("disk.txt");
+        fs::write(&src, "from disk").unwrap();
+
+        let zip_path = dir.path().join("mixed.zip");
+        let entries = vec![
+            ZipEntry::Text {
+                name: "mem.txt".into(),
+                content: "from memory".into(),
+            },
+            ZipEntry::Disk {
+                name: "disk.txt".into(),
+                file_path: src.to_string_lossy().into_owned(),
+            },
+        ];
+        let cancelled = AtomicBool::new(false);
+
+        assert!(create_zip_sync(&zip_path, &entries, &cancelled).unwrap());
+
+        let file = fs::File::open(&zip_path).unwrap();
+        let archive = zip::ZipArchive::new(file).unwrap();
+        assert_eq!(archive.len(), 2);
+    }
+
+    #[test]
+    fn create_zip_sync_empty_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let zip_path = dir.path().join("empty.zip");
+        let cancelled = AtomicBool::new(false);
+
+        assert!(create_zip_sync(&zip_path, &[], &cancelled).unwrap());
+        assert!(zip_path.exists());
+
+        let file = fs::File::open(&zip_path).unwrap();
+        let archive = zip::ZipArchive::new(file).unwrap();
+        assert_eq!(archive.len(), 0);
+    }
+
+    #[test]
+    fn create_zip_sync_cancellation_before_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let zip_path = dir.path().join("cancelled.zip");
+        let entries = vec![ZipEntry::Text {
+            name: "a.txt".into(),
+            content: "data".into(),
+        }];
+        let cancelled = AtomicBool::new(true);
+
+        let result = create_zip_sync(&zip_path, &entries, &cancelled);
+        assert!(!result.unwrap());
+        assert!(!zip_path.exists());
+    }
+
+    #[test]
+    fn create_zip_sync_disk_entry_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let zip_path = dir.path().join("fail.zip");
+        let entries = vec![ZipEntry::Disk {
+            name: "missing.txt".into(),
+            file_path: "/nonexistent/file.txt".into(),
+        }];
+        let cancelled = AtomicBool::new(false);
+
+        let result = create_zip_sync(&zip_path, &entries, &cancelled);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn create_zip_sync_creates_parent_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let zip_path = dir.path().join("deep/nested/out.zip");
+        let entries = vec![ZipEntry::Text {
+            name: "a.txt".into(),
+            content: "data".into(),
+        }];
+        let cancelled = AtomicBool::new(false);
+
+        assert!(create_zip_sync(&zip_path, &entries, &cancelled).unwrap());
+        assert!(zip_path.exists());
     }
 }

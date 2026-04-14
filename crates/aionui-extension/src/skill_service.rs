@@ -485,6 +485,11 @@ async fn read_assistant_resource(
     assistant_id: &str,
     locale: Option<&str>,
 ) -> Result<String, ExtensionError> {
+    validate_filename(assistant_id)?;
+    if let Some(loc) = locale {
+        validate_filename(loc)?;
+    }
+
     // 1. Try locale-specific file
     if let Some(loc) = locale
         && !loc.is_empty()
@@ -511,6 +516,11 @@ async fn write_assistant_resource(
     content: &str,
     locale: Option<&str>,
 ) -> Result<bool, ExtensionError> {
+    validate_filename(assistant_id)?;
+    if let Some(loc) = locale {
+        validate_filename(loc)?;
+    }
+
     tokio::fs::create_dir_all(dir).await?;
 
     let filename = match locale {
@@ -529,6 +539,8 @@ async fn delete_assistant_resource(
     dir: &Path,
     assistant_id: &str,
 ) -> Result<bool, ExtensionError> {
+    validate_filename(assistant_id)?;
+
     let mut deleted_any = false;
 
     let mut entries = match tokio::fs::read_dir(dir).await {
@@ -896,6 +908,77 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(content, "Skill content");
+    }
+
+    // -----------------------------------------------------------------------
+    // Assistant CRUD — path traversal prevention
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn read_assistant_rule_rejects_traversal_id() {
+        let tmp = TempDir::new().unwrap();
+        let paths = make_test_paths(tmp.path());
+        let result = read_assistant_rule(&paths, "../etc/passwd", None).await;
+        assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
+    }
+
+    #[tokio::test]
+    async fn read_assistant_rule_rejects_traversal_locale() {
+        let tmp = TempDir::new().unwrap();
+        let paths = make_test_paths(tmp.path());
+        let result = read_assistant_rule(&paths, "valid-id", Some("../evil")).await;
+        assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
+    }
+
+    #[tokio::test]
+    async fn write_assistant_rule_rejects_traversal_id() {
+        let tmp = TempDir::new().unwrap();
+        let paths = make_test_paths(tmp.path());
+        let result =
+            write_assistant_rule(&paths, "../../escape", "content", None).await;
+        assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
+    }
+
+    #[tokio::test]
+    async fn write_assistant_rule_rejects_traversal_locale() {
+        let tmp = TempDir::new().unwrap();
+        let paths = make_test_paths(tmp.path());
+        let result =
+            write_assistant_rule(&paths, "valid-id", "content", Some("../bad")).await;
+        assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
+    }
+
+    #[tokio::test]
+    async fn delete_assistant_rule_rejects_traversal_id() {
+        let tmp = TempDir::new().unwrap();
+        let paths = make_test_paths(tmp.path());
+        let result = delete_assistant_rule(&paths, "foo/bar").await;
+        assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
+    }
+
+    #[tokio::test]
+    async fn read_assistant_skill_rejects_traversal_id() {
+        let tmp = TempDir::new().unwrap();
+        let paths = make_test_paths(tmp.path());
+        let result = read_assistant_skill(&paths, "..\\windows", None).await;
+        assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
+    }
+
+    #[tokio::test]
+    async fn write_assistant_skill_rejects_traversal_id() {
+        let tmp = TempDir::new().unwrap();
+        let paths = make_test_paths(tmp.path());
+        let result =
+            write_assistant_skill(&paths, "../escape", "content", None).await;
+        assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
+    }
+
+    #[tokio::test]
+    async fn delete_assistant_skill_rejects_traversal_id() {
+        let tmp = TempDir::new().unwrap();
+        let paths = make_test_paths(tmp.path());
+        let result = delete_assistant_skill(&paths, "a/b").await;
+        assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
     }
 
     // -----------------------------------------------------------------------

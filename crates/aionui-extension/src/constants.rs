@@ -78,6 +78,11 @@ pub const CUSTOM_SKILL_PATHS_FILE: &str = "custom-skill-paths.json";
 pub const SKILLS_MARKET_NAME: &str = "aionui-skills";
 
 /// Well-known skill source path for the aionui skills market.
+///
+/// NOTE: This is a URL placeholder, not a filesystem path. When used in
+/// `ExternalPathsManager`, it serves as an identifier for the skills market
+/// source. Filesystem scanning functions like `detect_and_count_external_skills`
+/// will silently skip it since the path does not exist on disk.
 pub const SKILLS_MARKET_PATH: &str = "https://github.com/AionUI/aionui-skills";
 
 /// Common skill directory names to detect on the filesystem.

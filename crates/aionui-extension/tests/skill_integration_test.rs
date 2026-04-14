@@ -547,3 +547,34 @@ async fn security_builtin_read_path_traversal() {
         .is_err());
     assert!(read_builtin_rule(&paths, "").await.is_err());
 }
+
+/// Verify assistant CRUD functions block path traversal in assistant_id.
+#[tokio::test]
+async fn security_assistant_crud_path_traversal_id() {
+    let tmp = TempDir::new().unwrap();
+    let paths = make_paths(tmp.path());
+
+    // read
+    assert!(read_assistant_rule(&paths, "../escape", None).await.is_err());
+    assert!(read_assistant_skill(&paths, "foo/bar", None).await.is_err());
+
+    // write
+    assert!(write_assistant_rule(&paths, "../escape", "x", None).await.is_err());
+    assert!(write_assistant_skill(&paths, "foo\\bar", "x", None).await.is_err());
+
+    // delete
+    assert!(delete_assistant_rule(&paths, "../escape").await.is_err());
+    assert!(delete_assistant_skill(&paths, "a/b").await.is_err());
+}
+
+/// Verify assistant read/write functions block path traversal in locale.
+#[tokio::test]
+async fn security_assistant_crud_path_traversal_locale() {
+    let tmp = TempDir::new().unwrap();
+    let paths = make_paths(tmp.path());
+
+    assert!(read_assistant_rule(&paths, "valid", Some("../bad")).await.is_err());
+    assert!(write_assistant_rule(&paths, "valid", "x", Some("../../evil")).await.is_err());
+    assert!(read_assistant_skill(&paths, "valid", Some("a/b")).await.is_err());
+    assert!(write_assistant_skill(&paths, "valid", "x", Some("a\\b")).await.is_err());
+}

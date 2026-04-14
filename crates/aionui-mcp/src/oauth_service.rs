@@ -107,60 +107,11 @@ impl McpOAuthService {
     /// 5. Wait for the redirect with the authorization code
     /// 6. Exchange code for tokens and persist them
     pub async fn login(&self, server_url: &str) -> Result<OAuthLoginResponse, McpError> {
-        let metadata = self.discover_endpoints(server_url).await?;
-
-        let auth_url_str = metadata.authorization_endpoint.clone();
-        let token_url_str = metadata.token_endpoint.clone();
-
-        let auth_url = AuthUrl::new(metadata.authorization_endpoint)
-            .map_err(|e| McpError::OAuth(format!("Invalid auth URL: {e}")))?;
-        let token_url = TokenUrl::new(metadata.token_endpoint)
-            .map_err(|e| McpError::OAuth(format!("Invalid token URL: {e}")))?;
-
-        // Bind callback server to a random port.
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .map_err(|e| McpError::OAuth(format!("Failed to bind callback server: {e}")))?;
-        let callback_port = listener
-            .local_addr()
-            .map_err(|e| McpError::OAuth(format!("Failed to get callback port: {e}")))?
-            .port();
-
-        let redirect_url_str = format!("http://127.0.0.1:{callback_port}/callback");
-        let redirect = RedirectUrl::new(redirect_url_str.clone())
-            .map_err(|e| McpError::OAuth(format!("Invalid redirect URL: {e}")))?;
-
-        // Build OAuth client (public client — no secret).
-        let client = BasicClient::new(ClientId::new(DEFAULT_CLIENT_ID.to_string()))
-            .set_auth_uri(auth_url)
-            .set_token_uri(token_url)
-            .set_redirect_uri(redirect);
-
-        // Generate PKCE challenge.
-        let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
-
-        // Build authorization URL.
-        let (authorize_url, csrf_token) = client
-            .authorize_url(CsrfToken::new_random)
-            .set_pkce_challenge(pkce_challenge)
-            .url();
-
-        // Store pending state (URLs, not the typed client).
-        {
-            let mut pending = self.pending.lock().await;
-            *pending = Some(PendingLogin {
-                csrf_token,
-                pkce_verifier,
-                auth_url: auth_url_str,
-                token_url: token_url_str,
-                redirect_url: redirect_url_str,
-            });
-        }
+        let (authorize_url, listener) = self.prepare_login_flow(server_url).await?;
 
         // Open browser.
-        let url_str = authorize_url.to_string();
-        debug!(url = %url_str, "Opening browser for OAuth authorization");
-        if let Err(e) = open::that(&url_str) {
+        debug!(url = %authorize_url, "Opening browser for OAuth authorization");
+        if let Err(e) = open::that(&authorize_url) {
             warn!("Failed to open browser: {e}");
         }
 
@@ -232,17 +183,17 @@ impl McpOAuthService {
         // Check if token is expired (with safety margin).
         if let Some(expires_at) = row.expires_at {
             let now = now_ms();
-            if now >= expires_at - EXPIRY_MARGIN_MS {
-                if let Some(ref refresh_token) = row.refresh_token {
-                    match self.refresh_token(server_url, refresh_token).await {
-                        Ok(new_token) => return Ok(Some(new_token)),
-                        Err(e) => {
-                            warn!(
-                                server_url,
-                                error = %e,
-                                "Token refresh failed, returning expired token"
-                            );
-                        }
+            if now >= expires_at - EXPIRY_MARGIN_MS
+                && let Some(ref refresh_token) = row.refresh_token
+            {
+                match self.refresh_token(server_url, refresh_token).await {
+                    Ok(new_token) => return Ok(Some(new_token)),
+                    Err(e) => {
+                        warn!(
+                            server_url,
+                            error = %e,
+                            "Token refresh failed, returning expired token"
+                        );
                     }
                 }
             }
@@ -255,6 +206,60 @@ impl McpOAuthService {
     // Internal helpers
     // -----------------------------------------------------------------------
 
+    /// Discover endpoints, build OAuth client, generate PKCE, bind callback
+    /// server, store pending state, and return the authorization URL + listener.
+    async fn prepare_login_flow(
+        &self,
+        server_url: &str,
+    ) -> Result<(String, TcpListener), McpError> {
+        let metadata = self.discover_endpoints(server_url).await?;
+
+        let auth_url_str = metadata.authorization_endpoint.clone();
+        let token_url_str = metadata.token_endpoint.clone();
+
+        let auth_url = AuthUrl::new(metadata.authorization_endpoint)
+            .map_err(|e| McpError::OAuth(format!("Invalid auth URL: {e}")))?;
+        let token_url = TokenUrl::new(metadata.token_endpoint)
+            .map_err(|e| McpError::OAuth(format!("Invalid token URL: {e}")))?;
+
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .map_err(|e| McpError::OAuth(format!("Failed to bind callback server: {e}")))?;
+        let callback_port = listener
+            .local_addr()
+            .map_err(|e| McpError::OAuth(format!("Failed to get callback port: {e}")))?
+            .port();
+
+        let redirect_url_str = format!("http://127.0.0.1:{callback_port}/callback");
+        let redirect = RedirectUrl::new(redirect_url_str.clone())
+            .map_err(|e| McpError::OAuth(format!("Invalid redirect URL: {e}")))?;
+
+        let client = BasicClient::new(ClientId::new(DEFAULT_CLIENT_ID.to_string()))
+            .set_auth_uri(auth_url)
+            .set_token_uri(token_url)
+            .set_redirect_uri(redirect);
+
+        let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+
+        let (authorize_url, csrf_token) = client
+            .authorize_url(CsrfToken::new_random)
+            .set_pkce_challenge(pkce_challenge)
+            .url();
+
+        {
+            let mut pending = self.pending.lock().await;
+            *pending = Some(PendingLogin {
+                csrf_token,
+                pkce_verifier,
+                auth_url: auth_url_str,
+                token_url: token_url_str,
+                redirect_url: redirect_url_str,
+            });
+        }
+
+        Ok((authorize_url.to_string(), listener))
+    }
+
     /// Check if a valid (non-expired) token exists for the URL.
     async fn has_valid_token(&self, server_url: &str) -> Result<bool, McpError> {
         let row = match self.token_repo.get_by_url(server_url).await? {
@@ -262,10 +267,10 @@ impl McpOAuthService {
             None => return Ok(false),
         };
 
-        if let Some(expires_at) = row.expires_at {
-            if now_ms() >= expires_at {
-                return Ok(false);
-            }
+        if let Some(expires_at) = row.expires_at
+            && now_ms() >= expires_at
+        {
+            return Ok(false);
         }
 
         Ok(true)
@@ -578,11 +583,11 @@ fn url_decode(input: &str) -> String {
             let lo = chars.next();
             if let (Some(h), Some(l)) = (hi, lo) {
                 let hex = [h, l];
-                if let Ok(s) = std::str::from_utf8(&hex) {
-                    if let Ok(byte) = u8::from_str_radix(s, 16) {
-                        result.push(byte as char);
-                        continue;
-                    }
+                if let Ok(s) = std::str::from_utf8(&hex)
+                    && let Ok(byte) = u8::from_str_radix(s, 16)
+                {
+                    result.push(byte as char);
+                    continue;
                 }
                 // Malformed percent-encoding: keep as-is.
                 result.push('%');

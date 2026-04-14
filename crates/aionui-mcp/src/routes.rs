@@ -7,12 +7,14 @@ use axum::Router;
 use aionui_api_types::{
     ApiResponse, BatchImportMcpServersRequest, CreateMcpServerRequest,
     DetectedMcpServerResponse, McpConnectionTestResult, McpServerResponse, McpSyncResult,
-    RemoveFromAgentsRequest, SyncToAgentsRequest, TestMcpConnectionRequest,
-    UpdateMcpServerRequest,
+    OAuthCheckStatusRequest, OAuthLoginRequest, OAuthLoginResponse, OAuthLogoutRequest,
+    OAuthStatusResponse, RemoveFromAgentsRequest, SyncToAgentsRequest,
+    TestMcpConnectionRequest, UpdateMcpServerRequest,
 };
 use aionui_common::AppError;
 
 use crate::connection_test::McpConnectionTestService;
+use crate::oauth_service::McpOAuthService;
 use crate::service::McpConfigService;
 use crate::sync_service::McpSyncService;
 use crate::types::McpServerTransport;
@@ -27,6 +29,7 @@ pub struct McpRouterState {
     pub config_service: McpConfigService,
     pub sync_service: McpSyncService,
     pub connection_test_service: McpConnectionTestService,
+    pub oauth_service: McpOAuthService,
 }
 
 // ---------------------------------------------------------------------------
@@ -55,6 +58,11 @@ pub fn mcp_routes(state: McpRouterState) -> Router {
         .route("/api/mcp/agent-configs", get(get_agent_configs))
         .route("/api/mcp/sync-to-agents", post(sync_to_agents))
         .route("/api/mcp/remove-from-agents", post(remove_from_agents))
+        // OAuth routes
+        .route("/api/mcp/oauth/check-status", post(oauth_check_status))
+        .route("/api/mcp/oauth/login", post(oauth_login))
+        .route("/api/mcp/oauth/logout", post(oauth_logout))
+        .route("/api/mcp/oauth/authenticated", get(oauth_authenticated))
         .with_state(state)
 }
 
@@ -211,4 +219,49 @@ async fn remove_from_agents(
         .remove_from_agents(&req.server_names)
         .await?;
     Ok(Json(ApiResponse::ok(result)))
+}
+
+// ---------------------------------------------------------------------------
+// OAuth Handlers
+// ---------------------------------------------------------------------------
+
+/// `POST /api/mcp/oauth/check-status` — check OAuth authentication status.
+async fn oauth_check_status(
+    State(state): State<McpRouterState>,
+    body: Result<Json<OAuthCheckStatusRequest>, JsonRejection>,
+) -> Result<Json<ApiResponse<OAuthStatusResponse>>, AppError> {
+    let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    let status = state.oauth_service.check_oauth_status(&req.server_url).await?;
+    Ok(Json(ApiResponse::ok(status)))
+}
+
+/// `POST /api/mcp/oauth/login` — start OAuth PKCE login flow.
+///
+/// Discovers endpoints, opens the browser for authorization, waits for
+/// the callback, and exchanges the code for tokens.
+async fn oauth_login(
+    State(state): State<McpRouterState>,
+    body: Result<Json<OAuthLoginRequest>, JsonRejection>,
+) -> Result<Json<ApiResponse<OAuthLoginResponse>>, AppError> {
+    let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    let result = state.oauth_service.login(&req.server_url).await?;
+    Ok(Json(ApiResponse::ok(result)))
+}
+
+/// `POST /api/mcp/oauth/logout` — delete stored OAuth token.
+async fn oauth_logout(
+    State(state): State<McpRouterState>,
+    body: Result<Json<OAuthLogoutRequest>, JsonRejection>,
+) -> Result<Json<ApiResponse<()>>, AppError> {
+    let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
+    state.oauth_service.logout(&req.server_url).await?;
+    Ok(Json(ApiResponse::success()))
+}
+
+/// `GET /api/mcp/oauth/authenticated` — list server URLs with stored tokens.
+async fn oauth_authenticated(
+    State(state): State<McpRouterState>,
+) -> Result<Json<ApiResponse<Vec<String>>>, AppError> {
+    let urls = state.oauth_service.get_authenticated_servers().await?;
+    Ok(Json(ApiResponse::ok(urls)))
 }

@@ -295,6 +295,7 @@ dependencies = [
  "dashmap",
  "dirs",
  "oauth2",
+ "open",
  "reqwest",
  "serde",
  "serde_json",

@@ -2,6 +2,7 @@ pub mod adapter;
 pub mod adapters;
 pub mod connection_test;
 pub mod error;
+pub mod oauth_service;
 pub mod routes;
 pub mod service;
 pub mod sync_service;
@@ -14,6 +15,7 @@ pub use adapters::{
 };
 pub use connection_test::McpConnectionTestService;
 pub use error::McpError;
+pub use oauth_service::McpOAuthService;
 pub use routes::{McpRouterState, mcp_routes};
 pub use service::McpConfigService;
 pub use sync_service::McpSyncService;

@@ -290,10 +290,12 @@ dependencies = [
  "aionui-common",
  "aionui-db",
  "aionui-system",
+ "async-trait",
  "oauth2",
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
  "tokio",
  "toml",
 ]

@@ -171,6 +171,7 @@ dependencies = [
  "aionui-db",
  "aionui-realtime",
  "async-trait",
+ "dashmap",
  "getrandom 0.2.17",
  "reqwest",
  "serde",

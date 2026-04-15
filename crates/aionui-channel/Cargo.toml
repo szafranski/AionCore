@@ -24,5 +24,6 @@ thiserror.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 getrandom.workspace = true
+dashmap.workspace = true
 reqwest = { workspace = true, optional = true }
 tokio-tungstenite = { workspace = true, optional = true }

@@ -5,5 +5,6 @@ pub mod manager;
 pub mod message_service;
 pub mod pairing;
 pub mod plugin;
+pub mod plugins;
 pub mod session;
 pub mod types;

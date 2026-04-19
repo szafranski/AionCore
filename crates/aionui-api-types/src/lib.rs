@@ -4,6 +4,7 @@ mod channel;
 mod confirmation;
 mod connection_test;
 mod conversation;
+mod cron;
 mod extension;
 mod file;
 mod lifecycle;
@@ -100,4 +101,10 @@ pub use team::{
     SendAgentMessageRequest, SendTeamMessageRequest, TeamAgentInput, TeamAgentRemovedPayload,
     TeamAgentRenamedPayload, TeamAgentResponse, TeamAgentSpawnedPayload, TeamAgentStatusPayload,
     TeamListResponse, TeamResponse,
+};
+pub use cron::{
+    CreateCronJobRequest, CronAgentConfigDto, CronJobExecutedEvent, CronJobMetadataDto,
+    CronJobPayloadDto, CronJobRemovedPayload, CronJobResponse, CronJobStateDto,
+    CronJobTargetDto, CronScheduleDto, HasSkillResponse, ListCronJobsQuery, RunNowResponse,
+    SaveCronSkillRequest, UpdateCronJobRequest,
 };

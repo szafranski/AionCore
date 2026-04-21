@@ -71,9 +71,8 @@ impl ConnectionTestService {
     ) -> Result<GeminiSubscriptionData, AppError> {
         let client = match proxy {
             Some(proxy_url) => {
-                let proxy = reqwest::Proxy::all(proxy_url).map_err(|e| {
-                    AppError::BadRequest(format!("Invalid proxy URL: {e}"))
-                })?;
+                let proxy = reqwest::Proxy::all(proxy_url)
+                    .map_err(|e| AppError::BadRequest(format!("Invalid proxy URL: {e}")))?;
                 reqwest::Client::builder()
                     .proxy(proxy)
                     .timeout(GEMINI_STATUS_TIMEOUT)
@@ -85,10 +84,15 @@ impl ConnectionTestService {
 
         let url = format!("{GEMINI_API_BASE}/v1beta/models?key={api_key}&pageSize=1");
 
-        let resp = client.get(&url).timeout(GEMINI_STATUS_TIMEOUT).send().await.map_err(|e| {
-            warn!(error = %e, "Gemini subscription check failed");
-            AppError::BadGateway(format!("Gemini service unreachable: {e}"))
-        })?;
+        let resp = client
+            .get(&url)
+            .timeout(GEMINI_STATUS_TIMEOUT)
+            .send()
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "Gemini subscription check failed");
+                AppError::BadGateway(format!("Gemini service unreachable: {e}"))
+            })?;
 
         let status = resp.status();
         if status.is_success() {

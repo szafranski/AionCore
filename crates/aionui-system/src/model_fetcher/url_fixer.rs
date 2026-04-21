@@ -86,10 +86,7 @@ mod tests {
         for c in &candidates {
             // After scheme, no double slashes
             let after_scheme = c.strip_prefix("https://").unwrap();
-            assert!(
-                !after_scheme.contains("//"),
-                "Double slash found in: {c}"
-            );
+            assert!(!after_scheme.contains("//"), "Double slash found in: {c}");
         }
     }
 }

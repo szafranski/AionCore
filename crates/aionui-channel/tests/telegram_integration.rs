@@ -19,10 +19,8 @@ mod telegram_tests {
     use aionui_channel::manager::{ChannelManager, PluginFactory};
     use aionui_channel::plugin::ChannelPlugin;
     use aionui_channel::plugins::telegram::TelegramPlugin;
-    use aionui_channel::types::{
-        PluginConfig, PluginCredentials, PluginStatus, PluginType,
-    };
-    use aionui_db::{init_database_memory, IChannelRepository, SqliteChannelRepository};
+    use aionui_channel::types::{PluginConfig, PluginCredentials, PluginStatus, PluginType};
+    use aionui_db::{IChannelRepository, SqliteChannelRepository, init_database_memory};
     use aionui_realtime::EventBroadcaster;
     use std::sync::Arc;
     use tokio::sync::mpsc;
@@ -224,9 +222,7 @@ mod telegram_tests {
         let factory = telegram_factory();
 
         let config = make_config_value(Some("bad-token"));
-        let result = manager
-            .enable_plugin("telegram", &config, &factory)
-            .await;
+        let result = manager.enable_plugin("telegram", &config, &factory).await;
         assert!(result.is_err());
     }
 

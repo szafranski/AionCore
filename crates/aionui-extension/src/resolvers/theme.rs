@@ -23,12 +23,10 @@ pub fn resolve_theme(
 
     let css_content = std::fs::read_to_string(&css_path)?;
 
-    let cover_image = theme.cover_image.as_ref().map(|img| {
-        ext_dir
-            .join(img)
-            .to_string_lossy()
-            .into_owned()
-    });
+    let cover_image = theme
+        .cover_image
+        .as_ref()
+        .map(|img| ext_dir.join(img).to_string_lossy().into_owned());
 
     Ok(ResolvedTheme {
         extension_name: extension_name.to_owned(),
@@ -86,7 +84,13 @@ mod tests {
         assert_eq!(result.extension_name, "my-ext");
         assert_eq!(result.id, "dark-theme");
         assert_eq!(result.css_content, ":root { --bg: #000; }");
-        assert!(result.cover_image.as_ref().unwrap().contains("images/dark.png"));
+        assert!(
+            result
+                .cover_image
+                .as_ref()
+                .unwrap()
+                .contains("images/dark.png")
+        );
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -101,8 +105,7 @@ mod tests {
             cover_image: None,
         };
 
-        let err =
-            resolve_theme(&theme, "my-ext", Path::new("/tmp/no_such_ext")).unwrap_err();
+        let err = resolve_theme(&theme, "my-ext", Path::new("/tmp/no_such_ext")).unwrap_err();
         assert!(matches!(err, ExtensionError::ThemeCssNotFound(_)));
     }
 

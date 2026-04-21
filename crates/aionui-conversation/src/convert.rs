@@ -3,9 +3,9 @@ use aionui_common::{
     AgentType, AppError, ConversationSource, ConversationStatus, MessagePosition, MessageStatus,
     MessageType, ProviderWithModel,
 };
+use aionui_db::MessageSearchRow;
 use aionui_db::models::ConversationRow;
 use aionui_db::models::MessageRow;
-use aionui_db::MessageSearchRow;
 
 /// Convert a database row into an API response DTO.
 ///
@@ -14,11 +14,8 @@ pub fn row_to_response(row: ConversationRow) -> Result<ConversationResponse, App
     let agent_type: AgentType = string_to_enum(&row.r#type)?;
     let status: ConversationStatus = string_to_enum(&row.status)?;
 
-    let source: Option<ConversationSource> = row
-        .source
-        .as_deref()
-        .map(string_to_enum)
-        .transpose()?;
+    let source: Option<ConversationSource> =
+        row.source.as_deref().map(string_to_enum).transpose()?;
 
     let model: Option<ProviderWithModel> = row
         .model
@@ -60,17 +57,10 @@ pub fn string_to_enum<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, AppE
 pub fn row_to_message_response(row: MessageRow) -> Result<MessageResponse, AppError> {
     let msg_type: MessageType = string_to_enum(&row.r#type)?;
 
-    let position: Option<MessagePosition> = row
-        .position
-        .as_deref()
-        .map(string_to_enum)
-        .transpose()?;
+    let position: Option<MessagePosition> =
+        row.position.as_deref().map(string_to_enum).transpose()?;
 
-    let status: Option<MessageStatus> = row
-        .status
-        .as_deref()
-        .map(string_to_enum)
-        .transpose()?;
+    let status: Option<MessageStatus> = row.status.as_deref().map(string_to_enum).transpose()?;
 
     let content: serde_json::Value = serde_json::from_str(&row.content)
         .map_err(|e| AppError::Internal(format!("Invalid message content JSON: {e}")))?;

@@ -1,8 +1,8 @@
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
-use axum::Router;
 
 use aionui_api_types::{
     ApiResponse, CreateCronJobRequest, CronJobResponse, HasSkillResponse, ListCronJobsQuery,
@@ -22,10 +22,7 @@ pub fn cron_routes(state: CronRouterState) -> Router {
             get(get_job).put(update_job).delete(delete_job),
         )
         .route("/api/cron/jobs/{id}/run", post(run_now))
-        .route(
-            "/api/cron/jobs/{id}/skill",
-            get(has_skill).post(save_skill),
-        )
+        .route("/api/cron/jobs/{id}/skill", get(has_skill).post(save_skill))
         .with_state(state)
 }
 

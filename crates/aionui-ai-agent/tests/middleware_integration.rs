@@ -5,11 +5,11 @@
 //! - Cron command detection (6.2)
 //! - MessageMiddleware pipeline end-to-end
 
-use async_trait::async_trait;
 use aionui_ai_agent::{
     CronCommand, CronCommandResult, CronCreateParams, ICronService, MessageMiddleware,
     detect_cron_commands, has_cron_commands, strip_cron_commands, strip_think_tags,
 };
+use async_trait::async_trait;
 
 // ===========================================================================
 // 6.1 Think tag cleaning
@@ -123,7 +123,9 @@ fn detect_no_commands_in_normal_text() {
 
 #[test]
 fn has_cron_detects_all_types() {
-    assert!(has_cron_commands("[CRON_CREATE]\nschedule: *\n[/CRON_CREATE]"));
+    assert!(has_cron_commands(
+        "[CRON_CREATE]\nschedule: *\n[/CRON_CREATE]"
+    ));
     assert!(has_cron_commands("[CRON_LIST]"));
     assert!(has_cron_commands("[CRON_DELETE: x]"));
     assert!(!has_cron_commands("nothing here"));
@@ -186,7 +188,10 @@ impl ICronService for TrackingCronService {
     ) -> CronCommandResult {
         CronCommandResult {
             success: true,
-            message: format!("Job '{}' created with schedule '{}'", params.name, params.schedule),
+            message: format!(
+                "Job '{}' created with schedule '{}'",
+                params.name, params.schedule
+            ),
         }
     }
 

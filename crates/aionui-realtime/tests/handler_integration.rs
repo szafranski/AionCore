@@ -4,8 +4,8 @@ use std::time::Duration;
 
 use aionui_api_types::WebSocketMessage;
 use aionui_realtime::{
-    ConnectionId, MessageRouter, NoopMessageRouter, WsHandlerState,
-    WebSocketManager, ws_upgrade_handler,
+    ConnectionId, MessageRouter, NoopMessageRouter, WebSocketManager, WsHandlerState,
+    ws_upgrade_handler,
 };
 use axum::Router;
 use axum::routing::get;
@@ -83,18 +83,14 @@ async fn connect_with_token(
         .body(())
         .unwrap();
 
-    let (ws, _) = tokio_tungstenite::connect_async(request)
-        .await
-        .unwrap();
+    let (ws, _) = tokio_tungstenite::connect_async(request).await.unwrap();
     ws.split()
 }
 
 /// Connect without any auth header.
 async fn connect_no_token(
     addr: SocketAddr,
-) -> tokio_tungstenite::WebSocketStream<
-    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-> {
+) -> tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>> {
     let url = format!("ws://{addr}/ws");
     let (ws, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
     ws
@@ -103,8 +99,7 @@ async fn connect_no_token(
 /// Read the next text message within a timeout.
 async fn read_text<S>(stream: &mut S) -> Value
 where
-    S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>>
-        + Unpin,
+    S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>> + Unpin,
 {
     let timeout = Duration::from_secs(5);
     let msg = tokio::time::timeout(timeout, async {
@@ -134,8 +129,7 @@ where
 /// Read until a close frame is received, returning the close code.
 async fn read_close<S>(stream: &mut S) -> Option<u16>
 where
-    S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>>
-        + Unpin,
+    S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>> + Unpin,
 {
     let timeout = Duration::from_secs(5);
     tokio::time::timeout(timeout, async {
@@ -306,12 +300,11 @@ async fn unicast_reaches_only_target() {
     assert_eq!(received["name"], "unicast-test");
 
     // rx2 should not have received anything — check with short timeout
-    let timeout_result = tokio::time::timeout(
-        Duration::from_millis(200),
-        rx2.next(),
-    )
-    .await;
-    assert!(timeout_result.is_err(), "rx2 should not receive the unicast");
+    let timeout_result = tokio::time::timeout(Duration::from_millis(200), rx2.next()).await;
+    assert!(
+        timeout_result.is_err(),
+        "rx2 should not receive the unicast"
+    );
 }
 
 #[tokio::test]
@@ -342,9 +335,11 @@ async fn pong_message_does_not_generate_response() {
     tx.send(send_json(&pong.to_string())).await.unwrap();
 
     // pong should not generate any response
-    let timeout_result =
-        tokio::time::timeout(Duration::from_millis(200), rx.next()).await;
-    assert!(timeout_result.is_err(), "pong should not generate a response");
+    let timeout_result = tokio::time::timeout(Duration::from_millis(200), rx.next()).await;
+    assert!(
+        timeout_result.is_err(),
+        "pong should not generate a response"
+    );
 }
 
 #[tokio::test]
@@ -355,12 +350,7 @@ async fn unknown_message_routed_to_message_router() {
         called: AtomicBool,
     }
     impl MessageRouter for TrackingRouter {
-        fn route(
-            &self,
-            _conn_id: ConnectionId,
-            _name: &str,
-            _data: Value,
-        ) {
+        fn route(&self, _conn_id: ConnectionId, _name: &str, _data: Value) {
             self.called.store(true, Ordering::Relaxed);
         }
     }

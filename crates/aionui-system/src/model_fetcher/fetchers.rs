@@ -161,11 +161,7 @@ async fn fetch_gemini(
                 .into_iter()
                 .map(|m| {
                     // Strip "models/" prefix: "models/gemini-2.5-pro" -> "gemini-2.5-pro"
-                    let id = m
-                        .name
-                        .strip_prefix("models/")
-                        .unwrap_or(&m.name)
-                        .to_owned();
+                    let id = m.name.strip_prefix("models/").unwrap_or(&m.name).to_owned();
                     ModelInfo::Id(id)
                 })
                 .collect();
@@ -209,9 +205,7 @@ async fn fetch_bedrock(config: &FetchConfig) -> Result<Vec<ModelInfo>, AppError>
                 .ok_or_else(|| AppError::BadRequest("secretAccessKey is required".into()))?;
 
             let creds = aws_sdk_bedrock::config::Credentials::new(
-                key_id,
-                secret,
-                None, // session token
+                key_id, secret, None, // session token
                 None, // expiry
                 "aionui",
             );
@@ -221,10 +215,7 @@ async fn fetch_bedrock(config: &FetchConfig) -> Result<Vec<ModelInfo>, AppError>
                 .build()
         }
         aionui_api_types::BedrockAuthMethod::Profile => {
-            let profile = bedrock_cfg
-                .profile
-                .as_deref()
-                .unwrap_or("default");
+            let profile = bedrock_cfg.profile.as_deref().unwrap_or("default");
             let aws_cfg = aws_config::from_env()
                 .profile_name(profile)
                 .region(aws_config::Region::new(bedrock_cfg.region.clone()))
@@ -306,10 +297,7 @@ async fn fetch_dashscope_coding(
     api_key: &str,
 ) -> Result<Vec<ModelInfo>, AppError> {
     // Validate key by sending a minimal chat completion request
-    let url = format!(
-        "{}/chat/completions",
-        base_url.trim_end_matches('/')
-    );
+    let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
     let body = serde_json::json!({
         "model": DASHSCOPE_MODELS[0],
         "messages": [{"role": "user", "content": "hi"}],
@@ -340,7 +328,9 @@ async fn fetch_dashscope_coding(
 // ---------------------------------------------------------------------------
 
 fn fallback_models(ids: &[&str]) -> Vec<ModelInfo> {
-    ids.iter().map(|id| ModelInfo::Id((*id).to_string())).collect()
+    ids.iter()
+        .map(|id| ModelInfo::Id((*id).to_string()))
+        .collect()
 }
 
 fn check_response_status(resp: &reqwest::Response) -> Result<(), AppError> {
@@ -367,7 +357,10 @@ mod tests {
 
     #[test]
     fn ensure_v1_path_already_present() {
-        assert_eq!(ensure_v1_path("https://api.example.com/v1"), "https://api.example.com/v1");
+        assert_eq!(
+            ensure_v1_path("https://api.example.com/v1"),
+            "https://api.example.com/v1"
+        );
     }
 
     #[test]

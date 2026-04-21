@@ -8,15 +8,15 @@ use std::sync::{Arc, Mutex};
 use aionui_api_types::WebSocketMessage;
 use aionui_common::{generate_id, now_ms};
 use aionui_db::models::AssistantUserRow;
-use aionui_db::{init_database_memory, IChannelRepository, SqliteChannelRepository};
+use aionui_db::{IChannelRepository, SqliteChannelRepository, init_database_memory};
 use aionui_realtime::EventBroadcaster;
 
 use aionui_channel::action::{ActionExecutor, MessageResult};
 use aionui_channel::pairing::PairingService;
 use aionui_channel::session::SessionManager;
 use aionui_channel::types::{
-    ActionBehavior, ActionCategory, ActionContext, MessageContentType, PluginType,
-    UnifiedAction, UnifiedIncomingMessage, UnifiedMessageContent, UnifiedUser,
+    ActionBehavior, ActionCategory, ActionContext, MessageContentType, PluginType, UnifiedAction,
+    UnifiedIncomingMessage, UnifiedMessageContent, UnifiedUser,
 };
 
 // ── Test infrastructure ─────────────────────────────────────────────
@@ -147,11 +147,7 @@ fn make_action_message(
 }
 
 /// Helper: authorize a user via the pairing flow.
-async fn authorize_user(
-    pairing: &PairingService,
-    platform_user_id: &str,
-    platform_type: &str,
-) {
+async fn authorize_user(pairing: &PairingService, platform_user_id: &str, platform_type: &str) {
     let code = pairing
         .request_pairing(platform_user_id, platform_type, Some("Test"))
         .await
@@ -457,9 +453,10 @@ async fn action_agent_select_persists() {
         action: Some(UnifiedAction {
             action: "agent.select".into(),
             category: ActionCategory::System,
-            params: Some(std::collections::HashMap::from([
-                ("agentType".into(), "acp".into()),
-            ])),
+            params: Some(std::collections::HashMap::from([(
+                "agentType".into(),
+                "acp".into(),
+            )])),
             context: ActionContext {
                 platform: PluginType::Telegram,
                 user_id: "tg_42".into(),

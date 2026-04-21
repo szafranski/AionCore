@@ -10,6 +10,6 @@ pub mod routes;
 pub mod session;
 pub mod types;
 
-pub use routes::{ChannelRouterState, channel_routes};
 #[cfg(feature = "weixin")]
 pub use routes::weixin_login_route;
+pub use routes::{ChannelRouterState, channel_routes};

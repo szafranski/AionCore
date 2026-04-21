@@ -22,10 +22,7 @@ impl EventBroadcaster for NoopBroadcaster {
 }
 
 fn make_service(root: &std::path::Path) -> FileService {
-    FileService::new(
-        Arc::new(NoopBroadcaster),
-        vec![root.to_path_buf()],
-    )
+    FileService::new(Arc::new(NoopBroadcaster), vec![root.to_path_buf()])
 }
 
 // -----------------------------------------------------------------------
@@ -41,10 +38,7 @@ async fn get_image_base64_png() {
     fs::write(&file, &png_bytes).unwrap();
 
     let svc = make_service(dir.path());
-    let result = svc
-        .get_image_base64(file.to_str().unwrap())
-        .await
-        .unwrap();
+    let result = svc.get_image_base64(file.to_str().unwrap()).await.unwrap();
 
     assert!(
         result.starts_with("data:image/png;base64,"),
@@ -53,9 +47,7 @@ async fn get_image_base64_png() {
     );
 
     // Verify roundtrip: decode base64 back to original bytes
-    let encoded_part = result
-        .strip_prefix("data:image/png;base64,")
-        .unwrap();
+    let encoded_part = result.strip_prefix("data:image/png;base64,").unwrap();
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded_part)
         .unwrap();
@@ -70,10 +62,7 @@ async fn get_image_base64_jpeg() {
     fs::write(&file, &jpeg_bytes).unwrap();
 
     let svc = make_service(dir.path());
-    let result = svc
-        .get_image_base64(file.to_str().unwrap())
-        .await
-        .unwrap();
+    let result = svc.get_image_base64(file.to_str().unwrap()).await.unwrap();
 
     assert!(result.starts_with("data:image/jpeg;base64,"));
 }
@@ -86,17 +75,12 @@ async fn get_image_base64_svg() {
     fs::write(&file, svg_content).unwrap();
 
     let svc = make_service(dir.path());
-    let result = svc
-        .get_image_base64(file.to_str().unwrap())
-        .await
-        .unwrap();
+    let result = svc.get_image_base64(file.to_str().unwrap()).await.unwrap();
 
     assert!(result.starts_with("data:image/svg+xml;base64,"));
 
     // Verify content roundtrip
-    let encoded_part = result
-        .strip_prefix("data:image/svg+xml;base64,")
-        .unwrap();
+    let encoded_part = result.strip_prefix("data:image/svg+xml;base64,").unwrap();
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded_part)
         .unwrap();
@@ -122,10 +106,7 @@ async fn get_image_base64_gif() {
     fs::write(&file, gif_bytes).unwrap();
 
     let svc = make_service(dir.path());
-    let result = svc
-        .get_image_base64(file.to_str().unwrap())
-        .await
-        .unwrap();
+    let result = svc.get_image_base64(file.to_str().unwrap()).await.unwrap();
 
     assert!(result.starts_with("data:image/gif;base64,"));
 }
@@ -134,9 +115,7 @@ async fn get_image_base64_gif() {
 async fn get_image_base64_path_traversal_rejected() {
     let dir = tempfile::tempdir().unwrap();
     let svc = make_service(dir.path());
-    let result = svc
-        .get_image_base64("../../etc/passwd")
-        .await;
+    let result = svc.get_image_base64("../../etc/passwd").await;
 
     assert!(result.is_err());
 }
@@ -160,9 +139,7 @@ async fn fetch_remote_image_disallowed_host_returns_placeholder() {
     let dir = tempfile::tempdir().unwrap();
     let svc = make_service(dir.path());
 
-    let result = svc
-        .fetch_remote_image("https://evil.com/image.png")
-        .await;
+    let result = svc.fetch_remote_image("https://evil.com/image.png").await;
 
     assert!(
         result.starts_with("data:image/svg+xml;base64,"),
@@ -176,9 +153,7 @@ async fn fetch_remote_image_ftp_protocol_returns_placeholder() {
     let dir = tempfile::tempdir().unwrap();
     let svc = make_service(dir.path());
 
-    let result = svc
-        .fetch_remote_image("ftp://github.com/image.png")
-        .await;
+    let result = svc.fetch_remote_image("ftp://github.com/image.png").await;
 
     assert!(result.starts_with("data:image/svg+xml;base64,"));
 }
@@ -198,9 +173,7 @@ async fn fetch_remote_image_file_protocol_returns_placeholder() {
     let dir = tempfile::tempdir().unwrap();
     let svc = make_service(dir.path());
 
-    let result = svc
-        .fetch_remote_image("file:///etc/passwd")
-        .await;
+    let result = svc.fetch_remote_image("file:///etc/passwd").await;
 
     assert!(result.starts_with("data:image/svg+xml;base64,"));
 }
@@ -223,9 +196,7 @@ async fn fetch_remote_image_placeholder_contains_valid_svg() {
     let result = svc.fetch_remote_image("not-valid").await;
 
     // Verify the placeholder decodes to a valid SVG
-    let encoded_part = result
-        .strip_prefix("data:image/svg+xml;base64,")
-        .unwrap();
+    let encoded_part = result.strip_prefix("data:image/svg+xml;base64,").unwrap();
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded_part)
         .unwrap();

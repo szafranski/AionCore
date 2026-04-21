@@ -19,9 +19,9 @@ use crate::types::{
 
 use super::api::TelegramApi;
 use super::types::{
-    AnswerCallbackQueryRequest, EditMessageTextRequest, InlineKeyboardButton,
-    InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyMarkup,
-    SendMessageRequest, TgCallbackQuery, TgMessage,
+    AnswerCallbackQueryRequest, EditMessageTextRequest, InlineKeyboardButton, InlineKeyboardMarkup,
+    KeyboardButton, ReplyKeyboardMarkup, ReplyMarkup, SendMessageRequest, TgCallbackQuery,
+    TgMessage,
 };
 
 /// Long-polling timeout in seconds (Telegram recommends 20-30s).
@@ -203,9 +203,9 @@ impl ChannelPlugin for TelegramPlugin {
             .ok_or_else(|| ChannelError::PlatformApi("Plugin not initialized".into()))?;
 
         let chat_id_num = parse_chat_id(chat_id)?;
-        let message_id_num = message_id
-            .parse::<i64>()
-            .map_err(|_| ChannelError::InvalidConfig(format!("Invalid message_id: {message_id}")))?;
+        let message_id_num = message_id.parse::<i64>().map_err(|_| {
+            ChannelError::InvalidConfig(format!("Invalid message_id: {message_id}"))
+        })?;
 
         let text = truncate_message(
             message.text.as_deref().unwrap_or(""),
@@ -316,9 +316,9 @@ async fn poll_loop(
 
 /// Calculate exponential backoff delay, capped at the configured maximum.
 fn backoff_delay(attempt: u32) -> Duration {
-    let delay_secs = 2u64.saturating_pow(attempt).min(
-        TELEGRAM_MAX_RECONNECT_DELAY.as_secs(),
-    );
+    let delay_secs = 2u64
+        .saturating_pow(attempt)
+        .min(TELEGRAM_MAX_RECONNECT_DELAY.as_secs());
     Duration::from_secs(delay_secs)
 }
 
@@ -352,11 +352,7 @@ async fn handle_callback_query(
         }
     }
 
-    let chat_id = cb
-        .message
-        .as_ref()
-        .map(|m| m.chat.id)
-        .unwrap_or(cb.from.id);
+    let chat_id = cb.message.as_ref().map(|m| m.chat.id).unwrap_or(cb.from.id);
 
     let message_id = cb.message.as_ref().map(|m| m.message_id.to_string());
 
@@ -408,10 +404,7 @@ async fn handle_callback_query(
 }
 
 /// Handle a regular text/media message from Telegram.
-async fn handle_message(
-    msg: &TgMessage,
-    message_tx: &mpsc::Sender<UnifiedIncomingMessage>,
-) {
+async fn handle_message(msg: &TgMessage, message_tx: &mpsc::Sender<UnifiedIncomingMessage>) {
     let from = match &msg.from {
         Some(u) => u,
         None => return, // system messages without a sender
@@ -686,10 +679,7 @@ fn format_callback_data(btn: &ActionButton) -> String {
     let category = action_category_prefix(&btn.action);
     match &btn.params {
         Some(params) if !params.is_empty() => {
-            let encoded: Vec<String> = params
-                .iter()
-                .map(|(k, v)| format!("{k}={v}"))
-                .collect();
+            let encoded: Vec<String> = params.iter().map(|(k, v)| format!("{k}={v}")).collect();
             format!("{category}:{}:{}", btn.action, encoded.join(","))
         }
         _ => format!("{category}:{}", btn.action),

@@ -3,24 +3,23 @@ use std::path::Path;
 use std::sync::Arc;
 
 use aionui_api_types::WebSocketMessage;
-use aionui_common::{now_ms, TimestampMs};
+use aionui_common::{TimestampMs, now_ms};
 use aionui_realtime::EventBroadcaster;
 use serde_json::json;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::error::ExtensionError;
-use crate::lifecycle::{execute_hook, needs_install_hook, resolve_hook_path, HookKind};
-use crate::loader::{resolve_scan_paths, ScanPath};
+use crate::lifecycle::{HookKind, execute_hook, needs_install_hook, resolve_hook_path};
+use crate::loader::{ScanPath, resolve_scan_paths};
 use crate::registry_helpers::{
-    build_state_map, load_and_validate, merge_persisted_states, run_deactivation_hooks,
-    to_summary,
+    build_state_map, load_and_validate, merge_persisted_states, run_deactivation_hooks, to_summary,
 };
 use crate::resolvers::{resolve_all_contributions, resolve_i18n_for_all};
 use crate::state::ExtensionStateStore;
 use crate::types::{
-    ExtensionLifecyclePayload, ExtensionState, ExtensionSystemEvent,
-    LoadedExtension, ResolvedAcpAdapter, ResolvedAgent, ResolvedAssistant, ResolvedChannelPlugin,
+    ExtensionLifecyclePayload, ExtensionState, ExtensionSystemEvent, LoadedExtension,
+    ResolvedAcpAdapter, ResolvedAgent, ResolvedAssistant, ResolvedChannelPlugin,
     ResolvedContributions, ResolvedModelProvider, ResolvedSettingsTab, ResolvedSkill,
     ResolvedTheme, WebuiContribution,
 };
@@ -117,17 +116,14 @@ impl ExtensionRegistry {
         debug!(count = scan_paths.len(), "resolved scan paths");
 
         // 1-3. Load, filter, validate (all sync/blocking).
-        let (extensions, dep_result) =
-            load_and_validate(&scan_paths, &self.app_version);
+        let (extensions, dep_result) = load_and_validate(&scan_paths, &self.app_version);
 
         // 4. Merge persisted states.
         let persisted = self.state_store.load().await?;
         let extensions = merge_persisted_states(extensions, &persisted);
 
         // 5. Run lifecycle hooks.
-        let extensions = self
-            .run_activation_hooks(extensions, &persisted)
-            .await;
+        let extensions = self.run_activation_hooks(extensions, &persisted).await;
 
         // 6. Resolve contributions.
         let contributions = resolve_all_contributions(&extensions);
@@ -178,17 +174,14 @@ impl ExtensionRegistry {
         run_deactivation_hooks(&current_exts).await;
 
         // 3. Reload pipeline (same as initialize but reuses existing scan paths).
-        let (extensions, _dep_result) =
-            load_and_validate(&scan_paths, &self.app_version);
+        let (extensions, _dep_result) = load_and_validate(&scan_paths, &self.app_version);
 
         // Use in-memory state (not file) to preserve pending writes that
         // haven't been flushed yet by the debounce timer.
         let persisted = self.state_store.get_all().await;
 
         let extensions = merge_persisted_states(extensions, &persisted);
-        let extensions = self
-            .run_activation_hooks(extensions, &persisted)
-            .await;
+        let extensions = self.run_activation_hooks(extensions, &persisted).await;
         let contributions = resolve_all_contributions(&extensions);
 
         let states = build_state_map(&extensions);
@@ -203,11 +196,7 @@ impl ExtensionRegistry {
         }
 
         // 5. Broadcast REGISTRY_RELOADED event.
-        self.broadcast_lifecycle_event(
-            "registry",
-            ExtensionSystemEvent::RegistryReloaded,
-            None,
-        );
+        self.broadcast_lifecycle_event("registry", ExtensionSystemEvent::RegistryReloaded, None);
 
         info!("extension registry hot-reloaded");
     }
@@ -311,10 +300,7 @@ impl ExtensionRegistry {
     }
 
     /// Look up a single loaded extension by name.
-    pub async fn get_extension_by_name(
-        &self,
-        name: &str,
-    ) -> Option<LoadedExtension> {
+    pub async fn get_extension_by_name(&self, name: &str) -> Option<LoadedExtension> {
         let guard = self.inner.read().await;
         guard
             .extensions
@@ -349,9 +335,7 @@ impl ExtensionRegistry {
         guard.contributions.agents.clone()
     }
 
-    pub async fn get_mcp_servers(
-        &self,
-    ) -> Vec<crate::types::ResolvedMcpServer> {
+    pub async fn get_mcp_servers(&self) -> Vec<crate::types::ResolvedMcpServer> {
         let guard = self.inner.read().await;
         guard.contributions.mcp_servers.clone()
     }
@@ -458,19 +442,12 @@ impl ExtensionRegistry {
 
             // Check onInstall + onActivate hooks.
             if let Some(hooks) = &ext.manifest.lifecycle {
-                let persisted_version = persisted
-                    .get(&ext_name)
-                    .map(|s| s.version.as_str());
+                let persisted_version = persisted.get(&ext_name).map(|s| s.version.as_str());
 
                 if needs_install_hook(&ext.manifest.version, persisted_version)
                     && let Some(hook_path) = resolve_hook_path(hooks, HookKind::OnInstall)
-                    && let Err(e) = execute_hook(
-                        ext_dir,
-                        hook_path,
-                        HookKind::OnInstall,
-                        &ext_name,
-                    )
-                    .await
+                    && let Err(e) =
+                        execute_hook(ext_dir, hook_path, HookKind::OnInstall, &ext_name).await
                 {
                     warn!(
                         extension = %ext_name,
@@ -481,13 +458,8 @@ impl ExtensionRegistry {
 
                 // Run onActivate
                 if let Some(hook_path) = resolve_hook_path(hooks, HookKind::OnActivate)
-                    && let Err(e) = execute_hook(
-                        ext_dir,
-                        hook_path,
-                        HookKind::OnActivate,
-                        &ext_name,
-                    )
-                    .await
+                    && let Err(e) =
+                        execute_hook(ext_dir, hook_path, HookKind::OnActivate, &ext_name).await
                 {
                     warn!(
                         extension = %ext_name,
@@ -556,15 +528,15 @@ mod tests {
         }
     }
 
-    fn make_registry() -> (ExtensionRegistry, ExtensionStateStore, Arc<BroadcastEventBus>) {
+    fn make_registry() -> (
+        ExtensionRegistry,
+        ExtensionStateStore,
+        Arc<BroadcastEventBus>,
+    ) {
         let tmp = tempfile::TempDir::new().unwrap();
         let store = ExtensionStateStore::new(tmp.path().join("states.json"));
         let bus = Arc::new(BroadcastEventBus::new(64));
-        let registry = ExtensionRegistry::new(
-            store.clone(),
-            bus.clone(),
-            "1.0.0".to_owned(),
-        );
+        let registry = ExtensionRegistry::new(store.clone(), bus.clone(), "1.0.0".to_owned());
         (registry, store, bus)
     }
 
@@ -651,10 +623,7 @@ mod tests {
         let (registry, _, _) = make_registry();
         {
             let mut guard = registry.inner.write().await;
-            guard.extensions = vec![
-                make_test_ext("ext-a", true),
-                make_test_ext("ext-b", false),
-            ];
+            guard.extensions = vec![make_test_ext("ext-a", true), make_test_ext("ext-b", false)];
         }
 
         let summaries = registry.get_loaded_extensions().await;

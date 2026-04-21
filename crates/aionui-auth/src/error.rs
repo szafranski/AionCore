@@ -37,12 +37,8 @@ impl From<AuthError> for AppError {
             AuthError::InvalidUsername(msg) => AppError::BadRequest(msg),
             AuthError::TokenExpired => AppError::Unauthorized("Token expired".into()),
             AuthError::TokenInvalid(msg) => AppError::Unauthorized(msg),
-            AuthError::TokenBlacklisted => {
-                AppError::Unauthorized("Token has been revoked".into())
-            }
-            AuthError::HashError(msg) => {
-                AppError::Internal(format!("Password hash error: {msg}"))
-            }
+            AuthError::TokenBlacklisted => AppError::Unauthorized("Token has been revoked".into()),
+            AuthError::HashError(msg) => AppError::Internal(format!("Password hash error: {msg}")),
         }
     }
 }

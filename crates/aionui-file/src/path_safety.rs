@@ -12,16 +12,9 @@ use aionui_common::AppError;
 ///
 /// - `AppError::BadRequest` if `path` does not exist or cannot be
 ///   canonicalized, or if it falls outside all allowed roots.
-pub fn validate_path(
-    path: &str,
-    allowed_roots: &[&Path],
-) -> Result<PathBuf, AppError> {
-    let canonical = std::fs::canonicalize(path).map_err(|e| {
-        AppError::BadRequest(format!(
-            "cannot resolve path '{}': {}",
-            path, e
-        ))
-    })?;
+pub fn validate_path(path: &str, allowed_roots: &[&Path]) -> Result<PathBuf, AppError> {
+    let canonical = std::fs::canonicalize(path)
+        .map_err(|e| AppError::BadRequest(format!("cannot resolve path '{}': {}", path, e)))?;
 
     let is_allowed = allowed_roots.iter().any(|root| {
         // Canonicalize the root as well so that symlinks (e.g. macOS
@@ -52,39 +45,26 @@ pub fn validate_path(
 ///
 /// Same as [`validate_path`], plus `AppError::BadRequest` if the path has
 /// no parent or no file-name component.
-pub fn validate_path_for_write(
-    path: &str,
-    allowed_roots: &[&Path],
-) -> Result<PathBuf, AppError> {
+pub fn validate_path_for_write(path: &str, allowed_roots: &[&Path]) -> Result<PathBuf, AppError> {
     let p = Path::new(path);
 
-    let parent = p.parent().ok_or_else(|| {
-        AppError::BadRequest(format!("path '{}' has no parent directory", path))
-    })?;
+    let parent = p
+        .parent()
+        .ok_or_else(|| AppError::BadRequest(format!("path '{}' has no parent directory", path)))?;
 
     let file_name = p.file_name().ok_or_else(|| {
-        AppError::BadRequest(format!(
-            "path '{}' has no file name component",
-            path
-        ))
+        AppError::BadRequest(format!("path '{}' has no file name component", path))
     })?;
 
-    let canonical_parent =
-        std::fs::canonicalize(parent).map_err(|e| {
-            AppError::BadRequest(format!(
-                "cannot resolve parent of '{}': {}",
-                path, e
-            ))
-        })?;
+    let canonical_parent = std::fs::canonicalize(parent)
+        .map_err(|e| AppError::BadRequest(format!("cannot resolve parent of '{}': {}", path, e)))?;
 
-    let is_allowed = allowed_roots.iter().any(|root| {
-        match std::fs::canonicalize(root) {
-            Ok(canonical_root) => {
-                canonical_parent.starts_with(&canonical_root)
-            }
+    let is_allowed = allowed_roots
+        .iter()
+        .any(|root| match std::fs::canonicalize(root) {
+            Ok(canonical_root) => canonical_parent.starts_with(&canonical_root),
             Err(_) => false,
-        }
-    });
+        });
 
     if !is_allowed {
         return Err(AppError::BadRequest(format!(
@@ -117,10 +97,7 @@ mod tests {
         let file = dir.path().join("hello.txt");
         fs::write(&file, "hi").unwrap();
 
-        let result = validate_path(
-            file.to_str().unwrap(),
-            &[dir.path()],
-        );
+        let result = validate_path(file.to_str().unwrap(), &[dir.path()]);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), fs::canonicalize(&file).unwrap());
     }
@@ -132,10 +109,7 @@ mod tests {
         let file = outside.path().join("secret.txt");
         fs::write(&file, "secret").unwrap();
 
-        let result = validate_path(
-            file.to_str().unwrap(),
-            &[sandbox.path()],
-        );
+        let result = validate_path(file.to_str().unwrap(), &[sandbox.path()]);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -149,8 +123,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let fake = dir.path().join("does_not_exist.txt");
 
-        let result =
-            validate_path(fake.to_str().unwrap(), &[dir.path()]);
+        let result = validate_path(fake.to_str().unwrap(), &[dir.path()]);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("cannot resolve"));
     }
@@ -170,8 +143,7 @@ mod tests {
             return;
         }
 
-        let result =
-            validate_path(link.to_str().unwrap(), &[dir.path()]);
+        let result = validate_path(link.to_str().unwrap(), &[dir.path()]);
         assert!(result.is_ok());
     }
 
@@ -190,8 +162,7 @@ mod tests {
             return;
         }
 
-        let result =
-            validate_path(link.to_str().unwrap(), &[sandbox.path()]);
+        let result = validate_path(link.to_str().unwrap(), &[sandbox.path()]);
         assert!(result.is_err());
     }
 
@@ -201,10 +172,7 @@ mod tests {
         // File does not exist yet, but parent does
         let new_file = dir.path().join("new.txt");
 
-        let result = validate_path_for_write(
-            new_file.to_str().unwrap(),
-            &[dir.path()],
-        );
+        let result = validate_path_for_write(new_file.to_str().unwrap(), &[dir.path()]);
         assert!(result.is_ok());
         let resolved = result.unwrap();
         assert!(resolved.ends_with("new.txt"));
@@ -216,10 +184,7 @@ mod tests {
         let outside = tempfile::tempdir().unwrap();
         let target = outside.path().join("evil.txt");
 
-        let result = validate_path_for_write(
-            target.to_str().unwrap(),
-            &[sandbox.path()],
-        );
+        let result = validate_path_for_write(target.to_str().unwrap(), &[sandbox.path()]);
         assert!(result.is_err());
     }
 
@@ -228,8 +193,7 @@ mod tests {
         // A bare root path on unix is "/" which has no parent in some
         // interpretations, but Path::new("/").parent() returns Some("").
         // Test a truly pathological case.
-        let result =
-            validate_path_for_write("", &[Path::new("/tmp")]);
+        let result = validate_path_for_write("", &[Path::new("/tmp")]);
         assert!(result.is_err());
     }
 

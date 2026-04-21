@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use aionui_extension::{
-    load_states_from_file, save_states_to_file, ExtensionState, ExtensionStateStore,
+    ExtensionState, ExtensionStateStore, load_states_from_file, save_states_to_file,
 };
 use tempfile::TempDir;
 
@@ -38,14 +38,10 @@ async fn sp1_state_saved_after_enable_disable() {
     store.load().await.unwrap();
 
     // Enable an extension.
-    store
-        .set(make_state("my-ext", "1.0.0", true))
-        .await;
+    store.set(make_state("my-ext", "1.0.0", true)).await;
 
     // Disable another.
-    store
-        .set(make_state("other-ext", "2.0.0", false))
-        .await;
+    store.set(make_state("other-ext", "2.0.0", false)).await;
 
     // Flush to disk immediately.
     store.flush().await.unwrap();
@@ -68,9 +64,7 @@ async fn sp1_state_contains_timestamps() {
     let store = ExtensionStateStore::new(path.clone());
 
     store.load().await.unwrap();
-    store
-        .set(make_state("my-ext", "1.0.0", true))
-        .await;
+    store.set(make_state("my-ext", "1.0.0", true)).await;
     store.flush().await.unwrap();
 
     let loaded = load_states_from_file(&path).unwrap();
@@ -90,12 +84,8 @@ async fn sp2_state_restored_after_restart() {
     {
         let store = ExtensionStateStore::new(path.clone());
         store.load().await.unwrap();
-        store
-            .set(make_state("ext-a", "1.0.0", true))
-            .await;
-        store
-            .set(make_state("ext-b", "2.0.0", false))
-            .await;
+        store.set(make_state("ext-a", "1.0.0", true)).await;
+        store.set(make_state("ext-b", "2.0.0", false)).await;
         store.flush().await.unwrap();
     }
 
@@ -137,8 +127,7 @@ async fn sp3_no_state_file_returns_empty_map() {
 
 #[test]
 fn sp3_load_states_from_nonexistent_file_returns_empty() {
-    let states =
-        load_states_from_file(std::path::Path::new("/nonexistent/states.json")).unwrap();
+    let states = load_states_from_file(std::path::Path::new("/nonexistent/states.json")).unwrap();
     assert!(states.is_empty());
 }
 
@@ -155,12 +144,8 @@ async fn state_update_overwrites_previous() {
     store.load().await.unwrap();
 
     // Enable, then disable.
-    store
-        .set(make_state("my-ext", "1.0.0", true))
-        .await;
-    store
-        .set(make_state("my-ext", "1.0.0", false))
-        .await;
+    store.set(make_state("my-ext", "1.0.0", true)).await;
+    store.set(make_state("my-ext", "1.0.0", false)).await;
 
     store.flush().await.unwrap();
 
@@ -176,15 +161,10 @@ async fn set_all_replaces_entire_state() {
     let store = ExtensionStateStore::new(path.clone());
 
     store.load().await.unwrap();
-    store
-        .set(make_state("old-ext", "1.0.0", true))
-        .await;
+    store.set(make_state("old-ext", "1.0.0", true)).await;
 
     let mut new_states = HashMap::new();
-    new_states.insert(
-        "new-ext".to_string(),
-        make_state("new-ext", "2.0.0", false),
-    );
+    new_states.insert("new-ext".to_string(), make_state("new-ext", "2.0.0", false));
     store.set_all(new_states).await;
 
     store.flush().await.unwrap();
@@ -202,12 +182,8 @@ async fn remove_state() {
     let store = ExtensionStateStore::new(path.clone());
 
     store.load().await.unwrap();
-    store
-        .set(make_state("ext-a", "1.0.0", true))
-        .await;
-    store
-        .set(make_state("ext-b", "1.0.0", true))
-        .await;
+    store.set(make_state("ext-a", "1.0.0", true)).await;
+    store.set(make_state("ext-b", "1.0.0", true)).await;
     store.remove("ext-a").await;
     store.flush().await.unwrap();
 
@@ -223,10 +199,7 @@ fn save_and_load_file_roundtrip() {
 
     let mut states = HashMap::new();
     states.insert("ext-a".to_string(), make_state("ext-a", "1.0.0", true));
-    states.insert(
-        "ext-b".to_string(),
-        make_state("ext-b", "2.0.0", false),
-    );
+    states.insert("ext-b".to_string(), make_state("ext-b", "2.0.0", false));
 
     save_states_to_file(&path, &states).unwrap();
     let loaded = load_states_from_file(&path).unwrap();

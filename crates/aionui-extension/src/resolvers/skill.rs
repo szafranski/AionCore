@@ -5,17 +5,11 @@ use crate::types::{ExtSkill, ResolvedSkill};
 /// Resolve a single skill contribution.
 ///
 /// Skill paths are resolved relative to the extension directory.
-pub fn resolve_skill(
-    skill: &ExtSkill,
-    extension_name: &str,
-    ext_dir: &Path,
-) -> ResolvedSkill {
-    let path = skill.path.as_ref().map(|p| {
-        ext_dir
-            .join(p)
-            .to_string_lossy()
-            .into_owned()
-    });
+pub fn resolve_skill(skill: &ExtSkill, extension_name: &str, ext_dir: &Path) -> ResolvedSkill {
+    let path = skill
+        .path
+        .as_ref()
+        .map(|p| ext_dir.join(p).to_string_lossy().into_owned());
 
     ResolvedSkill {
         extension_name: extension_name.to_owned(),

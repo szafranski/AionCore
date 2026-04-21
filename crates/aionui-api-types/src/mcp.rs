@@ -245,9 +245,7 @@ pub struct OAuthLogoutRequest {
 /// - JSON field absent → `None` (keep current value)
 /// - JSON `null` → `Some(None)` (clear the value)
 /// - JSON value → `Some(Some(value))` (set new value)
-fn deserialize_optional_nullable<'de, D, T>(
-    deserializer: D,
-) -> Result<Option<Option<T>>, D::Error>
+fn deserialize_optional_nullable<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: serde::Deserializer<'de>,
     T: Deserialize<'de>,
@@ -536,7 +534,9 @@ mod tests {
 
     #[test]
     fn test_oauth_status_response() {
-        let resp = OAuthStatusResponse { authenticated: true };
+        let resp = OAuthStatusResponse {
+            authenticated: true,
+        };
         let json = serde_json::to_value(&resp).unwrap();
         assert_eq!(json["authenticated"], true);
     }

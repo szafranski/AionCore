@@ -300,7 +300,11 @@ mod tests {
     #[test]
     fn wake_payload_with_messages() {
         let agent = make_lead();
-        let msgs = vec![make_message("w1", "Task A done", MailboxMessageType::Message)];
+        let msgs = vec![make_message(
+            "w1",
+            "Task A done",
+            MailboxMessageType::Message,
+        )];
         let payload = build_wake_payload(&agent, &[], &msgs);
 
         assert!(payload.contains("New Messages"));
@@ -323,7 +327,11 @@ mod tests {
     #[test]
     fn wake_payload_with_shutdown_request() {
         let agent = make_teammate("w1", "W");
-        let msg = make_message("lead-1", "No longer needed", MailboxMessageType::ShutdownRequest);
+        let msg = make_message(
+            "lead-1",
+            "No longer needed",
+            MailboxMessageType::ShutdownRequest,
+        );
         let payload = build_wake_payload(&agent, &[], &[msg]);
 
         assert!(payload.contains("[shutdown_request]"));
@@ -334,8 +342,16 @@ mod tests {
     fn wake_payload_with_tasks() {
         let agent = make_lead();
         let tasks = vec![
-            make_task("aaaaaaaa-1234-5678-9abc-def012345678", "Implement X", TaskStatus::InProgress),
-            make_task("bbbbbbbb-1234-5678-9abc-def012345678", "Test Y", TaskStatus::Pending),
+            make_task(
+                "aaaaaaaa-1234-5678-9abc-def012345678",
+                "Implement X",
+                TaskStatus::InProgress,
+            ),
+            make_task(
+                "bbbbbbbb-1234-5678-9abc-def012345678",
+                "Test Y",
+                TaskStatus::Pending,
+            ),
         ];
         let payload = build_wake_payload(&agent, &tasks, &[]);
 
@@ -350,7 +366,11 @@ mod tests {
     #[test]
     fn wake_payload_with_task_dependencies() {
         let agent = make_lead();
-        let mut task = make_task("cccccccc-1234-5678-9abc-def012345678", "Deploy", TaskStatus::Pending);
+        let mut task = make_task(
+            "cccccccc-1234-5678-9abc-def012345678",
+            "Deploy",
+            TaskStatus::Pending,
+        );
         task.blocked_by = vec!["task-a".into(), "task-b".into()];
         let payload = build_wake_payload(&agent, &[task], &[]);
 

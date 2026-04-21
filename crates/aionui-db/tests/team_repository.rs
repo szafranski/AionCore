@@ -14,8 +14,8 @@ use std::sync::Arc;
 use aionui_common::now_ms;
 use aionui_db::models::{MailboxMessageRow, TeamRow, TeamTaskRow};
 use aionui_db::{
-    init_database_memory, DbError, ITeamRepository, SqliteTeamRepository,
-    UpdateTaskParams, UpdateTeamParams,
+    DbError, ITeamRepository, SqliteTeamRepository, UpdateTaskParams, UpdateTeamParams,
+    init_database_memory,
 };
 
 async fn repo() -> (Arc<dyn ITeamRepository>, aionui_db::Database) {
@@ -116,12 +116,19 @@ async fn list_teams_multiple() {
 #[tokio::test]
 async fn update_team_name() {
     let (repo, _db) = repo().await;
-    repo.create_team(&make_team("t1", "Old Name")).await.unwrap();
+    repo.create_team(&make_team("t1", "Old Name"))
+        .await
+        .unwrap();
 
-    repo.update_team("t1", &UpdateTeamParams {
-        name: Some("New Name".into()),
-        ..Default::default()
-    }).await.unwrap();
+    repo.update_team(
+        "t1",
+        &UpdateTeamParams {
+            name: Some("New Name".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
 
     let team = repo.get_team("t1").await.unwrap().unwrap();
     assert_eq!(team.name, "New Name");
@@ -133,10 +140,15 @@ async fn update_team_agents_json() {
     repo.create_team(&make_team("t1", "Team")).await.unwrap();
 
     let new_agents = r#"[{"slotId":"a1"},{"slotId":"a2"}]"#;
-    repo.update_team("t1", &UpdateTeamParams {
-        agents: Some(new_agents.into()),
-        ..Default::default()
-    }).await.unwrap();
+    repo.update_team(
+        "t1",
+        &UpdateTeamParams {
+            agents: Some(new_agents.into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
 
     let team = repo.get_team("t1").await.unwrap().unwrap();
     assert_eq!(team.agents, new_agents);
@@ -145,10 +157,15 @@ async fn update_team_agents_json() {
 #[tokio::test]
 async fn update_nonexistent_team_returns_not_found() {
     let (repo, _db) = repo().await;
-    let result = repo.update_team("nonexistent", &UpdateTeamParams {
-        name: Some("X".into()),
-        ..Default::default()
-    }).await;
+    let result = repo
+        .update_team(
+            "nonexistent",
+            &UpdateTeamParams {
+                name: Some("X".into()),
+                ..Default::default()
+            },
+        )
+        .await;
     assert!(matches!(result, Err(DbError::NotFound(_))));
 }
 
@@ -178,9 +195,7 @@ async fn write_and_read_unread_messages() {
 
     // Write 3 messages to agent a1
     for i in 1..=3 {
-        let msg = make_mailbox_msg(
-            &format!("m{i}"), "t1", "a1", "a2", "message",
-        );
+        let msg = make_mailbox_msg(&format!("m{i}"), "t1", "a1", "a2", "message");
         repo.write_message(&msg).await.unwrap();
     }
 
@@ -238,9 +253,7 @@ async fn get_history_with_limit() {
     repo.create_team(&make_team("t1", "Team")).await.unwrap();
 
     for i in 1..=10 {
-        let msg = make_mailbox_msg(
-            &format!("m{i}"), "t1", "a1", "a2", "message",
-        );
+        let msg = make_mailbox_msg(&format!("m{i}"), "t1", "a1", "a2", "message");
         repo.write_message(&msg).await.unwrap();
     }
 
@@ -254,9 +267,7 @@ async fn get_history_no_limit() {
     repo.create_team(&make_team("t1", "Team")).await.unwrap();
 
     for i in 1..=3 {
-        let msg = make_mailbox_msg(
-            &format!("m{i}"), "t1", "a1", "a2", "message",
-        );
+        let msg = make_mailbox_msg(&format!("m{i}"), "t1", "a1", "a2", "message");
         repo.write_message(&msg).await.unwrap();
     }
 
@@ -369,10 +380,15 @@ async fn update_task_status() {
     let task = make_task("tk1", "t1", "Task");
     repo.create_task(&task).await.unwrap();
 
-    repo.update_task("tk1", &UpdateTaskParams {
-        status: Some("in_progress".into()),
-        ..Default::default()
-    }).await.unwrap();
+    repo.update_task(
+        "tk1",
+        &UpdateTaskParams {
+            status: Some("in_progress".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
 
     let updated = repo.find_task_by_id("t1", "tk1").await.unwrap().unwrap();
     assert_eq!(updated.status, "in_progress");
@@ -386,11 +402,16 @@ async fn update_task_description_and_owner() {
     let task = make_task("tk1", "t1", "Task");
     repo.create_task(&task).await.unwrap();
 
-    repo.update_task("tk1", &UpdateTaskParams {
-        description: Some("New description".into()),
-        owner: Some("agent-2".into()),
-        ..Default::default()
-    }).await.unwrap();
+    repo.update_task(
+        "tk1",
+        &UpdateTaskParams {
+            description: Some("New description".into()),
+            owner: Some("agent-2".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
 
     let updated = repo.find_task_by_id("t1", "tk1").await.unwrap().unwrap();
     assert_eq!(updated.description.as_deref(), Some("New description"));
@@ -400,10 +421,15 @@ async fn update_task_description_and_owner() {
 #[tokio::test]
 async fn update_nonexistent_task_returns_not_found() {
     let (repo, _db) = repo().await;
-    let result = repo.update_task("nonexistent", &UpdateTaskParams {
-        status: Some("completed".into()),
-        ..Default::default()
-    }).await;
+    let result = repo
+        .update_task(
+            "nonexistent",
+            &UpdateTaskParams {
+                status: Some("completed".into()),
+                ..Default::default()
+            },
+        )
+        .await;
     assert!(matches!(result, Err(DbError::NotFound(_))));
 }
 
@@ -511,10 +537,15 @@ async fn no_blocks_task_completes_cleanly() {
     repo.create_task(&task).await.unwrap();
 
     // Complete without any blocks to unblock
-    repo.update_task("tkA", &UpdateTaskParams {
-        status: Some("completed".into()),
-        ..Default::default()
-    }).await.unwrap();
+    repo.update_task(
+        "tkA",
+        &UpdateTaskParams {
+            status: Some("completed".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
 
     let a = repo.find_task_by_id("t1", "tkA").await.unwrap().unwrap();
     assert_eq!(a.status, "completed");
@@ -528,8 +559,12 @@ async fn delete_tasks_by_team() {
     repo.create_team(&make_team("t1", "Team1")).await.unwrap();
     repo.create_team(&make_team("t2", "Team2")).await.unwrap();
 
-    repo.create_task(&make_task("tk1", "t1", "T1 Task")).await.unwrap();
-    repo.create_task(&make_task("tk2", "t2", "T2 Task")).await.unwrap();
+    repo.create_task(&make_task("tk1", "t1", "T1 Task"))
+        .await
+        .unwrap();
+    repo.create_task(&make_task("tk2", "t2", "T2 Task"))
+        .await
+        .unwrap();
 
     repo.delete_tasks_by_team("t1").await.unwrap();
 
@@ -613,6 +648,12 @@ async fn task_blocked_by_blocks_bidirectional_consistency() {
     let a_blocks: Vec<String> = serde_json::from_str(&a.blocks).unwrap();
     let b_blocked_by: Vec<String> = serde_json::from_str(&b.blocked_by).unwrap();
 
-    assert!(a_blocks.contains(&"tkB".to_string()), "A.blocks should contain B");
-    assert!(b_blocked_by.contains(&"tkA".to_string()), "B.blockedBy should contain A");
+    assert!(
+        a_blocks.contains(&"tkB".to_string()),
+        "A.blocks should contain B"
+    );
+    assert!(
+        b_blocked_by.contains(&"tkA".to_string()),
+        "B.blockedBy should contain A"
+    );
 }

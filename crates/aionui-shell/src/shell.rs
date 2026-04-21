@@ -89,8 +89,7 @@ fn validate_directory_exists(dir_path: &str) -> Result<std::path::PathBuf, Shell
 }
 
 fn validate_url(url: &str) -> Result<(), ShellError> {
-    let parsed = reqwest::Url::parse(url)
-        .map_err(|_| ShellError::InvalidUrl(url.to_owned()))?;
+    let parsed = reqwest::Url::parse(url).map_err(|_| ShellError::InvalidUrl(url.to_owned()))?;
     if !ALLOWED_URL_SCHEMES.contains(&parsed.scheme()) {
         return Err(ShellError::InvalidUrl(format!(
             "scheme '{}' is not allowed",
@@ -135,7 +134,11 @@ async fn open_folder_terminal(path: &Path) -> Result<(), ShellError> {
     if cfg!(target_os = "macos") {
         run_command("open", &["-a", "Terminal", &path_str]).await
     } else if cfg!(target_os = "windows") {
-        run_command("cmd", &["/c", "start", "cmd", "/K", &format!("cd /d {path_str}")]).await
+        run_command(
+            "cmd",
+            &["/c", "start", "cmd", "/K", &format!("cd /d {path_str}")],
+        )
+        .await
     } else {
         try_linux_terminal(&path_str).await
     }

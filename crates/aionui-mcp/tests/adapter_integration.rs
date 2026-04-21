@@ -79,8 +79,7 @@ impl McpAgentAdapter for InMemoryAdapter {
 
 #[tokio::test]
 async fn trait_object_safety_with_arc() {
-    let adapter: Arc<dyn McpAgentAdapter> =
-        Arc::new(InMemoryAdapter::new(McpSource::Claude, true));
+    let adapter: Arc<dyn McpAgentAdapter> = Arc::new(InMemoryAdapter::new(McpSource::Claude, true));
 
     assert_eq!(adapter.source(), McpSource::Claude);
     assert!(adapter.is_installed().await.unwrap());
@@ -178,10 +177,8 @@ async fn not_installed_errors() {
 
 #[tokio::test]
 async fn multiple_adapters_independent() {
-    let claude: Arc<dyn McpAgentAdapter> =
-        Arc::new(InMemoryAdapter::new(McpSource::Claude, true));
-    let gemini: Arc<dyn McpAgentAdapter> =
-        Arc::new(InMemoryAdapter::new(McpSource::Gemini, true));
+    let claude: Arc<dyn McpAgentAdapter> = Arc::new(InMemoryAdapter::new(McpSource::Claude, true));
+    let gemini: Arc<dyn McpAgentAdapter> = Arc::new(InMemoryAdapter::new(McpSource::Gemini, true));
 
     let transport = McpServerTransport::Stdio {
         command: "npx".into(),

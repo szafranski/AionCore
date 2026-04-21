@@ -261,11 +261,7 @@ mod tests {
 
     // -- helpers --
 
-    fn make_server(
-        name: &str,
-        enabled: bool,
-        transport: McpServerTransport,
-    ) -> McpServer {
+    fn make_server(name: &str, enabled: bool, transport: McpServerTransport) -> McpServer {
         McpServer {
             id: format!("mcp_{name}"),
             name: name.into(),
@@ -426,11 +422,7 @@ mod tests {
         let result = convert_server(&server, &all_caps());
         assert!(result.is_some());
         match result.unwrap() {
-            AcpSessionMcpServer::Http {
-                name,
-                url,
-                headers,
-            } => {
+            AcpSessionMcpServer::Http { name, url, headers } => {
                 assert_eq!(name, "http-test");
                 assert_eq!(url, "https://example.com/mcp");
                 assert_eq!(headers.len(), 1);
@@ -465,12 +457,10 @@ mod tests {
             http: false,
             sse: false,
         };
-        let http_server =
-            make_server("http-test", true, http_transport("https://example.com/mcp"));
+        let http_server = make_server("http-test", true, http_transport("https://example.com/mcp"));
         assert!(convert_server(&http_server, &stdio_only).is_none());
 
-        let sse_server =
-            make_server("sse-test", true, sse_transport("https://example.com/sse"));
+        let sse_server = make_server("sse-test", true, sse_transport("https://example.com/sse"));
         assert!(convert_server(&sse_server, &stdio_only).is_none());
     }
 

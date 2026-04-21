@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::Duration;
 
 use aionui_common::{
@@ -139,7 +139,8 @@ impl AcpAgentManager {
 
         // Take the pre-subscribed receiver (created before background tasks start)
         // to guarantee no events are lost.
-        let raw_rx = process.take_initial_receiver()
+        let raw_rx = process
+            .take_initial_receiver()
             .expect("Initial receiver should be available immediately after spawn");
         let (event_tx, _) = broadcast::channel(256);
 
@@ -389,9 +390,10 @@ impl AcpAgentManager {
 
         // Inject enabled skills from config
         if !self.config.enabled_skills.is_empty() {
-            payload["data"]["enabledSkills"] =
-                serde_json::to_value(&self.config.enabled_skills)
-                    .map_err(|e| AppError::Internal(format!("Failed to serialize enabled skills: {e}")))?;
+            payload["data"]["enabledSkills"] = serde_json::to_value(&self.config.enabled_skills)
+                .map_err(|e| {
+                    AppError::Internal(format!("Failed to serialize enabled skills: {e}"))
+                })?;
         }
 
         // Inject session mode if configured
@@ -692,7 +694,11 @@ impl AcpAgentManager {
     /// Replaces an existing confirmation with the same `call_id`, or appends.
     pub async fn add_confirmation(&self, confirmation: Confirmation) {
         let mut guard = self.state.write().await;
-        if let Some(existing) = guard.confirmations.iter_mut().find(|c| c.call_id == confirmation.call_id) {
+        if let Some(existing) = guard
+            .confirmations
+            .iter_mut()
+            .find(|c| c.call_id == confirmation.call_id)
+        {
             *existing = confirmation;
         } else {
             guard.confirmations.push(confirmation);
@@ -702,7 +708,10 @@ impl AcpAgentManager {
     /// Remove a confirmation by `call_id`.
     pub async fn remove_confirmation(&self, call_id: &str) -> Option<Confirmation> {
         let mut guard = self.state.write().await;
-        let pos = guard.confirmations.iter().position(|c| c.call_id == call_id);
+        let pos = guard
+            .confirmations
+            .iter()
+            .position(|c| c.call_id == call_id);
         pos.map(|i| guard.confirmations.remove(i))
     }
 }
@@ -737,8 +746,14 @@ mod tests {
 
     #[test]
     fn yolo_mode_for_backends() {
-        assert_eq!(yolo_mode_value(AcpBackend::Claude), Some("bypassPermissions"));
-        assert_eq!(yolo_mode_value(AcpBackend::CodeBuddy), Some("bypassPermissions"));
+        assert_eq!(
+            yolo_mode_value(AcpBackend::Claude),
+            Some("bypassPermissions")
+        );
+        assert_eq!(
+            yolo_mode_value(AcpBackend::CodeBuddy),
+            Some("bypassPermissions")
+        );
         assert_eq!(yolo_mode_value(AcpBackend::Qwen), Some("yolo"));
         assert_eq!(yolo_mode_value(AcpBackend::IFlow), Some("yolo"));
         assert_eq!(yolo_mode_value(AcpBackend::Kiro), None);
@@ -798,11 +813,8 @@ mod tests {
             session_mode: None,
             cron_job_id: None,
         };
-        let spawn = AcpAgentManager::build_spawn_config(
-            "/usr/bin/custom-agent",
-            "/custom/path",
-            &config,
-        );
+        let spawn =
+            AcpAgentManager::build_spawn_config("/usr/bin/custom-agent", "/custom/path", &config);
         assert_eq!(spawn.args, vec!["--custom-agent-id", "my-agent-123"]);
     }
 
@@ -1356,7 +1368,11 @@ mod tests {
                 AgentStreamEvent::AcpPermission(data) => {
                     if let Ok(conf) = serde_json::from_value::<Confirmation>(data.clone()) {
                         let mut guard = self.state.write().await;
-                        if let Some(existing) = guard.confirmations.iter_mut().find(|c| c.call_id == conf.call_id) {
+                        if let Some(existing) = guard
+                            .confirmations
+                            .iter_mut()
+                            .find(|c| c.call_id == conf.call_id)
+                        {
                             *existing = conf;
                         } else {
                             guard.confirmations.push(conf);
@@ -1389,7 +1405,11 @@ mod tests {
     impl ConfirmationHolder {
         async fn add_confirmation(&self, confirmation: Confirmation) {
             let mut guard = self.state.write().await;
-            if let Some(existing) = guard.confirmations.iter_mut().find(|c| c.call_id == confirmation.call_id) {
+            if let Some(existing) = guard
+                .confirmations
+                .iter_mut()
+                .find(|c| c.call_id == confirmation.call_id)
+            {
                 *existing = confirmation;
             } else {
                 guard.confirmations.push(confirmation);
@@ -1398,7 +1418,10 @@ mod tests {
 
         async fn remove_confirmation(&self, call_id: &str) -> Option<Confirmation> {
             let mut guard = self.state.write().await;
-            let pos = guard.confirmations.iter().position(|c| c.call_id == call_id);
+            let pos = guard
+                .confirmations
+                .iter()
+                .position(|c| c.call_id == call_id);
             pos.map(|i| guard.confirmations.remove(i))
         }
     }

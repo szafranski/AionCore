@@ -198,8 +198,8 @@ mod tests {
         let json = serde_json::to_value(&data).unwrap();
         assert_eq!(json["content"], "Hello");
         assert_eq!(json["msgId"], "msg-001");
-        assert_eq!(json["files"], json!([ "/tmp/a.txt" ]));
-        assert_eq!(json["injectSkills"], json!([ "review" ]));
+        assert_eq!(json["files"], json!(["/tmp/a.txt"]));
+        assert_eq!(json["injectSkills"], json!(["review"]));
 
         let parsed: SendMessageData = serde_json::from_value(json).unwrap();
         assert_eq!(parsed.content, "Hello");

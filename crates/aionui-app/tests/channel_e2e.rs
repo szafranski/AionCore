@@ -101,7 +101,12 @@ async fn enable_plugin_invalid_type() {
     let json = body_json(resp).await;
     let data = &json["data"];
     assert!(!data["success"].as_bool().unwrap());
-    assert!(data["error"].as_str().unwrap().contains("Invalid plugin type"));
+    assert!(
+        data["error"]
+            .as_str()
+            .unwrap()
+            .contains("Invalid plugin type")
+    );
 }
 
 // DP-3: Disable missing pluginId fails
@@ -446,10 +451,8 @@ async fn pairing_approve_creates_user() {
     let pool = services.database.pool().clone();
     let repo: std::sync::Arc<dyn aionui_db::IChannelRepository> =
         std::sync::Arc::new(aionui_db::SqliteChannelRepository::new(pool));
-    let pairing_svc = aionui_channel::pairing::PairingService::new(
-        repo.clone(),
-        services.event_bus.clone(),
-    );
+    let pairing_svc =
+        aionui_channel::pairing::PairingService::new(repo.clone(), services.event_bus.clone());
 
     let code = pairing_svc
         .request_pairing("tg_user_42", "telegram", Some("Alice"))
@@ -540,10 +543,8 @@ async fn pairing_reject_removes_from_pending() {
     let pool = services.database.pool().clone();
     let repo: std::sync::Arc<dyn aionui_db::IChannelRepository> =
         std::sync::Arc::new(aionui_db::SqliteChannelRepository::new(pool));
-    let pairing_svc = aionui_channel::pairing::PairingService::new(
-        repo.clone(),
-        services.event_bus.clone(),
-    );
+    let pairing_svc =
+        aionui_channel::pairing::PairingService::new(repo.clone(), services.event_bus.clone());
 
     let code = pairing_svc
         .request_pairing("tg_user_99", "telegram", None)

@@ -63,10 +63,7 @@ fn scan_and_cleanup(manager: &Arc<dyn IWorkerTaskManager>, threshold_ms: i64) {
         return;
     }
 
-    info!(
-        count = idle_ids.len(),
-        "Idle scan: cleaning up idle agents"
-    );
+    info!(count = idle_ids.len(), "Idle scan: cleaning up idle agents");
 
     for id in idle_ids {
         if let Err(e) = manager.kill(&id, Some(AgentKillReason::IdleTimeout)) {

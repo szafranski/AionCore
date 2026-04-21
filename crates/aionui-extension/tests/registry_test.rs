@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use aionui_extension::{
-    save_states_to_file, ExtensionManifest, ExtensionRegistry, ExtensionSource, ExtensionState,
-    ExtensionStateStore, LoadedExtension, ScanPath,
+    ExtensionManifest, ExtensionRegistry, ExtensionSource, ExtensionState, ExtensionStateStore,
+    LoadedExtension, ScanPath, save_states_to_file,
 };
 use aionui_realtime::BroadcastEventBus;
 use tempfile::TempDir;
@@ -257,11 +257,7 @@ async fn hr3_hot_reload_emits_registry_reloaded() {
     // Should receive at least one lifecycle event for REGISTRY_RELOADED.
     // Drain events until we find it (there may be EXTENSION_ACTIVATED events first).
     let mut found_reload = false;
-    while let Ok(msg) = tokio::time::timeout(
-        std::time::Duration::from_millis(500),
-        rx.recv(),
-    )
-    .await
+    while let Ok(msg) = tokio::time::timeout(std::time::Duration::from_millis(500), rx.recv()).await
     {
         if let Ok(msg) = msg {
             if msg.name == "extensions.lifecycle" && msg.data["event"] == "REGISTRY_RELOADED" {
@@ -300,7 +296,10 @@ async fn hr3_hot_reload_preserves_disabled_state() {
 
     let exts = registry.get_loaded_extensions().await;
     let enabled = exts.iter().find(|e| e.name == "enabled-ext").unwrap();
-    assert!(!enabled.enabled, "disabled state should persist through reload");
+    assert!(
+        !enabled.enabled,
+        "disabled state should persist through reload"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +363,10 @@ async fn sp_enable_disable_persists_through_reload() {
 
     let exts2 = registry2.get_loaded_extensions().await;
     assert!(!exts2.is_empty(), "second registry should find extensions");
-    assert!(!exts2[0].enabled, "disabled state should persist across restarts");
+    assert!(
+        !exts2[0].enabled,
+        "disabled state should persist across restarts"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -402,11 +404,7 @@ async fn enable_already_enabled_is_noop() {
     registry.enable_extension("my-ext").await.unwrap();
 
     // No stateChanged event expected — timeout means success.
-    let result = tokio::time::timeout(
-        std::time::Duration::from_millis(100),
-        rx.recv(),
-    )
-    .await;
+    let result = tokio::time::timeout(std::time::Duration::from_millis(100), rx.recv()).await;
     assert!(result.is_err(), "no event expected for no-op enable");
 }
 

@@ -1,15 +1,14 @@
 use std::sync::Arc;
 
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Path, State};
 use axum::routing::{get, post, put};
-use axum::Router;
 
 use aionui_api_types::{
-    AcpAgentInfo, AcpEnvResponse, AcpHealthCheckRequest, AcpHealthCheckResponse,
-    AcpModeResponse, ApiResponse, DetectCliRequest, DetectCliResponse, ProbeModelRequest,
-    SetConfigOptionRequest, SetModeRequest, SetModelRequest, TestCustomAgentRequest,
-    TestCustomAgentResponse,
+    AcpAgentInfo, AcpEnvResponse, AcpHealthCheckRequest, AcpHealthCheckResponse, AcpModeResponse,
+    ApiResponse, DetectCliRequest, DetectCliResponse, ProbeModelRequest, SetConfigOptionRequest,
+    SetModeRequest, SetModelRequest, TestCustomAgentRequest, TestCustomAgentResponse,
 };
 use aionui_auth::CurrentUser;
 use aionui_common::{AgentType, AppError};
@@ -254,7 +253,6 @@ async fn set_config_option(
     let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
     let handle = require_acp_task(&state, &params.id)?;
     let acp = downcast_acp(&handle)?;
-    acp.set_config_option(&params.config_id, &req.value)
-        .await?;
+    acp.set_config_option(&params.config_id, &req.value).await?;
     Ok(Json(ApiResponse::success()))
 }

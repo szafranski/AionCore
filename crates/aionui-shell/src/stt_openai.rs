@@ -72,10 +72,7 @@ pub async fn transcribe(
         .await
         .map_err(|e| SttError::RequestFailed(format!("failed to parse OpenAI response: {e}")))?;
 
-    let text = body["text"]
-        .as_str()
-        .unwrap_or("")
-        .to_owned();
+    let text = body["text"].as_str().unwrap_or("").to_owned();
 
     Ok(SpeechToTextResult {
         text,

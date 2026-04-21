@@ -1,6 +1,6 @@
 use dashmap::DashMap;
 
-use aionui_common::{now_ms, TimestampMs};
+use aionui_common::{TimestampMs, now_ms};
 
 const IDLE_CLEANUP_THRESHOLD_MS: i64 = 3_600_000; // 1 hour
 

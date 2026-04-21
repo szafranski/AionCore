@@ -10,12 +10,7 @@ pub trait MessageRouter: Send + Sync {
     ///
     /// Called for any message whose `name` is not handled internally
     /// by the WebSocket layer (i.e. not `pong` or `subscribe-show-open`).
-    fn route(
-        &self,
-        conn_id: ConnectionId,
-        name: &str,
-        data: serde_json::Value,
-    );
+    fn route(&self, conn_id: ConnectionId, name: &str, data: serde_json::Value);
 }
 
 /// A no-op message router that silently discards all messages.
@@ -24,12 +19,7 @@ pub trait MessageRouter: Send + Sync {
 pub struct NoopMessageRouter;
 
 impl MessageRouter for NoopMessageRouter {
-    fn route(
-        &self,
-        conn_id: ConnectionId,
-        name: &str,
-        _data: serde_json::Value,
-    ) {
+    fn route(&self, conn_id: ConnectionId, name: &str, _data: serde_json::Value) {
         tracing::debug!(
             %conn_id,
             message_name = name,

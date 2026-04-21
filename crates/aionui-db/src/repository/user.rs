@@ -34,11 +34,7 @@ pub trait IUserRepository: Send + Sync {
     /// Creates a new user and returns the inserted row.
     ///
     /// Returns `DbError::Conflict` if the username already exists.
-    async fn create_user(
-        &self,
-        username: &str,
-        password_hash: &str,
-    ) -> Result<User, DbError>;
+    async fn create_user(&self, username: &str, password_hash: &str) -> Result<User, DbError>;
 
     /// Finds a user by username.
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, DbError>;
@@ -53,28 +49,16 @@ pub trait IUserRepository: Send + Sync {
     async fn count_users(&self) -> Result<i64, DbError>;
 
     /// Updates a user's password hash.
-    async fn update_password(
-        &self,
-        user_id: &str,
-        password_hash: &str,
-    ) -> Result<(), DbError>;
+    async fn update_password(&self, user_id: &str, password_hash: &str) -> Result<(), DbError>;
 
     /// Updates a user's username.
     ///
     /// Returns `DbError::Conflict` if the new username already exists.
-    async fn update_username(
-        &self,
-        user_id: &str,
-        username: &str,
-    ) -> Result<(), DbError>;
+    async fn update_username(&self, user_id: &str, username: &str) -> Result<(), DbError>;
 
     /// Updates a user's last login timestamp to the current time.
     async fn update_last_login(&self, user_id: &str) -> Result<(), DbError>;
 
     /// Updates a user's JWT secret.
-    async fn update_jwt_secret(
-        &self,
-        user_id: &str,
-        jwt_secret: &str,
-    ) -> Result<(), DbError>;
+    async fn update_jwt_secret(&self, user_id: &str, jwt_secret: &str) -> Result<(), DbError>;
 }

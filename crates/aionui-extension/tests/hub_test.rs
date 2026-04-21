@@ -30,8 +30,7 @@ fn setup() -> TestHarness {
     let bus = Arc::new(BroadcastEventBus::new(64));
     let registry = ExtensionRegistry::new(store, bus, "1.0.0".into());
 
-    let index_manager =
-        HubIndexManager::new(hub_dir.path().to_path_buf(), registry.clone());
+    let index_manager = HubIndexManager::new(hub_dir.path().to_path_buf(), registry.clone());
     let installer = HubInstaller::new(index_manager.clone(), registry.clone());
 
     TestHarness {
@@ -126,11 +125,7 @@ async fn hm2_install_extension_with_valid_directory() {
             "version": "1.0.0",
         })],
     );
-    write_extension_manifest(
-        &h.hub_dir.path().join("my-ext"),
-        "my-ext",
-        "1.0.0",
-    );
+    write_extension_manifest(&h.hub_dir.path().join("my-ext"), "my-ext", "1.0.0");
 
     let result = h.installer.install("my-ext").await;
     assert!(result.success, "install should succeed: {:?}", result.msg);
@@ -189,11 +184,7 @@ async fn hm4_retry_install_succeeds_after_directory_created() {
     assert!(!result.success);
 
     // Create the directory, then retry.
-    write_extension_manifest(
-        &h.hub_dir.path().join("retry-ext"),
-        "retry-ext",
-        "1.0.0",
-    );
+    write_extension_manifest(&h.hub_dir.path().join("retry-ext"), "retry-ext", "1.0.0");
 
     let result = h.installer.retry_install("retry-ext").await;
     assert!(result.success);
@@ -267,11 +258,7 @@ async fn hm6_update_extension() {
         })],
     );
     // Extension directory exists with a valid manifest.
-    write_extension_manifest(
-        &h.hub_dir.path().join("upd-ext"),
-        "upd-ext",
-        "2.0.0",
-    );
+    write_extension_manifest(&h.hub_dir.path().join("upd-ext"), "upd-ext", "2.0.0");
 
     let result = h.installer.update("upd-ext").await;
     assert!(result.success, "update should succeed: {:?}", result.msg);
@@ -342,11 +329,7 @@ async fn verify_installation_catches_invalid_manifest() {
     let h = setup();
     let ext_dir = h.hub_dir.path().join("bad-ext");
     std::fs::create_dir_all(&ext_dir).unwrap();
-    std::fs::write(
-        ext_dir.join("aion-extension.json"),
-        b"not valid json",
-    )
-    .unwrap();
+    std::fs::write(ext_dir.join("aion-extension.json"), b"not valid json").unwrap();
 
     let result = h.installer.verify_installation(&ext_dir);
     assert!(result.is_err());

@@ -6,16 +6,16 @@
 
 use std::sync::Arc;
 
-use axum::body::Body;
-use axum::http::{header, Request, StatusCode};
 use axum::Router;
+use axum::body::Body;
+use axum::http::{Request, StatusCode, header};
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
 use aionui_auth::{
-    auth_routes, hash_password, AuthRouterState, CookieConfig, JwtService, QrTokenStore,
+    AuthRouterState, CookieConfig, JwtService, QrTokenStore, auth_routes, hash_password,
 };
-use aionui_db::{init_database_memory, IUserRepository, SqliteUserRepository};
+use aionui_db::{IUserRepository, SqliteUserRepository, init_database_memory};
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -139,7 +139,12 @@ async fn t4_1_login_success() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     // Check Set-Cookie header
-    let set_cookie = resp.headers().get(header::SET_COOKIE).unwrap().to_str().unwrap();
+    let set_cookie = resp
+        .headers()
+        .get(header::SET_COOKIE)
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(set_cookie.contains("aionui-session="));
     assert!(set_cookie.contains("HttpOnly"));
 
@@ -238,7 +243,12 @@ async fn t5_1_logout_success() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     // Cookie should be cleared
-    let set_cookie = resp.headers().get(header::SET_COOKIE).unwrap().to_str().unwrap();
+    let set_cookie = resp
+        .headers()
+        .get(header::SET_COOKIE)
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(set_cookie.contains("Max-Age=0"));
 
     let json = body_json(resp).await;
@@ -592,7 +602,12 @@ async fn t11_1_qr_login_success() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     // Check Set-Cookie
-    let set_cookie = resp.headers().get(header::SET_COOKIE).unwrap().to_str().unwrap();
+    let set_cookie = resp
+        .headers()
+        .get(header::SET_COOKIE)
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(set_cookie.contains("aionui-session="));
 
     let json = body_json(resp).await;
@@ -657,6 +672,11 @@ async fn qr_login_page_returns_html() {
     let resp = app.oneshot(req).await.unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
-    let content_type = resp.headers().get("content-type").unwrap().to_str().unwrap();
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap();
     assert!(content_type.contains("text/html"));
 }

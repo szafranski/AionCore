@@ -41,10 +41,7 @@ async fn start_app() -> TestApp {
 
 /// Sign a valid JWT token for testing.
 fn sign_token(app: &TestApp, user_id: &str) -> String {
-    app.services
-        .jwt_service
-        .sign(user_id, "testuser")
-        .unwrap()
+    app.services.jwt_service.sign(user_id, "testuser").unwrap()
 }
 
 /// Connect with an Authorization: Bearer header.
@@ -79,9 +76,7 @@ async fn connect_bearer(
         .body(())
         .unwrap();
 
-    let (ws, _) = tokio_tungstenite::connect_async(request)
-        .await
-        .unwrap();
+    let (ws, _) = tokio_tungstenite::connect_async(request).await.unwrap();
     ws.split()
 }
 
@@ -117,9 +112,7 @@ async fn connect_cookie(
         .body(())
         .unwrap();
 
-    let (ws, _) = tokio_tungstenite::connect_async(request)
-        .await
-        .unwrap();
+    let (ws, _) = tokio_tungstenite::connect_async(request).await.unwrap();
     ws.split()
 }
 
@@ -155,18 +148,14 @@ async fn connect_protocol(
         .body(())
         .unwrap();
 
-    let (ws, _) = tokio_tungstenite::connect_async(request)
-        .await
-        .unwrap();
+    let (ws, _) = tokio_tungstenite::connect_async(request).await.unwrap();
     ws.split()
 }
 
 /// Connect with no auth headers at all.
 async fn connect_no_auth(
     addr: SocketAddr,
-) -> tokio_tungstenite::WebSocketStream<
-    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-> {
+) -> tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>> {
     let url = format!("ws://{addr}/ws");
     let (ws, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
     ws
@@ -175,8 +164,7 @@ async fn connect_no_auth(
 /// Read the next text message within a timeout, returning parsed JSON.
 async fn read_text<S>(stream: &mut S) -> Value
 where
-    S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>>
-        + Unpin,
+    S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>> + Unpin,
 {
     let timeout = Duration::from_secs(5);
     tokio::time::timeout(timeout, async {
@@ -205,8 +193,7 @@ where
 /// Read until a close frame is received, returning the close code.
 async fn read_close<S>(stream: &mut S) -> Option<u16>
 where
-    S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>>
-        + Unpin,
+    S: StreamExt<Item = Result<tungstenite::Message, tungstenite::Error>> + Unpin,
 {
     let timeout = Duration::from_secs(5);
     tokio::time::timeout(timeout, async {
@@ -309,13 +296,12 @@ async fn t3_1_valid_json_message_accepted() {
     tx.send(send_json(&msg.to_string())).await.unwrap();
 
     // No error response expected — verify with a short timeout
-    let timeout_result = tokio::time::timeout(
-        Duration::from_millis(200),
-        _rx.into_future(),
-    )
-    .await;
+    let timeout_result = tokio::time::timeout(Duration::from_millis(200), _rx.into_future()).await;
     // Timeout (no response) is expected for valid messages routed to NoopMessageRouter
-    assert!(timeout_result.is_err(), "valid message should not generate a response");
+    assert!(
+        timeout_result.is_err(),
+        "valid message should not generate a response"
+    );
 }
 
 #[tokio::test]
@@ -392,12 +378,11 @@ async fn t4_2_unicast_reaches_only_target() {
     let received = read_text(&mut rx1).await;
     assert_eq!(received["name"], "unicast-test");
 
-    let timeout_result = tokio::time::timeout(
-        Duration::from_millis(200),
-        rx2.next(),
-    )
-    .await;
-    assert!(timeout_result.is_err(), "rx2 should not receive the unicast");
+    let timeout_result = tokio::time::timeout(Duration::from_millis(200), rx2.next()).await;
+    assert!(
+        timeout_result.is_err(),
+        "rx2 should not receive the unicast"
+    );
 }
 
 #[tokio::test]
@@ -440,9 +425,11 @@ async fn t5_1_pong_does_not_generate_response() {
     let pong = json!({"name": "pong", "data": {}});
     tx.send(send_json(&pong.to_string())).await.unwrap();
 
-    let timeout_result =
-        tokio::time::timeout(Duration::from_millis(200), rx.next()).await;
-    assert!(timeout_result.is_err(), "pong should not generate a response");
+    let timeout_result = tokio::time::timeout(Duration::from_millis(200), rx.next()).await;
+    assert!(
+        timeout_result.is_err(),
+        "pong should not generate a response"
+    );
 }
 
 #[tokio::test]
@@ -535,9 +522,9 @@ async fn t7_1_multiple_concurrent_connections() {
     for _ in 0..10 {
         let addr = app.addr;
         let tok = token.clone();
-        handles.push(tokio::spawn(async move {
-            connect_bearer(addr, &tok).await
-        }));
+        handles.push(tokio::spawn(
+            async move { connect_bearer(addr, &tok).await },
+        ));
     }
 
     let mut connections = Vec::new();

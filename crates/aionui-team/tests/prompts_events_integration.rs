@@ -274,16 +274,13 @@ async fn we1_agent_status_change_event() {
     ];
     let mgr = TeammateManager::new("t1".into(), &agents, mailbox, task_board, bc.clone());
 
-    mgr.set_status("w1", TeammateStatus::Working)
-        .await
-        .unwrap();
+    mgr.set_status("w1", TeammateStatus::Working).await.unwrap();
 
     let events = bc.events();
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].name, "team.agent.status");
 
-    let payload: TeamAgentStatusPayload =
-        serde_json::from_value(events[0].data.clone()).unwrap();
+    let payload: TeamAgentStatusPayload = serde_json::from_value(events[0].data.clone()).unwrap();
     assert_eq!(payload.team_id, "t1");
     assert_eq!(payload.slot_id, "w1");
     assert_eq!(payload.status, "working");
@@ -310,8 +307,7 @@ async fn we2_agent_spawned_event() {
         .collect();
     assert_eq!(spawned.len(), 1);
 
-    let payload: TeamAgentSpawnedPayload =
-        serde_json::from_value(spawned[0].data.clone()).unwrap();
+    let payload: TeamAgentSpawnedPayload = serde_json::from_value(spawned[0].data.clone()).unwrap();
     assert_eq!(payload.team_id, "t1");
     assert_eq!(payload.agent.slot_id, "w2");
     assert_eq!(payload.agent.name, "NewWorker");
@@ -340,8 +336,7 @@ async fn we3_agent_removed_event() {
         .collect();
     assert_eq!(removed.len(), 1);
 
-    let payload: TeamAgentRemovedPayload =
-        serde_json::from_value(removed[0].data.clone()).unwrap();
+    let payload: TeamAgentRemovedPayload = serde_json::from_value(removed[0].data.clone()).unwrap();
     assert_eq!(payload.team_id, "t1");
     assert_eq!(payload.slot_id, "w1");
 }
@@ -369,8 +364,7 @@ async fn we4_agent_renamed_event() {
         .collect();
     assert_eq!(renamed.len(), 1);
 
-    let payload: TeamAgentRenamedPayload =
-        serde_json::from_value(renamed[0].data.clone()).unwrap();
+    let payload: TeamAgentRenamedPayload = serde_json::from_value(renamed[0].data.clone()).unwrap();
     assert_eq!(payload.team_id, "t1");
     assert_eq!(payload.slot_id, "w1");
     assert_eq!(payload.name, "SuperWorker");

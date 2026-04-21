@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use aionui_common::{generate_id, now_ms};
-use aionui_db::models::TeamTaskRow;
-use aionui_db::UpdateTaskParams;
 use aionui_db::ITeamRepository;
+use aionui_db::UpdateTaskParams;
+use aionui_db::models::TeamTaskRow;
 use tracing::debug;
 
 use crate::error::TeamError;

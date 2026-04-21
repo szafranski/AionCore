@@ -25,9 +25,7 @@ use crate::types::{LoadedExtension, ResolvedContributions};
 ///
 /// Failures in individual contribution types are logged and skipped —
 /// one broken theme does not block ACP adapter resolution.
-pub fn resolve_extension_contributions(
-    ext: &LoadedExtension,
-) -> ResolvedContributions {
+pub fn resolve_extension_contributions(ext: &LoadedExtension) -> ResolvedContributions {
     let ext_name = &ext.manifest.name;
     let ext_dir = Path::new(&ext.directory);
 
@@ -42,15 +40,8 @@ pub fn resolve_extension_contributions(
             ext_name,
             ext_dir,
         ),
-        mcp_servers: mcp_server::resolve_mcp_servers(
-            &contributes.mcp_servers,
-            ext_name,
-        ),
-        assistants: assistant::resolve_assistants(
-            &contributes.assistants,
-            ext_name,
-            ext_dir,
-        ),
+        mcp_servers: mcp_server::resolve_mcp_servers(&contributes.mcp_servers, ext_name),
+        assistants: assistant::resolve_assistants(&contributes.assistants, ext_name, ext_dir),
         agents: agent::resolve_agents(&contributes.agents, ext_name, ext_dir),
         skills: skill::resolve_skills(&contributes.skills, ext_name, ext_dir),
         themes: theme::resolve_themes(&contributes.themes, ext_name, ext_dir),
@@ -59,15 +50,8 @@ pub fn resolve_extension_contributions(
             ext_name,
             ext_dir,
         ),
-        webui: webui::resolve_webui_contributions(
-            &contributes.webui,
-            ext_name,
-            ext_dir,
-        ),
-        settings_tabs: settings_tab::resolve_settings_tabs(
-            &contributes.settings_tabs,
-            ext_name,
-        ),
+        webui: webui::resolve_webui_contributions(&contributes.webui, ext_name, ext_dir),
+        settings_tabs: settings_tab::resolve_settings_tabs(&contributes.settings_tabs, ext_name),
         model_providers: model_provider::resolve_model_providers(
             &contributes.model_providers,
             ext_name,
@@ -81,17 +65,12 @@ pub fn resolve_extension_contributions(
 /// Resolve contributions from all enabled extensions.
 ///
 /// Extensions that are disabled (`state.enabled == false`) are skipped.
-pub fn resolve_all_contributions(
-    extensions: &[LoadedExtension],
-) -> ResolvedContributions {
+pub fn resolve_all_contributions(extensions: &[LoadedExtension]) -> ResolvedContributions {
     let mut merged = ResolvedContributions::default();
 
     for ext in extensions {
         if !ext.state.enabled {
-            tracing::debug!(
-                extension = ext.manifest.name,
-                "Skipping disabled extension"
-            );
+            tracing::debug!(extension = ext.manifest.name, "Skipping disabled extension");
             continue;
         }
 

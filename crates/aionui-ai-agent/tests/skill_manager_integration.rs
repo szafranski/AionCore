@@ -12,9 +12,8 @@ use std::fs;
 use std::path::Path;
 
 use aionui_ai_agent::skill_manager::{
-    AcpSkillManager, build_skills_index_text, build_system_instructions,
-    detect_skill_load_request, prepare_first_message,
-    prepare_first_message_with_skills_index,
+    AcpSkillManager, build_skills_index_text, build_system_instructions, detect_skill_load_request,
+    prepare_first_message, prepare_first_message_with_skills_index,
 };
 use tempfile::TempDir;
 
@@ -221,7 +220,13 @@ async fn lazy_load_skill_body_from_file() {
 
     let skill = mgr.get_skill("lazy-skill").await.unwrap();
     assert!(skill.body.is_some());
-    assert!(skill.body.as_deref().unwrap().contains("complete skill body"));
+    assert!(
+        skill
+            .body
+            .as_deref()
+            .unwrap()
+            .contains("complete skill body")
+    );
     assert!(skill.body.as_deref().unwrap().contains("multiple lines"));
 }
 
@@ -323,8 +328,7 @@ fn first_message_with_skills_index_for_acp() {
         name: "review".into(),
         description: "Code review".into(),
     }];
-    let result =
-        prepare_first_message_with_skills_index("Please review my code.", &skills, None);
+    let result = prepare_first_message_with_skills_index("Please review my code.", &skills, None);
 
     assert!(result.contains("[Assistant Rules]"));
     assert!(result.contains("- **review**: Code review"));

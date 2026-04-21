@@ -45,20 +45,12 @@ impl EventBroadcaster for NoopBroadcaster {
 }
 
 fn make_service(root: &std::path::Path) -> FileService {
-    FileService::new(
-        Arc::new(NoopBroadcaster),
-        vec![root.to_path_buf()],
-    )
+    FileService::new(Arc::new(NoopBroadcaster), vec![root.to_path_buf()])
 }
 
-fn make_service_with_recorder(
-    root: &std::path::Path,
-) -> (FileService, Arc<RecordingBroadcaster>) {
+fn make_service_with_recorder(root: &std::path::Path) -> (FileService, Arc<RecordingBroadcaster>) {
     let recorder = Arc::new(RecordingBroadcaster::new());
-    let svc = FileService::new(
-        recorder.clone(),
-        vec![root.to_path_buf()],
-    );
+    let svc = FileService::new(recorder.clone(), vec![root.to_path_buf()]);
     (svc, recorder)
 }
 
@@ -78,21 +70,14 @@ async fn copy_files_single_file() {
     let svc = make_service(dir.path());
     let paths = vec![src_dir.join("a.txt").to_string_lossy().into_owned()];
     let result = svc
-        .copy_files_to_workspace(
-            &paths,
-            ws_dir.to_str().unwrap(),
-            None,
-        )
+        .copy_files_to_workspace(&paths, ws_dir.to_str().unwrap(), None)
         .await
         .unwrap();
 
     assert_eq!(result.copied_files.len(), 1);
     assert!(result.failed_files.is_empty());
     // Without source_root, file should be at workspace root
-    assert_eq!(
-        fs::read_to_string(ws_dir.join("a.txt")).unwrap(),
-        "hello"
-    );
+    assert_eq!(fs::read_to_string(ws_dir.join("a.txt")).unwrap(), "hello");
 }
 
 #[tokio::test]
@@ -111,10 +96,7 @@ async fn copy_files_with_source_root_preserves_structure() {
             .join("utils/helper.ts")
             .to_string_lossy()
             .into_owned(),
-        src_dir
-            .join("index.ts")
-            .to_string_lossy()
-            .into_owned(),
+        src_dir.join("index.ts").to_string_lossy().into_owned(),
     ];
 
     let result = svc
@@ -150,22 +132,12 @@ async fn copy_files_partial_failure() {
 
     let svc = make_service(dir.path());
     let paths = vec![
-        src_dir
-            .join("good.txt")
-            .to_string_lossy()
-            .into_owned(),
-        src_dir
-            .join("missing.txt")
-            .to_string_lossy()
-            .into_owned(),
+        src_dir.join("good.txt").to_string_lossy().into_owned(),
+        src_dir.join("missing.txt").to_string_lossy().into_owned(),
     ];
 
     let result = svc
-        .copy_files_to_workspace(
-            &paths,
-            ws_dir.to_str().unwrap(),
-            None,
-        )
+        .copy_files_to_workspace(&paths, ws_dir.to_str().unwrap(), None)
         .await
         .unwrap();
 
@@ -182,11 +154,7 @@ async fn copy_files_empty_list() {
 
     let svc = make_service(dir.path());
     let result = svc
-        .copy_files_to_workspace(
-            &[],
-            ws_dir.to_str().unwrap(),
-            None,
-        )
+        .copy_files_to_workspace(&[], ws_dir.to_str().unwrap(), None)
         .await
         .unwrap();
 
@@ -205,11 +173,7 @@ async fn copy_files_directory_in_list_is_failed() {
     let svc = make_service(dir.path());
     let paths = vec![sub.to_string_lossy().into_owned()];
     let result = svc
-        .copy_files_to_workspace(
-            &paths,
-            ws.to_str().unwrap(),
-            None,
-        )
+        .copy_files_to_workspace(&paths, ws.to_str().unwrap(), None)
         .await
         .unwrap();
 
@@ -227,15 +191,16 @@ async fn copy_files_outside_sandbox_fails() {
     fs::write(outside.path().join("secret.txt"), "secret").unwrap();
 
     let svc = make_service(sandbox.path());
-    let paths =
-        vec![outside.path().join("secret.txt").to_string_lossy().into_owned()];
+    let paths = vec![
+        outside
+            .path()
+            .join("secret.txt")
+            .to_string_lossy()
+            .into_owned(),
+    ];
 
     let result = svc
-        .copy_files_to_workspace(
-            &paths,
-            ws.to_str().unwrap(),
-            None,
-        )
+        .copy_files_to_workspace(&paths, ws.to_str().unwrap(), None)
         .await
         .unwrap();
 
@@ -256,9 +221,7 @@ async fn remove_entry_file() {
 
     let svc = make_service(dir.path());
     let ws = dir.path().to_str().unwrap();
-    svc.remove_entry(file.to_str().unwrap(), ws)
-        .await
-        .unwrap();
+    svc.remove_entry(file.to_str().unwrap(), ws).await.unwrap();
 
     assert!(!file.exists());
 }
@@ -272,9 +235,7 @@ async fn remove_entry_directory() {
 
     let svc = make_service(dir.path());
     let ws = dir.path().to_str().unwrap();
-    svc.remove_entry(sub.to_str().unwrap(), ws)
-        .await
-        .unwrap();
+    svc.remove_entry(sub.to_str().unwrap(), ws).await.unwrap();
 
     assert!(!sub.exists());
 }
@@ -299,9 +260,7 @@ async fn remove_entry_emits_delete_event() {
 
     let (svc, recorder) = make_service_with_recorder(dir.path());
     let ws = dir.path().to_str().unwrap();
-    svc.remove_entry(file.to_str().unwrap(), ws)
-        .await
-        .unwrap();
+    svc.remove_entry(file.to_str().unwrap(), ws).await.unwrap();
 
     let events = recorder.take_events();
     assert_eq!(events.len(), 1);
@@ -426,9 +385,7 @@ async fn rename_entry_nonexistent_source_errors() {
     let fake = dir.path().join("missing.txt");
 
     let svc = make_service(dir.path());
-    let result = svc
-        .rename_entry(fake.to_str().unwrap(), "new.txt")
-        .await;
+    let result = svc.rename_entry(fake.to_str().unwrap(), "new.txt").await;
 
     assert!(result.is_err());
 }
@@ -494,7 +451,10 @@ async fn create_temp_file_path_in_aionui_dir() {
     let svc = make_service(dir.path());
     let path = svc.create_temp_file("check.txt").await.unwrap();
 
-    assert!(path.contains("aionui"), "temp path should be under aionui dir");
+    assert!(
+        path.contains("aionui"),
+        "temp path should be under aionui dir"
+    );
 }
 
 #[tokio::test]

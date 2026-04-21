@@ -13,15 +13,14 @@ use aionui_ai_agent::agent_manager::AgentManagerHandle;
 use aionui_ai_agent::middleware::CronCreateParams;
 use aionui_ai_agent::types::BuildTaskOptions;
 use aionui_api_types::{
-    CronScheduleDto, CreateCronJobRequest, ListCronJobsQuery, SaveCronSkillRequest,
+    CreateCronJobRequest, CronScheduleDto, ListCronJobsQuery, SaveCronSkillRequest,
     UpdateCronJobRequest, WebSocketMessage,
 };
-use aionui_common::{now_ms, PaginatedResult, TimestampMs};
+use aionui_common::{PaginatedResult, TimestampMs, now_ms};
 use aionui_conversation::ConversationService;
 use aionui_db::{
-    init_database_memory, ConversationFilters, ConversationRowUpdate, ICronRepository,
-    IConversationRepository, MessageRowUpdate, MessageSearchRow, SortOrder,
-    SqliteCronRepository,
+    ConversationFilters, ConversationRowUpdate, IConversationRepository, ICronRepository,
+    MessageRowUpdate, MessageSearchRow, SortOrder, SqliteCronRepository, init_database_memory,
 };
 use aionui_realtime::EventBroadcaster;
 
@@ -236,12 +235,7 @@ async fn setup() -> (CronService, Arc<dyn ICronRepository>, Arc<MockBroadcaster>
     let scheduler = Arc::new(CronScheduler::new(Arc::new(|_| {})));
 
     let emitter = CronEventEmitter::new(bc.clone() as Arc<dyn EventBroadcaster>);
-    let svc = CronService::new(
-        cron_repo.clone(),
-        scheduler,
-        executor,
-        emitter,
-    );
+    let svc = CronService::new(cron_repo.clone(), scheduler, executor, emitter);
 
     std::mem::forget(db);
     (svc, cron_repo, bc)
@@ -366,10 +360,7 @@ async fn cj6_list_all_jobs() {
             .unwrap();
     }
 
-    let jobs = svc
-        .list_jobs(&ListCronJobsQuery::default())
-        .await
-        .unwrap();
+    let jobs = svc.list_jobs(&ListCronJobsQuery::default()).await.unwrap();
     assert!(jobs.len() >= 3);
 }
 
@@ -623,10 +614,7 @@ async fn sk6_save_skill_nonexistent() {
         )
         .await
         .unwrap_err();
-    assert!(matches!(
-        err,
-        aionui_cron::error::CronError::JobNotFound(_)
-    ));
+    assert!(matches!(err, aionui_cron::error::CronError::JobNotFound(_)));
 }
 
 // ── SK-7: Delete skill on job removal ─────────────────────────────
@@ -971,10 +959,7 @@ async fn cd1_cascade_delete_by_conversation() {
     assert!(svc.get_job(&job_a.id).await.is_err());
     assert!(svc.get_job(&job_b.id).await.is_err());
 
-    let remaining = svc
-        .list_jobs(&ListCronJobsQuery::default())
-        .await
-        .unwrap();
+    let remaining = svc.list_jobs(&ListCronJobsQuery::default()).await.unwrap();
     assert_eq!(remaining.len(), 1, "only the unrelated job should remain");
 
     let events = bc.take_events();
@@ -1004,10 +989,7 @@ async fn cd2_cascade_delete_no_matching_jobs() {
         "no events should be emitted when no jobs match"
     );
 
-    let all = svc
-        .list_jobs(&ListCronJobsQuery::default())
-        .await
-        .unwrap();
+    let all = svc.list_jobs(&ListCronJobsQuery::default()).await.unwrap();
     assert_eq!(all.len(), 1, "existing job should remain untouched");
 }
 

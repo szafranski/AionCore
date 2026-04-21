@@ -81,13 +81,15 @@ impl RotatingClient {
         let mut last_error = String::new();
 
         for attempt in 0..=self.max_retries {
-            let key = self.key_manager.get_available_key().await.ok_or(
-                if attempt == 0 {
+            let key = self
+                .key_manager
+                .get_available_key()
+                .await
+                .ok_or(if attempt == 0 {
                     ApiClientError::NoKeysConfigured
                 } else {
                     ApiClientError::AllKeysExhausted
-                },
-            )?;
+                })?;
 
             let request = build_request(&self.http_client, &self.base_url, &key);
 
@@ -108,8 +110,7 @@ impl RotatingClient {
                     if retryable && attempt < self.max_retries {
                         warn!(
                             status = status_code,
-                            attempt,
-                            "retryable error, rotating key"
+                            attempt, "retryable error, rotating key"
                         );
                         self.key_manager.blacklist_current().await;
                         last_error = format!("HTTP {status_code}: {body}");
@@ -138,10 +139,7 @@ impl RotatingClient {
             }
         }
 
-        debug!(
-            attempts = self.max_retries + 1,
-            "max retries exceeded"
-        );
+        debug!(attempts = self.max_retries + 1, "max retries exceeded");
         Err(ApiClientError::MaxRetriesExceeded {
             attempts: self.max_retries + 1,
             last_error,

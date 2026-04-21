@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use aionui_common::{AgentKillReason, AgentType, AppError, ConversationStatus, TimestampMs, now_ms};
+use aionui_common::{
+    AgentKillReason, AgentType, AppError, ConversationStatus, TimestampMs, now_ms,
+};
 use dashmap::DashMap;
 use tracing::info;
 
@@ -251,7 +253,9 @@ mod tests {
     #[test]
     fn get_or_build_creates_task() {
         let mgr = make_manager();
-        let handle = mgr.get_or_build_task("conv-1", make_options("conv-1")).unwrap();
+        let handle = mgr
+            .get_or_build_task("conv-1", make_options("conv-1"))
+            .unwrap();
         assert_eq!(handle.conversation_id(), "conv-1");
         assert_eq!(mgr.active_count(), 1);
     }
@@ -259,8 +263,12 @@ mod tests {
     #[test]
     fn get_or_build_returns_existing() {
         let mgr = make_manager();
-        let h1 = mgr.get_or_build_task("conv-1", make_options("conv-1")).unwrap();
-        let h2 = mgr.get_or_build_task("conv-1", make_options("conv-1")).unwrap();
+        let h1 = mgr
+            .get_or_build_task("conv-1", make_options("conv-1"))
+            .unwrap();
+        let h2 = mgr
+            .get_or_build_task("conv-1", make_options("conv-1"))
+            .unwrap();
         assert!(Arc::ptr_eq(&h1, &h2));
         assert_eq!(mgr.active_count(), 1);
     }
@@ -268,7 +276,8 @@ mod tests {
     #[test]
     fn get_task_finds_existing() {
         let mgr = make_manager();
-        mgr.get_or_build_task("conv-1", make_options("conv-1")).unwrap();
+        mgr.get_or_build_task("conv-1", make_options("conv-1"))
+            .unwrap();
         let handle = mgr.get_task("conv-1");
         assert!(handle.is_some());
         assert_eq!(handle.unwrap().conversation_id(), "conv-1");
@@ -277,10 +286,12 @@ mod tests {
     #[test]
     fn kill_removes_task() {
         let mgr = make_manager();
-        mgr.get_or_build_task("conv-1", make_options("conv-1")).unwrap();
+        mgr.get_or_build_task("conv-1", make_options("conv-1"))
+            .unwrap();
         assert_eq!(mgr.active_count(), 1);
 
-        mgr.kill("conv-1", Some(AgentKillReason::IdleTimeout)).unwrap();
+        mgr.kill("conv-1", Some(AgentKillReason::IdleTimeout))
+            .unwrap();
         assert_eq!(mgr.active_count(), 0);
         assert!(mgr.get_task("conv-1").is_none());
     }
@@ -294,8 +305,10 @@ mod tests {
     #[test]
     fn clear_removes_all() {
         let mgr = make_manager();
-        mgr.get_or_build_task("conv-1", make_options("conv-1")).unwrap();
-        mgr.get_or_build_task("conv-2", make_options("conv-2")).unwrap();
+        mgr.get_or_build_task("conv-1", make_options("conv-1"))
+            .unwrap();
+        mgr.get_or_build_task("conv-2", make_options("conv-2"))
+            .unwrap();
         assert_eq!(mgr.active_count(), 2);
 
         mgr.clear();

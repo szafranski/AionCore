@@ -466,8 +466,11 @@ fn action_category_prefix(action: &str) -> &'static str {
 }
 
 /// Parsed callback data: (category, action, params).
-pub(crate) type ParsedCallback =
-    (String, String, Option<std::collections::HashMap<String, String>>);
+pub(crate) type ParsedCallback = (
+    String,
+    String,
+    Option<std::collections::HashMap<String, String>>,
+);
 
 /// Parse a DingTalk card button value string back to (category, action, params).
 ///
@@ -621,7 +624,10 @@ mod tests {
         });
         let frame: StreamFrame = serde_json::from_value(raw).unwrap();
         assert_eq!(frame.frame_type, "CALLBACK");
-        assert_eq!(frame.headers.topic.as_deref(), Some("/v1.0/im/bot/messages/get"));
+        assert_eq!(
+            frame.headers.topic.as_deref(),
+            Some("/v1.0/im/bot/messages/get")
+        );
         assert_eq!(frame.headers.message_id.as_deref(), Some("msg_123"));
     }
 
@@ -653,7 +659,10 @@ mod tests {
         let cb: BotMessageCallback = serde_json::from_value(raw).unwrap();
         assert_eq!(cb.conversation_id.as_deref(), Some("cid_group1"));
         assert_eq!(cb.msgtype.as_deref(), Some("text"));
-        assert_eq!(cb.text.as_ref().unwrap().content.as_deref(), Some("Hello bot"));
+        assert_eq!(
+            cb.text.as_ref().unwrap().content.as_deref(),
+            Some("Hello bot")
+        );
         assert_eq!(cb.sender_staff_id.as_deref(), Some("staff_1"));
         assert_eq!(cb.session_webhook.is_some(), true);
         assert_eq!(cb.conversation_type.as_deref(), Some("2"));
@@ -760,7 +769,10 @@ mod tests {
         };
         let json = serde_json::to_value(&req).unwrap();
         assert_eq!(json["subscriptions"][0]["type"], "EVENT");
-        assert_eq!(json["subscriptions"][0]["topic"], "/v1.0/im/bot/messages/get");
+        assert_eq!(
+            json["subscriptions"][0]["topic"],
+            "/v1.0/im/bot/messages/get"
+        );
     }
 
     #[test]
@@ -819,7 +831,9 @@ mod tests {
     fn session_webhook_request_serializes() {
         let req = SessionWebhookRequest {
             msgtype: "text".into(),
-            text: Some(WebhookText { content: "Hi".into() }),
+            text: Some(WebhookText {
+                content: "Hi".into(),
+            }),
             markdown: None,
         };
         let json = serde_json::to_value(&req).unwrap();

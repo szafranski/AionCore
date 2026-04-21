@@ -28,7 +28,9 @@ pub enum ExtensionError {
         actual: String,
     },
 
-    #[error("API version incompatible: extension '{name}' requires API {required}, supported {supported}")]
+    #[error(
+        "API version incompatible: extension '{name}' requires API {required}, supported {supported}"
+    )]
     ApiVersionIncompatible {
         name: String,
         required: String,
@@ -53,7 +55,9 @@ pub enum ExtensionError {
         reason: String,
     },
 
-    #[error("Lifecycle hook '{hook}' timed out after {timeout_secs}s for extension '{extension_name}'")]
+    #[error(
+        "Lifecycle hook '{hook}' timed out after {timeout_secs}s for extension '{extension_name}'"
+    )]
     HookTimeout {
         extension_name: String,
         hook: String,
@@ -108,9 +112,7 @@ impl From<ExtensionError> for AppError {
                 AppError::BadRequest(format!("Path traversal detected: {path}"))
             }
             ExtensionError::EngineIncompatible { .. } => AppError::BadRequest(err.to_string()),
-            ExtensionError::ApiVersionIncompatible { .. } => {
-                AppError::BadRequest(err.to_string())
-            }
+            ExtensionError::ApiVersionIncompatible { .. } => AppError::BadRequest(err.to_string()),
             ExtensionError::InvalidWebuiRouteNamespace { .. } => {
                 AppError::BadRequest(err.to_string())
             }
@@ -150,7 +152,10 @@ mod tests {
     #[test]
     fn test_manifest_validation_error_display() {
         let err = ExtensionError::ManifestValidation("name is required".into());
-        assert_eq!(err.to_string(), "Manifest validation failed: name is required");
+        assert_eq!(
+            err.to_string(),
+            "Manifest validation failed: name is required"
+        );
     }
 
     #[test]
@@ -195,10 +200,7 @@ mod tests {
     #[test]
     fn test_path_traversal_error_display() {
         let err = ExtensionError::PathTraversal("../../etc/passwd".into());
-        assert_eq!(
-            err.to_string(),
-            "Path traversal detected: ../../etc/passwd"
-        );
+        assert_eq!(err.to_string(), "Path traversal detected: ../../etc/passwd");
     }
 
     #[test]

@@ -2,18 +2,14 @@ use std::sync::Arc;
 
 use aionui_ai_agent::{AgentStreamEvent, IWorkerTaskManager};
 use aionui_api_types::{CreateConversationRequest, SendMessageRequest};
-use aionui_common::{
-    generate_id, AgentType, ConversationSource, ProviderWithModel,
-};
+use aionui_common::{AgentType, ConversationSource, ProviderWithModel, generate_id};
 use aionui_conversation::ConversationService;
 use aionui_db::models::AssistantSessionRow;
 use tracing::{debug, info, warn};
 
 use crate::constants::{STREAM_THROTTLE_INTERVAL, TOOL_CONFIRM_TIMEOUT};
 use crate::error::ChannelError;
-use crate::types::{
-    ActionButton, OutgoingMessageType, PluginType, UnifiedOutgoingMessage,
-};
+use crate::types::{ActionButton, OutgoingMessageType, PluginType, UnifiedOutgoingMessage};
 
 /// Bridges channel messages to the conversation + AI agent layer.
 ///
@@ -137,28 +133,16 @@ impl ChannelMessageService {
     ///
     /// Returns `None` for events that don't need to be sent to the user
     /// (e.g., internal status updates, thinking traces).
-    pub fn process_stream_event(
-        event: &AgentStreamEvent,
-    ) -> Option<StreamAction> {
+    pub fn process_stream_event(event: &AgentStreamEvent) -> Option<StreamAction> {
         match event {
-            AgentStreamEvent::Text(data) => {
-                Some(StreamAction::AppendText(data.content.clone()))
-            }
-            AgentStreamEvent::Finish(_) => {
-                Some(StreamAction::Finish)
-            }
-            AgentStreamEvent::Error(data) => {
-                Some(StreamAction::Error(data.message.clone()))
-            }
-            AgentStreamEvent::Thinking(data) => {
-                Some(StreamAction::Thinking(data.content.clone()))
-            }
-            AgentStreamEvent::ToolCall(data) => {
-                Some(StreamAction::ToolCall {
-                    name: data.name.clone(),
-                    status: format!("{:?}", data.status),
-                })
-            }
+            AgentStreamEvent::Text(data) => Some(StreamAction::AppendText(data.content.clone())),
+            AgentStreamEvent::Finish(_) => Some(StreamAction::Finish),
+            AgentStreamEvent::Error(data) => Some(StreamAction::Error(data.message.clone())),
+            AgentStreamEvent::Thinking(data) => Some(StreamAction::Thinking(data.content.clone())),
+            AgentStreamEvent::ToolCall(data) => Some(StreamAction::ToolCall {
+                name: data.name.clone(),
+                status: format!("{:?}", data.status),
+            }),
             // Events that don't produce user-facing messages
             AgentStreamEvent::Start(_)
             | AgentStreamEvent::Tips(_)
@@ -316,8 +300,8 @@ fn parse_agent_type(s: &str) -> AgentType {
 mod tests {
     use super::*;
     use aionui_ai_agent::stream_event::{
-        ErrorEventData, FinishEventData, StartEventData, TextEventData,
-        ThinkingEventData, ToolCallEventData, ToolCallStatus,
+        ErrorEventData, FinishEventData, StartEventData, TextEventData, ThinkingEventData,
+        ToolCallEventData, ToolCallStatus,
     };
 
     // ── platform_to_source ─────────────────────────────────────────────

@@ -157,8 +157,12 @@ fn collect_idle_ignores_non_acp_agent_types() {
 
     // Build a factory that creates typed mocks (all finished + old)
     let factory: AgentFactory = Arc::new(move |opts: BuildTaskOptions| {
-        let mock = TypedMockAgent::new(opts.agent_type, &opts.conversation_id, Some(ConversationStatus::Finished))
-            .with_last_activity(old_ts);
+        let mock = TypedMockAgent::new(
+            opts.agent_type,
+            &opts.conversation_id,
+            Some(ConversationStatus::Finished),
+        )
+        .with_last_activity(old_ts);
         Ok(Arc::new(mock) as AgentManagerHandle)
     });
     let mgr = WorkerTaskManagerImpl::new(factory);
@@ -175,11 +179,19 @@ fn collect_idle_ignores_non_acp_agent_types() {
         extra: json!(null),
     };
 
-    mgr.get_or_build_task("gem-1", make_opts(AgentType::Gemini, "gem-1")).unwrap();
-    mgr.get_or_build_task("nanobot-1", make_opts(AgentType::Nanobot, "nanobot-1")).unwrap();
-    mgr.get_or_build_task("openclaw-1", make_opts(AgentType::OpenclawGateway, "openclaw-1")).unwrap();
-    mgr.get_or_build_task("acp-1", make_opts(AgentType::Acp, "acp-1")).unwrap();
-    mgr.get_or_build_task("remote-1", make_opts(AgentType::Remote, "remote-1")).unwrap();
+    mgr.get_or_build_task("gem-1", make_opts(AgentType::Gemini, "gem-1"))
+        .unwrap();
+    mgr.get_or_build_task("nanobot-1", make_opts(AgentType::Nanobot, "nanobot-1"))
+        .unwrap();
+    mgr.get_or_build_task(
+        "openclaw-1",
+        make_opts(AgentType::OpenclawGateway, "openclaw-1"),
+    )
+    .unwrap();
+    mgr.get_or_build_task("acp-1", make_opts(AgentType::Acp, "acp-1"))
+        .unwrap();
+    mgr.get_or_build_task("remote-1", make_opts(AgentType::Remote, "remote-1"))
+        .unwrap();
 
     assert_eq!(mgr.active_count(), 5);
 

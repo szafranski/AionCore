@@ -1,20 +1,18 @@
 use std::sync::Arc;
 
 use aionui_api_types::WebSocketMessage;
-use axum::extract::ws::{CloseFrame, Message, WebSocket};
 use axum::extract::WebSocketUpgrade;
+use axum::extract::ws::{CloseFrame, Message, WebSocket};
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use futures_util::{SinkExt, StreamExt};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tracing::{debug, info};
 
 use crate::manager::{TokenValidator, WebSocketManager};
 use crate::router::MessageRouter;
-use crate::types::{
-    ConnectionId, WebSocketCloseCode, WsOutbound, PER_CONNECTION_BUFFER,
-};
+use crate::types::{ConnectionId, PER_CONNECTION_BUFFER, WebSocketCloseCode, WsOutbound};
 
 /// Extracts a JWT token from WebSocket upgrade request headers.
 ///
@@ -66,11 +64,7 @@ pub async fn ws_upgrade_handler(
 /// Post-upgrade connection handler.
 ///
 /// Validates the token, registers the client, spawns send/recv loops.
-async fn handle_socket(
-    socket: WebSocket,
-    token: Option<String>,
-    state: WsHandlerState,
-) {
+async fn handle_socket(socket: WebSocket, token: Option<String>, state: WsHandlerState) {
     let Some(token) = token else {
         send_close_no_token(socket).await;
         return;
@@ -136,12 +130,10 @@ async fn send_loop(
     while let Some(outbound) = rx.recv().await {
         let msg = match outbound {
             WsOutbound::Text(text) => Message::Text(text.into()),
-            WsOutbound::Close(code, reason) => {
-                Message::Close(Some(CloseFrame {
-                    code: code.as_u16(),
-                    reason: reason.into(),
-                }))
-            }
+            WsOutbound::Close(code, reason) => Message::Close(Some(CloseFrame {
+                code: code.as_u16(),
+                reason: reason.into(),
+            })),
         };
         if sender.send(msg).await.is_err() {
             debug!(%conn_id, "send loop: socket write failed, exiting");
@@ -185,13 +177,8 @@ async fn recv_loop(
 }
 
 /// Process a text message: parse JSON, dispatch to built-in or router.
-fn handle_text_message(
-    conn_id: ConnectionId,
-    text: &str,
-    state: &WsHandlerState,
-) {
-    let parsed: Result<WebSocketMessage<Value>, _> =
-        serde_json::from_str(text);
+fn handle_text_message(conn_id: ConnectionId, text: &str, state: &WsHandlerState) {
+    let parsed: Result<WebSocketMessage<Value>, _> = serde_json::from_str(text);
 
     let msg = match parsed {
         Ok(m) => m,
@@ -222,9 +209,7 @@ fn send_error_response(state: &WsHandlerState, conn_id: ConnectionId) {
     });
 
     if let Ok(text) = serde_json::to_string(&error) {
-        state
-            .manager
-            .send_raw_to(conn_id, WsOutbound::Text(text));
+        state.manager.send_raw_to(conn_id, WsOutbound::Text(text));
     }
 }
 
@@ -232,20 +217,14 @@ fn send_error_response(state: &WsHandlerState, conn_id: ConnectionId) {
 ///
 /// `isFileMode` is `true` when `properties` contains `openFile`
 /// but NOT `openDirectory`.
-fn handle_subscribe_show_open(
-    state: &WsHandlerState,
-    conn_id: ConnectionId,
-    data: Value,
-) {
+fn handle_subscribe_show_open(state: &WsHandlerState, conn_id: ConnectionId, data: Value) {
     let properties = data
         .get("properties")
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
 
-    let has_open_file = properties
-        .iter()
-        .any(|v| v.as_str() == Some("openFile"));
+    let has_open_file = properties.iter().any(|v| v.as_str() == Some("openFile"));
     let has_open_directory = properties
         .iter()
         .any(|v| v.as_str() == Some("openDirectory"));
@@ -267,9 +246,7 @@ fn handle_subscribe_show_open(
 mod tests {
     use super::*;
 
-    fn test_state(
-        manager: Arc<WebSocketManager>,
-    ) -> WsHandlerState {
+    fn test_state(manager: Arc<WebSocketManager>) -> WsHandlerState {
         WsHandlerState {
             manager,
             router: Arc::new(crate::router::NoopMessageRouter),
@@ -294,10 +271,7 @@ mod tests {
                 let parsed: Value = serde_json::from_str(&text).unwrap();
                 assert_eq!(parsed["name"], "show-open-request");
                 assert_eq!(parsed["data"]["isFileMode"], true);
-                assert_eq!(
-                    parsed["data"]["properties"],
-                    json!(["openFile"])
-                );
+                assert_eq!(parsed["data"]["properties"], json!(["openFile"]));
             }
             _ => panic!("expected Text"),
         }
@@ -330,8 +304,7 @@ mod tests {
         let conn_id = manager.add_client("tok".into(), tx);
         let state = test_state(manager);
 
-        let data =
-            json!({"properties": ["openFile", "openDirectory"]});
+        let data = json!({"properties": ["openFile", "openDirectory"]});
         handle_subscribe_show_open(&state, conn_id, data);
 
         let msg = rx.try_recv().unwrap();
@@ -393,11 +366,7 @@ mod tests {
 
         std::thread::sleep(std::time::Duration::from_millis(5));
 
-        handle_text_message(
-            conn_id,
-            r#"{"name":"pong","data":{}}"#,
-            &state,
-        );
+        handle_text_message(conn_id, r#"{"name":"pong","data":{}}"#, &state);
         // No panic = success (update_last_ping was called)
     }
 
@@ -448,12 +417,7 @@ mod tests {
             called: AtomicBool,
         }
         impl MessageRouter for TestRouter {
-            fn route(
-                &self,
-                _conn_id: ConnectionId,
-                _name: &str,
-                _data: Value,
-            ) {
+            fn route(&self, _conn_id: ConnectionId, _name: &str, _data: Value) {
                 self.called.store(true, Ordering::Relaxed);
             }
         }

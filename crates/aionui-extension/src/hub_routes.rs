@@ -1,7 +1,7 @@
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Json, State};
 use axum::routing::{get, post};
-use axum::Router;
 
 use aionui_api_types::{
     ApiResponse, HubExtensionListItem, HubOperationResponse, HubUpdateInfo as ApiHubUpdateInfo,

@@ -8,11 +8,10 @@ use tracing::{debug, warn};
 use crate::error::ChannelError;
 
 use super::types::{
-    AccessTokenRequest, AccessTokenResponse, CreateCardInstanceRequest,
-    CreateCardInstanceResponse, DeliverCardRequest, DeliverCardResponse,
-    RegisterStreamRequest, RegisterStreamResponse, RobotInfoResponse, SendRobotMessageRequest,
-    SendRobotMessageResponse, StreamSubscription, StreamingWriteRequest, StreamingWriteResponse,
-    UpdateCardRequest, UpdateCardResponse,
+    AccessTokenRequest, AccessTokenResponse, CreateCardInstanceRequest, CreateCardInstanceResponse,
+    DeliverCardRequest, DeliverCardResponse, RegisterStreamRequest, RegisterStreamResponse,
+    RobotInfoResponse, SendRobotMessageRequest, SendRobotMessageResponse, StreamSubscription,
+    StreamingWriteRequest, StreamingWriteResponse, UpdateCardRequest, UpdateCardResponse,
 };
 
 const DINGTALK_API_BASE: &str = "https://api.dingtalk.com";
@@ -111,7 +110,10 @@ impl DingtalkApi {
 
         let expires_in = Duration::from_secs(resp.expire_in.unwrap_or(7200) as u64);
 
-        debug!(expires_in_secs = expires_in.as_secs(), "DingTalk token refreshed");
+        debug!(
+            expires_in_secs = expires_in.as_secs(),
+            "DingTalk token refreshed"
+        );
 
         let mut cache = self.token_cache.write().await;
         *cache = Some(TokenCache {
@@ -173,9 +175,7 @@ impl DingtalkApi {
             .send()
             .await
             .map_err(|e| {
-                ChannelError::ConnectionFailed(format!(
-                    "DingTalk stream registration failed: {e}"
-                ))
+                ChannelError::ConnectionFailed(format!("DingTalk stream registration failed: {e}"))
             })?
             .json()
             .await
@@ -242,9 +242,7 @@ impl DingtalkApi {
             .json()
             .await
             .map_err(|e| {
-                ChannelError::MessageSendFailed(format!(
-                    "DingTalk deliver card parse failed: {e}"
-                ))
+                ChannelError::MessageSendFailed(format!("DingTalk deliver card parse failed: {e}"))
             })?;
 
         if resp.success != Some(true) {
@@ -270,9 +268,7 @@ impl DingtalkApi {
             .send()
             .await
             .map_err(|e| {
-                ChannelError::MessageSendFailed(format!(
-                    "DingTalk streaming write failed: {e}"
-                ))
+                ChannelError::MessageSendFailed(format!("DingTalk streaming write failed: {e}"))
             })?
             .json()
             .await
@@ -301,16 +297,12 @@ impl DingtalkApi {
             .send()
             .await
             .map_err(|e| {
-                ChannelError::MessageSendFailed(format!(
-                    "DingTalk update card failed: {e}"
-                ))
+                ChannelError::MessageSendFailed(format!("DingTalk update card failed: {e}"))
             })?
             .json()
             .await
             .map_err(|e| {
-                ChannelError::MessageSendFailed(format!(
-                    "DingTalk update card parse failed: {e}"
-                ))
+                ChannelError::MessageSendFailed(format!("DingTalk update card parse failed: {e}"))
             })?;
 
         Ok(resp)
@@ -322,9 +314,7 @@ impl DingtalkApi {
         request: &SendRobotMessageRequest,
     ) -> Result<SendRobotMessageResponse, ChannelError> {
         let token = self.get_token().await?;
-        let url = format!(
-            "{DINGTALK_API_BASE}/v1.0/robot/oToMessages/batchSend"
-        );
+        let url = format!("{DINGTALK_API_BASE}/v1.0/robot/oToMessages/batchSend");
 
         let resp: SendRobotMessageResponse = self
             .client
@@ -334,16 +324,12 @@ impl DingtalkApi {
             .send()
             .await
             .map_err(|e| {
-                ChannelError::MessageSendFailed(format!(
-                    "DingTalk robot message send failed: {e}"
-                ))
+                ChannelError::MessageSendFailed(format!("DingTalk robot message send failed: {e}"))
             })?
             .json()
             .await
             .map_err(|e| {
-                ChannelError::MessageSendFailed(format!(
-                    "DingTalk robot message parse failed: {e}"
-                ))
+                ChannelError::MessageSendFailed(format!("DingTalk robot message parse failed: {e}"))
             })?;
 
         Ok(resp)

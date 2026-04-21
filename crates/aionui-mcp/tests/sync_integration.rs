@@ -10,8 +10,7 @@ use aionui_api_types::{CreateMcpServerRequest, McpTransport};
 use aionui_common::McpSource;
 use aionui_db::SqliteMcpServerRepository;
 use aionui_mcp::{
-    DetectedServer, McpAgentAdapter, McpConfigService, McpError, McpServerTransport,
-    McpSyncService,
+    DetectedServer, McpAgentAdapter, McpConfigService, McpError, McpServerTransport, McpSyncService,
 };
 
 // ---------------------------------------------------------------------------
@@ -182,8 +181,7 @@ async fn get_agent_configs_returns_installed_agents() {
 #[tokio::test]
 async fn get_agent_configs_empty_when_none_installed() {
     let adapter = Arc::new(MockAdapter::new(McpSource::Claude, false));
-    let (_config_svc, sync_svc) =
-        make_services(vec![adapter as Arc<dyn McpAgentAdapter>]).await;
+    let (_config_svc, sync_svc) = make_services(vec![adapter as Arc<dyn McpAgentAdapter>]).await;
 
     let configs = sync_svc.get_agent_configs().await.unwrap();
     assert!(configs.is_empty());
@@ -221,8 +219,7 @@ async fn sync_to_agents_installs_servers() {
 
 #[tokio::test]
 async fn sync_empty_server_list_succeeds() {
-    let adapter: Arc<dyn McpAgentAdapter> =
-        Arc::new(MockAdapter::new(McpSource::Claude, true));
+    let adapter: Arc<dyn McpAgentAdapter> = Arc::new(MockAdapter::new(McpSource::Claude, true));
     let (_config_svc, sync_svc) = make_services(vec![adapter]).await;
 
     let result = sync_svc.sync_to_agents(&[]).await.unwrap();
@@ -261,8 +258,7 @@ impl McpAgentAdapter for FailingAdapter {
 
 #[tokio::test]
 async fn sync_partial_failure_reports_per_agent() {
-    let ok_adapter: Arc<dyn McpAgentAdapter> =
-        Arc::new(MockAdapter::new(McpSource::Claude, true));
+    let ok_adapter: Arc<dyn McpAgentAdapter> = Arc::new(MockAdapter::new(McpSource::Claude, true));
     let fail_adapter: Arc<dyn McpAgentAdapter> = Arc::new(FailingAdapter);
 
     let (config_svc, sync_svc) = make_services(vec![ok_adapter, fail_adapter]).await;
@@ -309,8 +305,7 @@ async fn remove_from_agents_removes_servers() {
 
 #[tokio::test]
 async fn remove_nonexistent_server_name_succeeds() {
-    let adapter: Arc<dyn McpAgentAdapter> =
-        Arc::new(MockAdapter::new(McpSource::Claude, true));
+    let adapter: Arc<dyn McpAgentAdapter> = Arc::new(MockAdapter::new(McpSource::Claude, true));
     let (_config_svc, sync_svc) = make_services(vec![adapter]).await;
 
     let result = sync_svc
@@ -344,10 +339,7 @@ async fn sync_skips_identical_and_replaces_changed() {
         .add_server(stdio_req("unchanged-srv"))
         .await
         .unwrap();
-    let srv_new = config_svc
-        .add_server(http_req("new-srv"))
-        .await
-        .unwrap();
+    let srv_new = config_svc.add_server(http_req("new-srv")).await.unwrap();
 
     let result = sync_svc
         .sync_to_agents(&[srv_same.id, srv_new.id])
@@ -370,8 +362,7 @@ async fn sync_skips_identical_and_replaces_changed() {
 
 #[tokio::test]
 async fn concurrent_sync_requests_are_serialized() {
-    let adapter: Arc<dyn McpAgentAdapter> =
-        Arc::new(MockAdapter::new(McpSource::Claude, true));
+    let adapter: Arc<dyn McpAgentAdapter> = Arc::new(MockAdapter::new(McpSource::Claude, true));
     let (config_svc, sync_svc) = make_services(vec![adapter]).await;
 
     let srv1 = config_svc.add_server(stdio_req("srv1")).await.unwrap();
@@ -401,8 +392,7 @@ async fn concurrent_sync_requests_are_serialized() {
 
 #[tokio::test]
 async fn concurrent_crud_and_sync_no_panic() {
-    let adapter: Arc<dyn McpAgentAdapter> =
-        Arc::new(MockAdapter::new(McpSource::Claude, true));
+    let adapter: Arc<dyn McpAgentAdapter> = Arc::new(MockAdapter::new(McpSource::Claude, true));
     let (config_svc, sync_svc) = make_services(vec![adapter]).await;
 
     let srv = config_svc.add_server(stdio_req("srv")).await.unwrap();
@@ -414,9 +404,7 @@ async fn concurrent_crud_and_sync_no_panic() {
     // Spawn sync and CRUD concurrently
     let (sync_result, crud_result) = tokio::join!(
         tokio::spawn(async move { svc.sync_to_agents(&[srv_id]).await }),
-        tokio::spawn(async move {
-            cfg.add_server(http_req("another-srv")).await
-        }),
+        tokio::spawn(async move { cfg.add_server(http_req("another-srv")).await }),
     );
 
     // Neither should panic

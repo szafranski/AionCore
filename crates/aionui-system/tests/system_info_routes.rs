@@ -45,11 +45,7 @@ fn build_state(
             SqliteClientPreferenceRepository::new(db.pool().clone()),
         )),
         provider_service: ProviderService::new(provider_repo.clone(), TEST_KEY),
-        model_fetch_service: ModelFetchService::new(
-            provider_repo,
-            TEST_KEY,
-            http_client.clone(),
-        ),
+        model_fetch_service: ModelFetchService::new(provider_repo, TEST_KEY, http_client.clone()),
         protocol_detection_service: ProtocolDetectionService::new(http_client),
         version_check_service,
     }
@@ -63,10 +59,7 @@ async fn setup() -> axum::Router {
     system_routes(state)
 }
 
-async fn setup_with_mock(
-    current_version: &str,
-    mock_server: &MockServer,
-) -> axum::Router {
+async fn setup_with_mock(current_version: &str, mock_server: &MockServer) -> axum::Router {
     let db = init_database_memory().await.unwrap();
     let http_client = reqwest::Client::new();
     let vcs = VersionCheckService::with_api_base(
@@ -166,10 +159,7 @@ async fn test_system_info_arch_is_known() {
     let resp = app.oneshot(get_request("/api/system/info")).await.unwrap();
     let json = body_json(resp).await;
     let arch = json["data"]["arch"].as_str().unwrap();
-    assert!(
-        ["x64", "arm64"].contains(&arch),
-        "unexpected arch: {arch}"
-    );
+    assert!(["x64", "arm64"].contains(&arch), "unexpected arch: {arch}");
 }
 
 #[tokio::test]
@@ -196,10 +186,15 @@ async fn test_check_update_has_new_version() {
     Mock::given(method("GET"))
         .and(path("/repos/iOfficeAI/AionUi/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            make_github_release("v2.0.0", false, false, vec![
-                make_github_asset("app-2.0.0-darwin-arm64.dmg", 80_000_000),
-                make_github_asset("app-2.0.0-linux-x64.deb", 60_000_000),
-            ]),
+            make_github_release(
+                "v2.0.0",
+                false,
+                false,
+                vec![
+                    make_github_asset("app-2.0.0-darwin-arm64.dmg", 80_000_000),
+                    make_github_asset("app-2.0.0-linux-x64.deb", 60_000_000),
+                ]
+            ),
             make_github_release("v1.5.0", false, false, vec![]),
         ])))
         .mount(&mock_server)
@@ -253,7 +248,7 @@ async fn test_check_update_skips_draft() {
     Mock::given(method("GET"))
         .and(path("/repos/iOfficeAI/AionUi/releases"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            make_github_release("v5.0.0", true, false, vec![]),  // draft — skip
+            make_github_release("v5.0.0", true, false, vec![]), // draft — skip
             make_github_release("v2.0.0", false, false, vec![]),
         ])))
         .mount(&mock_server)
@@ -330,13 +325,18 @@ async fn test_check_update_recommended_asset_matches_platform() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/repos/iOfficeAI/AionUi/releases"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            make_github_release("v2.0.0", false, false, vec![
-                make_github_asset("app-2.0.0-win-x64.exe", 50_000_000),
-                make_github_asset("app-2.0.0-darwin-arm64.dmg", 80_000_000),
-                make_github_asset("app-2.0.0-linux-amd64.deb", 60_000_000),
-            ]),
-        ])))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([make_github_release(
+                "v2.0.0",
+                false,
+                false,
+                vec![
+                    make_github_asset("app-2.0.0-win-x64.exe", 50_000_000),
+                    make_github_asset("app-2.0.0-darwin-arm64.dmg", 80_000_000),
+                    make_github_asset("app-2.0.0-linux-amd64.deb", 60_000_000),
+                ]
+            ),])),
+        )
         .mount(&mock_server)
         .await;
 
@@ -405,9 +405,14 @@ async fn test_check_update_custom_repo() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/repos/custom-org/custom-repo/releases"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            make_github_release("v3.0.0", false, false, vec![]),
-        ])))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([make_github_release(
+                "v3.0.0",
+                false,
+                false,
+                vec![]
+            ),])),
+        )
         .mount(&mock_server)
         .await;
 
@@ -455,11 +460,14 @@ async fn test_check_update_response_format() {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/repos/iOfficeAI/AionUi/releases"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
-            make_github_release("v2.0.0", false, false, vec![
-                make_github_asset("app.dmg", 100_000),
-            ]),
-        ])))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!([make_github_release(
+                "v2.0.0",
+                false,
+                false,
+                vec![make_github_asset("app.dmg", 100_000),]
+            ),])),
+        )
         .mount(&mock_server)
         .await;
 

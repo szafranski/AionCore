@@ -1,9 +1,7 @@
 use sqlx::SqlitePool;
 
 use crate::error::DbError;
-use crate::models::{
-    AssistantSessionRow, AssistantUserRow, ChannelPluginRow, PairingCodeRow,
-};
+use crate::models::{AssistantSessionRow, AssistantUserRow, ChannelPluginRow, PairingCodeRow};
 use crate::repository::channel::{IChannelRepository, UpdatePluginStatusParams};
 
 /// SQLite-backed implementation of [`IChannelRepository`].
@@ -32,12 +30,11 @@ impl IChannelRepository for SqliteChannelRepository {
     }
 
     async fn get_plugin(&self, id: &str) -> Result<Option<ChannelPluginRow>, DbError> {
-        let row = sqlx::query_as::<_, ChannelPluginRow>(
-            "SELECT * FROM assistant_plugins WHERE id = ?",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row =
+            sqlx::query_as::<_, ChannelPluginRow>("SELECT * FROM assistant_plugins WHERE id = ?")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
         Ok(row)
     }
 
@@ -112,9 +109,7 @@ impl IChannelRepository for SqliteChannelRepository {
 
         let result = query.execute(&self.pool).await?;
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Plugin '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Plugin '{id}' not found")));
         }
         Ok(())
     }
@@ -125,9 +120,7 @@ impl IChannelRepository for SqliteChannelRepository {
             .execute(&self.pool)
             .await?;
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Plugin '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Plugin '{id}' not found")));
         }
         Ok(())
     }
@@ -193,17 +186,13 @@ impl IChannelRepository for SqliteChannelRepository {
         id: &str,
         last_active: aionui_common::TimestampMs,
     ) -> Result<(), DbError> {
-        let result = sqlx::query(
-            "UPDATE assistant_users SET last_active = ? WHERE id = ?",
-        )
-        .bind(last_active)
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        let result = sqlx::query("UPDATE assistant_users SET last_active = ? WHERE id = ?")
+            .bind(last_active)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "User '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("User '{id}' not found")));
         }
         Ok(())
     }
@@ -214,9 +203,7 @@ impl IChannelRepository for SqliteChannelRepository {
             .execute(&self.pool)
             .await?;
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "User '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("User '{id}' not found")));
         }
         Ok(())
     }
@@ -261,13 +248,11 @@ impl IChannelRepository for SqliteChannelRepository {
         if let Some(row) = existing {
             // Touch last_activity.
             let now = aionui_common::now_ms();
-            sqlx::query(
-                "UPDATE assistant_sessions SET last_activity = ? WHERE id = ?",
-            )
-            .bind(now)
-            .bind(&row.id)
-            .execute(&self.pool)
-            .await?;
+            sqlx::query("UPDATE assistant_sessions SET last_activity = ? WHERE id = ?")
+                .bind(now)
+                .bind(&row.id)
+                .execute(&self.pool)
+                .await?;
 
             return Ok(AssistantSessionRow {
                 last_activity: now,
@@ -301,17 +286,13 @@ impl IChannelRepository for SqliteChannelRepository {
         id: &str,
         last_activity: aionui_common::TimestampMs,
     ) -> Result<(), DbError> {
-        let result = sqlx::query(
-            "UPDATE assistant_sessions SET last_activity = ? WHERE id = ?",
-        )
-        .bind(last_activity)
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        let result = sqlx::query("UPDATE assistant_sessions SET last_activity = ? WHERE id = ?")
+            .bind(last_activity)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Session '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Session '{id}' not found")));
         }
         Ok(())
     }
@@ -333,18 +314,12 @@ impl IChannelRepository for SqliteChannelRepository {
         .execute(&self.pool)
         .await?;
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Session '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Session '{id}' not found")));
         }
         Ok(())
     }
 
-    async fn update_session_agent_type(
-        &self,
-        id: &str,
-        agent_type: &str,
-    ) -> Result<(), DbError> {
+    async fn update_session_agent_type(&self, id: &str, agent_type: &str) -> Result<(), DbError> {
         let now = aionui_common::now_ms();
         let result = sqlx::query(
             "UPDATE assistant_sessions \
@@ -357,9 +332,7 @@ impl IChannelRepository for SqliteChannelRepository {
         .execute(&self.pool)
         .await?;
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Session '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Session '{id}' not found")));
         }
         Ok(())
     }
@@ -408,10 +381,7 @@ impl IChannelRepository for SqliteChannelRepository {
         .await
         .map_err(|e| {
             if is_unique_violation(&e) {
-                DbError::Conflict(format!(
-                    "Pairing code '{}' already exists",
-                    row.code
-                ))
+                DbError::Conflict(format!("Pairing code '{}' already exists", row.code))
             } else {
                 DbError::Query(e)
             }
@@ -430,10 +400,7 @@ impl IChannelRepository for SqliteChannelRepository {
         Ok(rows)
     }
 
-    async fn get_pairing_by_code(
-        &self,
-        code: &str,
-    ) -> Result<Option<PairingCodeRow>, DbError> {
+    async fn get_pairing_by_code(&self, code: &str) -> Result<Option<PairingCodeRow>, DbError> {
         let row = sqlx::query_as::<_, PairingCodeRow>(
             "SELECT * FROM assistant_pairing_codes WHERE code = ?",
         )
@@ -443,18 +410,12 @@ impl IChannelRepository for SqliteChannelRepository {
         Ok(row)
     }
 
-    async fn update_pairing_status(
-        &self,
-        code: &str,
-        status: &str,
-    ) -> Result<(), DbError> {
-        let result = sqlx::query(
-            "UPDATE assistant_pairing_codes SET status = ? WHERE code = ?",
-        )
-        .bind(status)
-        .bind(code)
-        .execute(&self.pool)
-        .await?;
+    async fn update_pairing_status(&self, code: &str, status: &str) -> Result<(), DbError> {
+        let result = sqlx::query("UPDATE assistant_pairing_codes SET status = ? WHERE code = ?")
+            .bind(status)
+            .bind(code)
+            .execute(&self.pool)
+            .await?;
         if result.rows_affected() == 0 {
             return Err(DbError::NotFound(format!(
                 "Pairing code '{code}' not found"
@@ -482,9 +443,7 @@ impl IChannelRepository for SqliteChannelRepository {
 /// Checks whether a sqlx error indicates a UNIQUE constraint violation.
 fn is_unique_violation(err: &sqlx::Error) -> bool {
     match err {
-        sqlx::Error::Database(db_err) => {
-            db_err.message().contains("UNIQUE constraint failed")
-        }
+        sqlx::Error::Database(db_err) => db_err.message().contains("UNIQUE constraint failed"),
         _ => false,
     }
 }
@@ -723,11 +682,12 @@ mod tests {
     #[tokio::test]
     async fn get_user_by_platform_not_found() {
         let (repo, _db) = setup().await;
-        assert!(repo
-            .get_user_by_platform("nope", "telegram")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            repo.get_user_by_platform("nope", "telegram")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -736,9 +696,7 @@ mod tests {
         repo.create_user(&sample_user()).await.unwrap();
 
         let new_ts = aionui_common::now_ms() + 5000;
-        repo.update_user_last_active("usr-1", new_ts)
-            .await
-            .unwrap();
+        repo.update_user_last_active("usr-1", new_ts).await.unwrap();
 
         let found = repo
             .get_user_by_platform("tg_12345", "telegram")
@@ -751,10 +709,7 @@ mod tests {
     #[tokio::test]
     async fn update_user_last_active_not_found() {
         let (repo, _db) = setup().await;
-        let err = repo
-            .update_user_last_active("nope", 123)
-            .await
-            .unwrap_err();
+        let err = repo.update_user_last_active("nope", 123).await.unwrap_err();
         assert!(matches!(err, DbError::NotFound(_)));
     }
 
@@ -763,11 +718,12 @@ mod tests {
         let (repo, _db) = setup().await;
         repo.create_user(&sample_user()).await.unwrap();
         repo.delete_user("usr-1").await.unwrap();
-        assert!(repo
-            .get_user_by_platform("tg_12345", "telegram")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            repo.get_user_by_platform("tg_12345", "telegram")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -908,10 +864,7 @@ mod tests {
     #[tokio::test]
     async fn update_session_activity_not_found() {
         let (repo, _db) = setup().await;
-        let err = repo
-            .update_session_activity("nope", 123)
-            .await
-            .unwrap_err();
+        let err = repo.update_session_activity("nope", 123).await.unwrap_err();
         assert!(matches!(err, DbError::NotFound(_)));
     }
 
@@ -1011,7 +964,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            repo.get_session("sess-1").await.unwrap().unwrap().agent_type,
+            repo.get_session("sess-1")
+                .await
+                .unwrap()
+                .unwrap()
+                .agent_type,
             "gemini"
         );
 
@@ -1112,11 +1069,7 @@ mod tests {
     #[tokio::test]
     async fn get_pairing_by_code_not_found() {
         let (repo, _db) = setup().await;
-        assert!(repo
-            .get_pairing_by_code("000000")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(repo.get_pairing_by_code("000000").await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -1166,18 +1119,10 @@ mod tests {
         let cleaned = repo.cleanup_expired_pairings(now).await.unwrap();
         assert_eq!(cleaned, 1);
 
-        let found_expired = repo
-            .get_pairing_by_code("111111")
-            .await
-            .unwrap()
-            .unwrap();
+        let found_expired = repo.get_pairing_by_code("111111").await.unwrap().unwrap();
         assert_eq!(found_expired.status, "expired");
 
-        let found_valid = repo
-            .get_pairing_by_code("222222")
-            .await
-            .unwrap()
-            .unwrap();
+        let found_valid = repo.get_pairing_by_code("222222").await.unwrap().unwrap();
         assert_eq!(found_valid.status, "pending");
     }
 
@@ -1198,11 +1143,7 @@ mod tests {
         let cleaned = repo.cleanup_expired_pairings(now).await.unwrap();
         assert_eq!(cleaned, 0);
 
-        let found = repo
-            .get_pairing_by_code("333333")
-            .await
-            .unwrap()
-            .unwrap();
+        let found = repo.get_pairing_by_code("333333").await.unwrap().unwrap();
         assert_eq!(found.status, "approved");
     }
 }

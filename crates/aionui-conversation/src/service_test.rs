@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex};
 
+use aionui_ai_agent::IWorkerTaskManager;
 use aionui_ai_agent::agent_manager::{AgentManagerHandle, IAgentManager};
 use aionui_ai_agent::stream_event::AgentStreamEvent;
 use aionui_ai_agent::types::{BuildTaskOptions, SendMessageData};
-use aionui_ai_agent::IWorkerTaskManager;
 use aionui_api_types::{
     CloneConversationRequest, CreateConversationRequest, ListConversationsQuery,
     SearchMessagesQuery, SendMessageRequest, UpdateConversationRequest, WebSocketMessage,
@@ -59,7 +59,6 @@ impl MockRepo {
             rows: Mutex::new(vec![]),
         }
     }
-
 }
 
 #[async_trait::async_trait]
@@ -134,12 +133,7 @@ impl IConversationRepository for MockRepo {
                     .as_ref()
                     .is_none_or(|s| r.source.as_deref() == Some(s.as_str()))
             })
-            .filter(|r| {
-                filters
-                    .pinned
-                    .as_ref()
-                    .is_none_or(|&p| r.pinned == p)
-            })
+            .filter(|r| filters.pinned.as_ref().is_none_or(|&p| r.pinned == p))
             .cloned()
             .collect();
         let total = matched.len() as u64;
@@ -394,10 +388,7 @@ async fn list_with_source_filter() {
     };
     let result = svc.list("user_1", query).await.unwrap();
     assert_eq!(result.items.len(), 1);
-    assert_eq!(
-        result.items[0].source,
-        Some(ConversationSource::Telegram)
-    );
+    assert_eq!(result.items[0].source, Some(ConversationSource::Telegram));
 }
 
 #[tokio::test]
@@ -446,8 +437,7 @@ async fn update_pin() {
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
     assert!(!conv.pinned);
 
-    let req: UpdateConversationRequest =
-        serde_json::from_value(json!({ "pinned": true })).unwrap();
+    let req: UpdateConversationRequest = serde_json::from_value(json!({ "pinned": true })).unwrap();
     let updated = svc.update("user_1", &conv.id, req).await.unwrap();
     assert!(updated.pinned);
     assert!(updated.pinned_at.is_some());
@@ -513,8 +503,7 @@ async fn update_model() {
 #[tokio::test]
 async fn update_not_found() {
     let (svc, _broadcaster, _repo) = make_service();
-    let req: UpdateConversationRequest =
-        serde_json::from_value(json!({ "name": "x" })).unwrap();
+    let req: UpdateConversationRequest = serde_json::from_value(json!({ "name": "x" })).unwrap();
     let err = svc.update("user_1", "non-existent", req).await.unwrap_err();
     assert!(matches!(err, AppError::NotFound(_)));
 }
@@ -578,8 +567,7 @@ async fn all_crud_operations_broadcast() {
     assert_eq!(events[0].data["action"], "created");
 
     // Update
-    let req: UpdateConversationRequest =
-        serde_json::from_value(json!({ "name": "x" })).unwrap();
+    let req: UpdateConversationRequest = serde_json::from_value(json!({ "name": "x" })).unwrap();
     svc.update("user_1", &conv.id, req).await.unwrap();
     let events = broadcaster.take_events();
     assert_eq!(events[0].data["action"], "updated");
@@ -987,7 +975,11 @@ impl IWorkerTaskManager for MockTaskManager {
         Ok(agent)
     }
 
-    fn kill(&self, conversation_id: &str, _reason: Option<AgentKillReason>) -> Result<(), AppError> {
+    fn kill(
+        &self,
+        conversation_id: &str,
+        _reason: Option<AgentKillReason>,
+    ) -> Result<(), AppError> {
         self.agents.lock().unwrap().remove(conversation_id);
         Ok(())
     }
@@ -1122,13 +1114,22 @@ async fn stop_stream_with_active_agent() {
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
 
     // Build agent via send_message
-    svc.send_message("user_1", &conv.id, make_send_req(), &(task_mgr.clone() as Arc<dyn IWorkerTaskManager>))
-        .await
-        .unwrap();
+    svc.send_message(
+        "user_1",
+        &conv.id,
+        make_send_req(),
+        &(task_mgr.clone() as Arc<dyn IWorkerTaskManager>),
+    )
+    .await
+    .unwrap();
 
     // Stop should succeed since agent exists
     let result = svc
-        .stop_stream("user_1", &conv.id, &(task_mgr as Arc<dyn IWorkerTaskManager>))
+        .stop_stream(
+            "user_1",
+            &conv.id,
+            &(task_mgr as Arc<dyn IWorkerTaskManager>),
+        )
         .await;
     assert!(result.is_ok());
 }
@@ -1182,7 +1183,11 @@ async fn warmup_creates_agent_task() {
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
 
     let result = svc
-        .warmup("user_1", &conv.id, &(task_mgr.clone() as Arc<dyn IWorkerTaskManager>))
+        .warmup(
+            "user_1",
+            &conv.id,
+            &(task_mgr.clone() as Arc<dyn IWorkerTaskManager>),
+        )
         .await;
     assert!(result.is_ok());
 
@@ -1208,10 +1213,7 @@ async fn warmup_wrong_user_returns_not_found() {
     let task_mgr: Arc<dyn IWorkerTaskManager> = Arc::new(MockTaskManager::new());
 
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
-    let err = svc
-        .warmup("user_2", &conv.id, &task_mgr)
-        .await
-        .unwrap_err();
+    let err = svc.warmup("user_2", &conv.id, &task_mgr).await.unwrap_err();
     assert!(matches!(err, AppError::NotFound(_)));
 }
 
@@ -1260,12 +1262,18 @@ async fn list_confirmations_returns_items() {
 
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
 
-    let agent: AgentManagerHandle =
-        Arc::new(MockAgent::with_confirmations(&conv.id, make_test_confirmations()));
+    let agent: AgentManagerHandle = Arc::new(MockAgent::with_confirmations(
+        &conv.id,
+        make_test_confirmations(),
+    ));
     task_mgr.insert_agent(&conv.id, agent);
 
     let result = svc
-        .list_confirmations("user_1", &conv.id, &(task_mgr as Arc<dyn IWorkerTaskManager>))
+        .list_confirmations(
+            "user_1",
+            &conv.id,
+            &(task_mgr as Arc<dyn IWorkerTaskManager>),
+        )
         .await
         .unwrap();
     assert_eq!(result.len(), 2);
@@ -1306,8 +1314,10 @@ async fn confirm_removes_confirmation_and_broadcasts() {
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
     broadcaster.take_events(); // clear create event
 
-    let agent: AgentManagerHandle =
-        Arc::new(MockAgent::with_confirmations(&conv.id, make_test_confirmations()));
+    let agent: AgentManagerHandle = Arc::new(MockAgent::with_confirmations(
+        &conv.id,
+        make_test_confirmations(),
+    ));
     task_mgr.insert_agent(&conv.id, agent);
 
     let req = aionui_api_types::ConfirmRequest {
@@ -1326,10 +1336,7 @@ async fn confirm_removes_confirmation_and_broadcasts() {
     .unwrap();
 
     // Confirmation should be removed from the agent
-    let remaining = task_mgr
-        .get_task(&conv.id)
-        .unwrap()
-        .get_confirmations();
+    let remaining = task_mgr.get_task(&conv.id).unwrap().get_confirmations();
     assert_eq!(remaining.len(), 1);
     assert_eq!(remaining[0].call_id, "call-2");
 
@@ -1348,8 +1355,10 @@ async fn confirm_with_always_allow_stores_approval() {
 
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
 
-    let agent: AgentManagerHandle =
-        Arc::new(MockAgent::with_confirmations(&conv.id, make_test_confirmations()));
+    let agent: AgentManagerHandle = Arc::new(MockAgent::with_confirmations(
+        &conv.id,
+        make_test_confirmations(),
+    ));
     task_mgr.insert_agent(&conv.id, agent);
 
     let req = aionui_api_types::ConfirmRequest {
@@ -1375,8 +1384,10 @@ async fn confirm_nonexistent_call_id_returns_not_found() {
 
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
 
-    let agent: AgentManagerHandle =
-        Arc::new(MockAgent::with_confirmations(&conv.id, make_test_confirmations()));
+    let agent: AgentManagerHandle = Arc::new(MockAgent::with_confirmations(
+        &conv.id,
+        make_test_confirmations(),
+    ));
     task_mgr.insert_agent(&conv.id, agent);
 
     let req = aionui_api_types::ConfirmRequest {
@@ -1446,8 +1457,10 @@ async fn check_approval_returns_true_after_always_allow() {
 
     let conv = svc.create("user_1", make_create_req()).await.unwrap();
 
-    let agent: AgentManagerHandle =
-        Arc::new(MockAgent::with_confirmations(&conv.id, make_test_confirmations()));
+    let agent: AgentManagerHandle = Arc::new(MockAgent::with_confirmations(
+        &conv.id,
+        make_test_confirmations(),
+    ));
     task_mgr.insert_agent(&conv.id, agent);
 
     // Confirm with always_allow

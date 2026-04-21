@@ -8,10 +8,7 @@ use crate::types::{ExtWebui, WebuiContribution};
 
 /// Validate that a WebUI route path is within the extension's namespace
 /// and does not use reserved prefixes.
-fn validate_route(
-    route_path: &str,
-    extension_name: &str,
-) -> Result<(), ExtensionError> {
+fn validate_route(route_path: &str, extension_name: &str) -> Result<(), ExtensionError> {
     let expected_prefix = format!("/{extension_name}/");
 
     if !route_path.starts_with(&expected_prefix) {
@@ -124,8 +121,7 @@ mod tests {
             routes: vec![make_route("/my-ext/dashboard")],
         };
 
-        let result =
-            resolve_webui(&webui, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_webui(&webui, "my-ext", Path::new("/ext/my-ext")).unwrap();
 
         assert_eq!(result.extension_name, "my-ext");
         assert_eq!(result.id, "web-1");
@@ -141,8 +137,7 @@ mod tests {
             routes: vec![make_route("/other-ext/api")],
         };
 
-        let err =
-            resolve_webui(&webui, "my-ext", Path::new("/ext/my-ext")).unwrap_err();
+        let err = resolve_webui(&webui, "my-ext", Path::new("/ext/my-ext")).unwrap_err();
         assert!(matches!(
             err,
             ExtensionError::InvalidWebuiRouteNamespace { .. }
@@ -157,8 +152,7 @@ mod tests {
             routes: vec![],
         };
 
-        let result =
-            resolve_webui(&webui, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_webui(&webui, "my-ext", Path::new("/ext/my-ext")).unwrap();
         assert!(result.routes.is_empty());
     }
 
@@ -177,8 +171,7 @@ mod tests {
             },
         ];
 
-        let result =
-            resolve_webui_contributions(&webuis, "my-ext", Path::new("/ext/my-ext"));
+        let result = resolve_webui_contributions(&webuis, "my-ext", Path::new("/ext/my-ext"));
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, "good");
     }

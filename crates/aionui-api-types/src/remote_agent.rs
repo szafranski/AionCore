@@ -1,6 +1,4 @@
-use aionui_common::{
-    RemoteAgentAuthType, RemoteAgentProtocol, RemoteAgentStatus, TimestampMs,
-};
+use aionui_common::{RemoteAgentAuthType, RemoteAgentProtocol, RemoteAgentStatus, TimestampMs};
 use serde::{Deserialize, Serialize};
 
 /// Request body for creating a remote agent.
@@ -118,9 +116,7 @@ pub struct HandshakeResponse {
 /// - JSON field absent → `None` (keep current value)
 /// - JSON `null` → `Some(None)` (clear the value)
 /// - JSON value → `Some(Some(value))` (set new value)
-fn deserialize_optional_nullable<'de, D, T>(
-    deserializer: D,
-) -> Result<Option<Option<T>>, D::Error>
+fn deserialize_optional_nullable<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
 where
     D: serde::Deserializer<'de>,
     T: Deserialize<'de>,

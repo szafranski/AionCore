@@ -11,17 +11,17 @@ use crate::error::ChannelError;
 use crate::plugin::{ChannelPlugin, PluginCallbacks};
 use crate::types::{
     ActionCategory, ActionContext, BotInfo, MessageContentType, PluginConfig, PluginStatus,
-    PluginType, UnifiedAction, UnifiedIncomingMessage, UnifiedMessageContent, UnifiedOutgoingMessage,
-    UnifiedUser,
+    PluginType, UnifiedAction, UnifiedIncomingMessage, UnifiedMessageContent,
+    UnifiedOutgoingMessage, UnifiedUser,
 };
 
 use super::api::DingtalkApi;
 use super::types::{
+    BotMessageCallback, CardActionCallback, CardData, CreateCardInstanceRequest,
+    DeliverCardRequest, ImGroupDeliverModel, ImRobotDeliverModel, SendRobotMessageRequest,
+    StreamAck, StreamFrame, StreamingWriteRequest, SystemEvent, UpdateCardRequest,
     build_open_space_id, decode_chat_id, encode_chat_id, format_dingtalk_callback,
-    parse_dingtalk_callback, BotMessageCallback, CardActionCallback, CardData,
-    CreateCardInstanceRequest, DeliverCardRequest, ImGroupDeliverModel, ImRobotDeliverModel,
-    SendRobotMessageRequest, StreamAck, StreamFrame, StreamingWriteRequest, SystemEvent,
-    UpdateCardRequest,
+    parse_dingtalk_callback,
 };
 
 /// Maximum reconnect attempts before giving up.
@@ -379,8 +379,7 @@ fn build_card_param_map(
         let mut action_list = Vec::new();
         for row in button_rows {
             for btn in row {
-                let callback_value =
-                    format_dingtalk_callback(&btn.action, btn.params.as_ref());
+                let callback_value = format_dingtalk_callback(&btn.action, btn.params.as_ref());
                 action_list.push(serde_json::json!({
                     "label": btn.label,
                     "action": callback_value
@@ -438,21 +437,11 @@ async fn ws_stream_loop(
             }
         };
 
-        let ws_url = format!(
-            "{}?ticket={}",
-            stream_info.endpoint, stream_info.ticket
-        );
+        let ws_url = format!("{}?ticket={}", stream_info.endpoint, stream_info.ticket);
 
         debug!(url = %ws_url, "Connecting to DingTalk WebSocket Stream");
 
-        match connect_and_listen(
-            &ws_url,
-            &message_tx,
-            &confirm_tx,
-            &mut shutdown_rx,
-        )
-        .await
-        {
+        match connect_and_listen(&ws_url, &message_tx, &confirm_tx, &mut shutdown_rx).await {
             Ok(()) => {
                 debug!("DingTalk WS connection closed cleanly");
                 break;
@@ -493,9 +482,7 @@ async fn connect_and_listen(
 
     let (ws_stream, _) = connect_async(ws_url)
         .await
-        .map_err(|e| {
-            ChannelError::ConnectionFailed(format!("DingTalk WS connect failed: {e}"))
-        })?;
+        .map_err(|e| ChannelError::ConnectionFailed(format!("DingTalk WS connect failed: {e}")))?;
 
     info!("DingTalk WebSocket Stream connected");
 
@@ -562,11 +549,7 @@ async fn handle_stream_frame(
         }
     };
 
-    let message_id = frame
-        .headers
-        .message_id
-        .clone()
-        .unwrap_or_default();
+    let message_id = frame.headers.message_id.clone().unwrap_or_default();
 
     match frame.frame_type.as_str() {
         "SYSTEM" => {
@@ -616,10 +599,7 @@ async fn handle_stream_frame(
 // ---------------------------------------------------------------------------
 
 /// Handle a bot message callback.
-async fn handle_bot_message(
-    data_str: &str,
-    message_tx: &mpsc::Sender<UnifiedIncomingMessage>,
-) {
+async fn handle_bot_message(data_str: &str, message_tx: &mpsc::Sender<UnifiedIncomingMessage>) {
     let cb: BotMessageCallback = match serde_json::from_str(data_str) {
         Ok(c) => c,
         Err(e) => {
@@ -634,10 +614,7 @@ async fn handle_bot_message(
         .or(cb.sender_id.as_deref())
         .unwrap_or("unknown");
 
-    let chat_id = encode_chat_id(
-        cb.conversation_id.as_deref(),
-        sender_staff_id,
-    );
+    let chat_id = encode_chat_id(cb.conversation_id.as_deref(), sender_staff_id);
 
     let user = UnifiedUser {
         id: sender_staff_id.to_string(),
@@ -646,15 +623,10 @@ async fn handle_bot_message(
         avatar_url: None,
     };
 
-    let (content_type, text) = extract_message_content(
-        cb.msgtype.as_deref().unwrap_or("text"),
-        &cb,
-    );
+    let (content_type, text) =
+        extract_message_content(cb.msgtype.as_deref().unwrap_or("text"), &cb);
 
-    let timestamp = cb
-        .create_at
-        .map(|ms| ms / 1000)
-        .unwrap_or_else(chrono_now);
+    let timestamp = cb.create_at.map(|ms| ms / 1000).unwrap_or_else(chrono_now);
 
     let unified = UnifiedIncomingMessage {
         id: cb.msg_id.clone().unwrap_or_default(),
@@ -768,10 +740,7 @@ async fn handle_card_action(
 // ---------------------------------------------------------------------------
 
 /// Extract content type and text from a DingTalk bot message callback.
-fn extract_message_content(
-    msgtype: &str,
-    cb: &BotMessageCallback,
-) -> (MessageContentType, String) {
+fn extract_message_content(msgtype: &str, cb: &BotMessageCallback) -> (MessageContentType, String) {
     match msgtype {
         "text" => {
             let text = cb
@@ -787,22 +756,10 @@ fn extract_message_content(
                 (MessageContentType::Text, text)
             }
         }
-        "picture" => (
-            MessageContentType::Photo,
-            "[Picture]".to_string(),
-        ),
-        "file" => (
-            MessageContentType::Document,
-            "[File]".to_string(),
-        ),
-        "audio" => (
-            MessageContentType::Audio,
-            "[Audio]".to_string(),
-        ),
-        "video" => (
-            MessageContentType::Video,
-            "[Video]".to_string(),
-        ),
+        "picture" => (MessageContentType::Photo, "[Picture]".to_string()),
+        "file" => (MessageContentType::Document, "[File]".to_string()),
+        "audio" => (MessageContentType::Audio, "[Audio]".to_string()),
+        "video" => (MessageContentType::Video, "[Video]".to_string()),
         _ => (
             MessageContentType::Text,
             format!("[Unsupported message type: {msgtype}]"),
@@ -1008,18 +965,21 @@ mod tests {
     #[test]
     fn build_card_param_map_with_buttons() {
         use crate::types::ActionButton;
-        let buttons = vec![vec![
-            ActionButton {
-                label: "Yes".into(),
-                action: "system.confirm".into(),
-                params: None,
-            },
-        ]];
+        let buttons = vec![vec![ActionButton {
+            label: "Yes".into(),
+            action: "system.confirm".into(),
+            params: None,
+        }]];
         let map = build_card_param_map("Choose:", Some(&buttons));
         assert_eq!(map["content"], "Choose:");
         let actions = map["actions"].as_array().unwrap();
         assert_eq!(actions[0]["label"], "Yes");
-        assert!(actions[0]["action"].as_str().unwrap().contains("system.confirm"));
+        assert!(
+            actions[0]["action"]
+                .as_str()
+                .unwrap()
+                .contains("system.confirm")
+        );
     }
 
     // -- build_ack ----------------------------------------------------------
@@ -1070,7 +1030,10 @@ mod tests {
         let result = plugin.edit_message("chat1", "msg1", msg).await;
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("not initialized"), "expected init error: {err}");
+        assert!(
+            err.contains("not initialized"),
+            "expected init error: {err}"
+        );
     }
 
     // -- send_message: not initialized guard -----------------------------------
@@ -1094,7 +1057,10 @@ mod tests {
         let result = plugin.send_message("chat1", msg).await;
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("not initialized"), "expected init error: {err}");
+        assert!(
+            err.contains("not initialized"),
+            "expected init error: {err}"
+        );
     }
 
     // -- DingtalkPlugin constructor -----------------------------------------

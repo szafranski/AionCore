@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use aionui_api_types::{PairingRequestedPayload, UserAuthorizedPayload, WebSocketMessage};
-use aionui_common::{generate_id, now_ms, TimestampMs};
-use aionui_db::models::{AssistantUserRow, PairingCodeRow};
+use aionui_common::{TimestampMs, generate_id, now_ms};
 use aionui_db::IChannelRepository;
+use aionui_db::models::{AssistantUserRow, PairingCodeRow};
 use aionui_realtime::EventBroadcaster;
 use tokio::task::JoinHandle;
 use tracing::{debug, info, warn};
@@ -18,9 +18,8 @@ use crate::types::PairingStatus;
 /// Returns a zero-padded string (e.g., "003421").
 pub fn generate_pairing_code() -> Result<String, ChannelError> {
     let mut bytes = [0u8; 4];
-    getrandom::getrandom(&mut bytes).map_err(|e| {
-        ChannelError::InvalidConfig(format!("RNG failure: {e}"))
-    })?;
+    getrandom::getrandom(&mut bytes)
+        .map_err(|e| ChannelError::InvalidConfig(format!("RNG failure: {e}")))?;
     let num = u32::from_le_bytes(bytes) % 10u32.pow(PAIRING_CODE_LENGTH as u32);
     Ok(format!("{num:0>width$}", width = PAIRING_CODE_LENGTH))
 }
@@ -38,10 +37,7 @@ pub struct PairingService {
 }
 
 impl PairingService {
-    pub fn new(
-        repo: Arc<dyn IChannelRepository>,
-        broadcaster: Arc<dyn EventBroadcaster>,
-    ) -> Self {
+    pub fn new(repo: Arc<dyn IChannelRepository>, broadcaster: Arc<dyn EventBroadcaster>) -> Self {
         Self { repo, broadcaster }
     }
 
@@ -107,10 +103,7 @@ impl PairingService {
     /// - Creates an `assistant_users` record
     /// - Updates the pairing status to `approved`
     /// - Broadcasts a `channel.user-authorized` event
-    pub async fn approve_pairing(
-        &self,
-        code: &str,
-    ) -> Result<(), ChannelError> {
+    pub async fn approve_pairing(&self, code: &str) -> Result<(), ChannelError> {
         let row = self.get_valid_pending_pairing(code).await?;
         let now = now_ms();
 
@@ -157,10 +150,7 @@ impl PairingService {
     ///
     /// Validates the code exists and is still pending (not expired or
     /// already processed), then marks it as rejected.
-    pub async fn reject_pairing(
-        &self,
-        code: &str,
-    ) -> Result<(), ChannelError> {
+    pub async fn reject_pairing(&self, code: &str) -> Result<(), ChannelError> {
         let _row = self.get_valid_pending_pairing(code).await?;
 
         self.repo
@@ -172,16 +162,11 @@ impl PairingService {
     }
 
     /// Returns all pending (not expired) pairing requests.
-    pub async fn get_pending_pairings(
-        &self,
-    ) -> Result<Vec<PairingCodeRow>, ChannelError> {
+    pub async fn get_pending_pairings(&self) -> Result<Vec<PairingCodeRow>, ChannelError> {
         let rows = self.repo.get_pending_pairings().await?;
         let now = now_ms();
         // Filter out expired ones that haven't been cleaned up yet
-        let active: Vec<PairingCodeRow> = rows
-            .into_iter()
-            .filter(|r| r.expires_at > now)
-            .collect();
+        let active: Vec<PairingCodeRow> = rows.into_iter().filter(|r| r.expires_at > now).collect();
         Ok(active)
     }
 
@@ -216,12 +201,9 @@ impl PairingService {
     /// Starts a background task that periodically cleans up expired
     /// pairing codes. Returns a `JoinHandle` that can be used to cancel
     /// the task on shutdown.
-    pub fn start_cleanup_timer(
-        repo: Arc<dyn IChannelRepository>,
-    ) -> JoinHandle<()> {
+    pub fn start_cleanup_timer(repo: Arc<dyn IChannelRepository>) -> JoinHandle<()> {
         tokio::spawn(async move {
-            let mut interval =
-                tokio::time::interval(PAIRING_CLEANUP_INTERVAL);
+            let mut interval = tokio::time::interval(PAIRING_CLEANUP_INTERVAL);
             loop {
                 interval.tick().await;
                 let now = now_ms();
@@ -239,10 +221,7 @@ impl PairingService {
     }
 
     /// Validates that a pairing code exists, is pending, and not expired.
-    async fn get_valid_pending_pairing(
-        &self,
-        code: &str,
-    ) -> Result<PairingCodeRow, ChannelError> {
+    async fn get_valid_pending_pairing(&self, code: &str) -> Result<PairingCodeRow, ChannelError> {
         let row = self
             .repo
             .get_pairing_by_code(code)
@@ -277,14 +256,9 @@ impl PairingService {
     ) -> Result<(), ChannelError> {
         let pending = self.repo.get_pending_pairings().await?;
         for row in pending {
-            if row.platform_user_id == platform_user_id
-                && row.platform_type == platform_type
-            {
+            if row.platform_user_id == platform_user_id && row.platform_type == platform_type {
                 self.repo
-                    .update_pairing_status(
-                        &row.code,
-                        &PairingStatus::Expired.to_string(),
-                    )
+                    .update_pairing_status(&row.code, &PairingStatus::Expired.to_string())
                     .await?;
                 debug!(
                     code = %row.code,
@@ -393,8 +367,7 @@ mod tests {
             Ok(users
                 .iter()
                 .find(|u| {
-                    u.platform_user_id == platform_user_id
-                        && u.platform_type == platform_type
+                    u.platform_user_id == platform_user_id && u.platform_type == platform_type
                 })
                 .cloned())
         }
@@ -402,8 +375,7 @@ mod tests {
         async fn create_user(&self, row: &AssistantUserRow) -> Result<(), DbError> {
             let mut users = self.users.lock().unwrap();
             if users.iter().any(|u| {
-                u.platform_user_id == row.platform_user_id
-                    && u.platform_type == row.platform_type
+                u.platform_user_id == row.platform_user_id && u.platform_type == row.platform_type
             }) {
                 return Err(DbError::Conflict("user already exists".into()));
             }
@@ -504,19 +476,12 @@ mod tests {
                 .collect())
         }
 
-        async fn get_pairing_by_code(
-            &self,
-            code: &str,
-        ) -> Result<Option<PairingCodeRow>, DbError> {
+        async fn get_pairing_by_code(&self, code: &str) -> Result<Option<PairingCodeRow>, DbError> {
             let pairings = self.pairings.lock().unwrap();
             Ok(pairings.iter().find(|p| p.code == code).cloned())
         }
 
-        async fn update_pairing_status(
-            &self,
-            code: &str,
-            status: &str,
-        ) -> Result<(), DbError> {
+        async fn update_pairing_status(&self, code: &str, status: &str) -> Result<(), DbError> {
             let mut pairings = self.pairings.lock().unwrap();
             if let Some(p) = pairings.iter_mut().find(|p| p.code == code) {
                 p.status = status.to_owned();
@@ -526,10 +491,7 @@ mod tests {
             }
         }
 
-        async fn cleanup_expired_pairings(
-            &self,
-            now: TimestampMs,
-        ) -> Result<u64, DbError> {
+        async fn cleanup_expired_pairings(&self, now: TimestampMs) -> Result<u64, DbError> {
             let mut pairings = self.pairings.lock().unwrap();
             let mut count = 0u64;
             for p in pairings.iter_mut() {
@@ -822,10 +784,7 @@ mod tests {
     #[tokio::test]
     async fn unauthorized_user_returns_false() {
         let (svc, _repo, _bc) = make_service();
-        let authorized = svc
-            .is_user_authorized("tg_42", "telegram")
-            .await
-            .unwrap();
+        let authorized = svc.is_user_authorized("tg_42", "telegram").await.unwrap();
         assert!(!authorized);
     }
 
@@ -838,10 +797,7 @@ mod tests {
             .unwrap();
         svc.approve_pairing(&code).await.unwrap();
 
-        let authorized = svc
-            .is_user_authorized("tg_42", "telegram")
-            .await
-            .unwrap();
+        let authorized = svc.is_user_authorized("tg_42", "telegram").await.unwrap();
         assert!(authorized);
     }
 

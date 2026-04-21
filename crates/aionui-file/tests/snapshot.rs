@@ -225,10 +225,7 @@ async fn git_repo_baseline_content_tracked_file() {
     let ws = tmp.path().to_str().unwrap();
     svc.init(ws).await.unwrap();
 
-    let content = svc
-        .get_baseline_content(ws, "readme.txt")
-        .await
-        .unwrap();
+    let content = svc.get_baseline_content(ws, "readme.txt").await.unwrap();
     assert_eq!(content.as_deref(), Some("Hello from baseline"));
 }
 
@@ -393,10 +390,7 @@ async fn snapshot_baseline_content_returns_initial_content() {
     std::fs::write(tmp.path().join("doc.txt"), "changed content").unwrap();
 
     // Baseline should still return the initial version
-    let content = svc
-        .get_baseline_content(ws, "doc.txt")
-        .await
-        .unwrap();
+    let content = svc.get_baseline_content(ws, "doc.txt").await.unwrap();
     assert_eq!(content.as_deref(), Some("initial content"));
 }
 
@@ -437,11 +431,7 @@ async fn snapshot_excludes_node_modules() {
     assert!(result.unstaged.is_empty());
 
     // Adding a file to node_modules should not show up as a change
-    std::fs::write(
-        tmp.path().join("node_modules/new_dep.js"),
-        "new dep",
-    )
-    .unwrap();
+    std::fs::write(tmp.path().join("node_modules/new_dep.js"), "new dep").unwrap();
 
     let result = svc.compare(ws).await.unwrap();
     assert!(result.staged.is_empty());
@@ -501,9 +491,11 @@ async fn compare_result_contains_full_paths() {
 
     // file_path should contain the workspace prefix
     let canonical = std::fs::canonicalize(tmp.path()).unwrap();
-    assert!(result.unstaged[0]
-        .file_path
-        .starts_with(canonical.to_str().unwrap()));
+    assert!(
+        result.unstaged[0]
+            .file_path
+            .starts_with(canonical.to_str().unwrap())
+    );
 }
 
 // =======================================================================
@@ -967,7 +959,6 @@ async fn snapshot_stage_and_discard_flow() {
     svc.discard_file(ws, "doc.txt", FileChangeOperation::Modify)
         .await
         .unwrap();
-    let content =
-        std::fs::read_to_string(tmp.path().join("doc.txt")).unwrap();
+    let content = std::fs::read_to_string(tmp.path().join("doc.txt")).unwrap();
     assert_eq!(content, "initial");
 }

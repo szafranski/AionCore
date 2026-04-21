@@ -405,7 +405,8 @@ async fn sk1_save_skill() {
     let created = create_job(&mut app, &token, &csrf, create_job_body("Skill Job")).await;
     let job_id = created["id"].as_str().unwrap();
 
-    let skill_body = json!({"content": "---\nname: test\ndescription: test skill\n---\nDo something"});
+    let skill_body =
+        json!({"content": "---\nname: test\ndescription: test skill\n---\nDo something"});
     let req = json_with_token(
         "POST",
         &format!("/api/cron/jobs/{job_id}/skill"),
@@ -492,7 +493,13 @@ async fn sk5_save_placeholder_skill() {
     let (mut app, services) = build_app().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
-    let created = create_job(&mut app, &token, &csrf, create_job_body("Placeholder Skill")).await;
+    let created = create_job(
+        &mut app,
+        &token,
+        &csrf,
+        create_job_body("Placeholder Skill"),
+    )
+    .await;
     let job_id = created["id"].as_str().unwrap();
 
     let skill_body = json!({"content": "TODO: fill in later"});

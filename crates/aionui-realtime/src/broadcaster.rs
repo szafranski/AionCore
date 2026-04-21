@@ -34,9 +34,7 @@ impl BroadcastEventBus {
     /// Subscribe to receive broadcast events.
     ///
     /// Each WebSocket connection calls this once to get its own receiver.
-    pub fn subscribe(
-        &self,
-    ) -> broadcast::Receiver<WebSocketMessage<serde_json::Value>> {
+    pub fn subscribe(&self) -> broadcast::Receiver<WebSocketMessage<serde_json::Value>> {
         self.tx.subscribe()
     }
 
@@ -128,8 +126,7 @@ mod tests {
         let mut rx = bus.subscribe();
 
         for i in 0..5 {
-            let event =
-                WebSocketMessage::new(format!("event-{i}"), json!({"seq": i}));
+            let event = WebSocketMessage::new(format!("event-{i}"), json!({"seq": i}));
             bus.broadcast(event);
         }
 

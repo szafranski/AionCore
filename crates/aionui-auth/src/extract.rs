@@ -1,4 +1,4 @@
-use axum::http::{header, HeaderMap, Request};
+use axum::http::{HeaderMap, Request, header};
 
 use aionui_common::constants::COOKIE_NAME;
 
@@ -12,9 +12,7 @@ pub fn extract_client_ip<B>(request: &Request<B>) -> String {
 /// Extract client IP from a `HeaderMap` directly.
 pub fn extract_client_ip_from_headers(headers: &HeaderMap) -> String {
     // X-Forwarded-For: client, proxy1, proxy2
-    if let Some(forwarded) = headers
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
+    if let Some(forwarded) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok())
         && let Some(first_ip) = forwarded.split(',').next()
     {
         let ip = first_ip.trim();
@@ -130,10 +128,7 @@ mod tests {
 
     #[test]
     fn ip_forwarded_for_takes_priority() {
-        let headers = headers_with(&[
-            ("x-forwarded-for", "1.2.3.4"),
-            ("x-real-ip", "10.0.0.1"),
-        ]);
+        let headers = headers_with(&[("x-forwarded-for", "1.2.3.4"), ("x-real-ip", "10.0.0.1")]);
         assert_eq!(extract_client_ip_from_headers(&headers), "1.2.3.4");
     }
 
@@ -302,9 +297,6 @@ mod tests {
         // End-to-end: extract_token_from_headers should still find the
         // session cookie even when other entries lack '='
         let headers = headers_with(&[("cookie", "garbage; aionui-session=abc; nope")]);
-        assert_eq!(
-            extract_token_from_headers(&headers),
-            Some("abc".into())
-        );
+        assert_eq!(extract_token_from_headers(&headers), Some("abc".into()));
     }
 }

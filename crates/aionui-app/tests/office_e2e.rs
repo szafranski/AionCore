@@ -22,12 +22,10 @@ use tower::ServiceExt;
 
 use common::{body_json, get_request, json_with_token, setup_and_login};
 
-use aionui_app::{
-    AppServices, build_module_states, create_router_with_states,
-};
+use aionui_app::{AppServices, build_module_states, create_router_with_states};
 use aionui_office::{
-    ConversionService, OfficecliWatchManager, OfficeRouterState, ProxyService,
-    SnapshotService, StarOfficeDetector,
+    ConversionService, OfficeRouterState, OfficecliWatchManager, ProxyService, SnapshotService,
+    StarOfficeDetector,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -37,7 +35,9 @@ async fn build_office_app() -> (axum::Router, AppServices, tempfile::TempDir) {
     let data_dir = tmp.path().to_str().unwrap().to_string();
 
     let db = aionui_db::init_database_memory().await.unwrap();
-    let services = AppServices::from_database_with_data_dir(db, data_dir).await.unwrap();
+    let services = AppServices::from_database_with_data_dir(db, data_dir)
+        .await
+        .unwrap();
     let mut states = build_module_states(&services).await;
 
     states.office = build_test_office_state(tmp.path());
@@ -47,9 +47,9 @@ async fn build_office_app() -> (axum::Router, AppServices, tempfile::TempDir) {
 }
 
 fn build_test_office_state(data_dir: &std::path::Path) -> OfficeRouterState {
-    use aionui_office::{ProcessHandle, ProcessSpawner};
     use aionui_office::error::OfficeError;
     use aionui_office::types::DocType;
+    use aionui_office::{ProcessHandle, ProcessSpawner};
 
     struct NoopSpawner;
 
@@ -160,8 +160,14 @@ async fn wp4_word_preview_officecli_not_available() {
     let json = body_json(resp).await;
     assert_eq!(json["success"], true);
     let url = json["data"]["url"].as_str().unwrap();
-    assert!(url.is_empty(), "url should be empty when officecli unavailable");
-    assert!(json["data"]["error"].is_string(), "should have error message");
+    assert!(
+        url.is_empty(),
+        "url should be empty when officecli unavailable"
+    );
+    assert!(
+        json["data"]["error"].is_string(),
+        "should have error message"
+    );
 }
 
 // ── SH-1: Save snapshot ─────────────────────────────────────────────
@@ -230,7 +236,13 @@ async fn sh3_get_snapshot_content() {
         "target": snapshot_target(),
         "content": "# Hello"
     });
-    let req = json_with_token("POST", "/api/preview-history/save", save_body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        "/api/preview-history/save",
+        save_body,
+        &token,
+        &csrf,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     let save_json = body_json(resp).await;
     let snapshot_id = save_json["data"]["id"].as_str().unwrap();
@@ -239,7 +251,13 @@ async fn sh3_get_snapshot_content() {
         "target": snapshot_target(),
         "snapshotId": snapshot_id
     });
-    let req = json_with_token("POST", "/api/preview-history/get-content", get_body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        "/api/preview-history/get-content",
+        get_body,
+        &token,
+        &csrf,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
@@ -260,7 +278,13 @@ async fn sh4_get_nonexistent_snapshot() {
         "target": snapshot_target(),
         "snapshotId": "nonexistent"
     });
-    let req = json_with_token("POST", "/api/preview-history/get-content", body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        "/api/preview-history/get-content",
+        body,
+        &token,
+        &csrf,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);

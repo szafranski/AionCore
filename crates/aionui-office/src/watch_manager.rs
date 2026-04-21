@@ -64,10 +64,7 @@ pub struct OfficecliWatchManager {
 }
 
 impl OfficecliWatchManager {
-    pub fn new(
-        spawner: Arc<dyn ProcessSpawner>,
-        broadcaster: Arc<dyn EventBroadcaster>,
-    ) -> Self {
+    pub fn new(spawner: Arc<dyn ProcessSpawner>, broadcaster: Arc<dyn EventBroadcaster>) -> Self {
         Self {
             sessions: DashMap::new(),
             spawner,
@@ -76,11 +73,7 @@ impl OfficecliWatchManager {
         }
     }
 
-    pub async fn start(
-        &self,
-        file_path: &str,
-        doc_type: DocType,
-    ) -> Result<u16, OfficeError> {
+    pub async fn start(&self, file_path: &str, doc_type: DocType) -> Result<u16, OfficeError> {
         let resolved = resolve_path(file_path)?;
         let key = session_key(&resolved, doc_type);
 
@@ -105,23 +98,15 @@ impl OfficecliWatchManager {
                 Ok(*port)
             }
             Err(e) => {
-                self.broadcast_status(
-                    doc_type,
-                    PreviewState::Error,
-                    Some(e.to_string()),
-                );
+                self.broadcast_status(doc_type, PreviewState::Error, Some(e.to_string()));
                 Err(match e {
                     OfficeError::OfficecliNotFound => OfficeError::OfficecliNotFound,
                     OfficeError::InstallFailed(m) => OfficeError::InstallFailed(m.clone()),
                     OfficeError::StartFailed(m) => OfficeError::StartFailed(m.clone()),
                     OfficeError::PortTimeout(m) => OfficeError::PortTimeout(m.clone()),
-                    OfficeError::Io(io) => {
-                        OfficeError::StartFailed(format!("IO error: {io}"))
-                    }
+                    OfficeError::Io(io) => OfficeError::StartFailed(format!("IO error: {io}")),
                     OfficeError::Snapshot(m) => OfficeError::StartFailed(m.clone()),
-                    OfficeError::Json(e) => {
-                        OfficeError::StartFailed(format!("JSON error: {e}"))
-                    }
+                    OfficeError::Json(e) => OfficeError::StartFailed(format!("JSON error: {e}")),
                     OfficeError::Conversion(m) => OfficeError::StartFailed(m.clone()),
                     OfficeError::ToolNotFound(m) => OfficeError::StartFailed(m.clone()),
                 })
@@ -129,17 +114,10 @@ impl OfficecliWatchManager {
         }
     }
 
-    async fn try_start(
-        &self,
-        resolved: &str,
-        doc_type: DocType,
-    ) -> Result<u16, OfficeError> {
+    async fn try_start(&self, resolved: &str, doc_type: DocType) -> Result<u16, OfficeError> {
         let port = allocate_port()?;
 
-        let spawn_result = self
-            .spawner
-            .spawn_officecli(resolved, port, doc_type)
-            .await;
+        let spawn_result = self.spawner.spawn_officecli(resolved, port, doc_type).await;
 
         let process = match spawn_result {
             Ok(p) => p,
@@ -170,11 +148,7 @@ impl OfficecliWatchManager {
         Ok(port)
     }
 
-    async fn poll_port_ready(
-        &self,
-        port: u16,
-        file_path: &str,
-    ) -> Result<(), OfficeError> {
+    async fn poll_port_ready(&self, port: u16, file_path: &str) -> Result<(), OfficeError> {
         for _ in 0..POLL_MAX_ATTEMPTS {
             if is_port_listening(port).await {
                 return Ok(());
@@ -218,8 +192,7 @@ impl OfficecliWatchManager {
 
     pub fn is_active_watch_port(&self, port: u16) -> bool {
         self.sessions.iter().any(|entry| {
-            entry.port == port
-                && matches!(entry.doc_type, DocType::Word | DocType::Excel)
+            entry.port == port && matches!(entry.doc_type, DocType::Word | DocType::Excel)
         })
     }
 
@@ -245,12 +218,7 @@ impl OfficecliWatchManager {
         }
     }
 
-    fn broadcast_status(
-        &self,
-        doc_type: DocType,
-        state: PreviewState,
-        message: Option<String>,
-    ) {
+    fn broadcast_status(&self, doc_type: DocType, state: PreviewState, message: Option<String>) {
         let event_name = format!("{}.status", doc_type.event_prefix());
         let payload = PreviewStatusEvent { state, message };
         let data = match serde_json::to_value(payload) {
@@ -388,8 +356,7 @@ impl ProcessSpawner for DefaultProcessSpawner {
 
 fn resolve_path(file_path: &str) -> Result<String, OfficeError> {
     let path = std::path::Path::new(file_path);
-    let resolved = std::fs::canonicalize(path)
-        .unwrap_or_else(|_| path.to_path_buf());
+    let resolved = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     Ok(resolved.to_string_lossy().into_owned())
 }
 
@@ -472,9 +439,8 @@ mod tests {
             }
 
             if self.start_listener.load(Ordering::SeqCst) {
-                let listener =
-                    std::net::TcpListener::bind(format!("127.0.0.1:{port}"))
-                        .map_err(|e| OfficeError::StartFailed(e.to_string()))?;
+                let listener = std::net::TcpListener::bind(format!("127.0.0.1:{port}"))
+                    .map_err(|e| OfficeError::StartFailed(e.to_string()))?;
                 std::mem::forget(listener);
             }
 
@@ -549,7 +515,10 @@ mod tests {
         let file = dir.path().join("test.docx");
         std::fs::write(&file, b"test").unwrap();
 
-        let port = mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
+        let port = mgr
+            .start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
         assert!(port > 0);
         assert_eq!(mgr.active_session_count(), 1);
         assert_eq!(spawner.spawn_count.load(Ordering::SeqCst), 1);
@@ -565,8 +534,14 @@ mod tests {
         let file = dir.path().join("test.docx");
         std::fs::write(&file, b"test").unwrap();
 
-        let p1 = mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
-        let p2 = mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
+        let p1 = mgr
+            .start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
+        let p2 = mgr
+            .start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
 
         assert_eq!(p1, p2);
         assert_eq!(spawner.spawn_count.load(Ordering::SeqCst), 1);
@@ -582,8 +557,14 @@ mod tests {
         let file = dir.path().join("test.docx");
         std::fs::write(&file, b"test").unwrap();
 
-        let p1 = mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
-        let p2 = mgr.start(file.to_str().unwrap(), DocType::Excel).await.unwrap();
+        let p1 = mgr
+            .start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
+        let p2 = mgr
+            .start(file.to_str().unwrap(), DocType::Excel)
+            .await
+            .unwrap();
 
         assert_ne!(p1, p2);
         assert_eq!(mgr.active_session_count(), 2);
@@ -620,8 +601,12 @@ mod tests {
         std::fs::write(&f1, b"a").unwrap();
         std::fs::write(&f2, b"b").unwrap();
 
-        mgr.start(f1.to_str().unwrap(), DocType::Word).await.unwrap();
-        mgr.start(f2.to_str().unwrap(), DocType::Excel).await.unwrap();
+        mgr.start(f1.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
+        mgr.start(f2.to_str().unwrap(), DocType::Excel)
+            .await
+            .unwrap();
         assert_eq!(mgr.active_session_count(), 2);
 
         mgr.stop_all();
@@ -638,7 +623,10 @@ mod tests {
         let file = dir.path().join("test.docx");
         std::fs::write(&file, b"test").unwrap();
 
-        let port = mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
+        let port = mgr
+            .start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
         assert!(mgr.is_active_port(port, DocType::Word));
         assert!(!mgr.is_active_port(port, DocType::Ppt));
         assert!(!mgr.is_active_port(12345, DocType::Word));
@@ -658,9 +646,18 @@ mod tests {
         std::fs::write(&excel_file, b"e").unwrap();
         std::fs::write(&ppt_file, b"p").unwrap();
 
-        let word_port = mgr.start(word_file.to_str().unwrap(), DocType::Word).await.unwrap();
-        let excel_port = mgr.start(excel_file.to_str().unwrap(), DocType::Excel).await.unwrap();
-        let ppt_port = mgr.start(ppt_file.to_str().unwrap(), DocType::Ppt).await.unwrap();
+        let word_port = mgr
+            .start(word_file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
+        let excel_port = mgr
+            .start(excel_file.to_str().unwrap(), DocType::Excel)
+            .await
+            .unwrap();
+        let ppt_port = mgr
+            .start(ppt_file.to_str().unwrap(), DocType::Ppt)
+            .await
+            .unwrap();
 
         assert!(mgr.is_active_watch_port(word_port));
         assert!(mgr.is_active_watch_port(excel_port));
@@ -679,7 +676,10 @@ mod tests {
         let file = dir.path().join("test.docx");
         std::fs::write(&file, b"test").unwrap();
 
-        let port = mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
+        let port = mgr
+            .start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
         assert!(port > 0);
         assert_eq!(spawner.install_count.load(Ordering::SeqCst), 1);
         // First spawn fails (not installed), then install, then second spawn succeeds
@@ -696,7 +696,9 @@ mod tests {
         let file = dir.path().join("test.docx");
         std::fs::write(&file, b"test").unwrap();
 
-        mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
+        mgr.start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
 
         let events = broadcaster.events();
         assert!(events.len() >= 2);
@@ -717,7 +719,9 @@ mod tests {
         let file = dir.path().join("test.docx");
         std::fs::write(&file, b"test").unwrap();
 
-        mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
+        mgr.start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
 
         let events = broadcaster.events();
         let states: Vec<&str> = events
@@ -776,7 +780,9 @@ mod tests {
         let file = dir.path().join("test.pptx");
         std::fs::write(&file, b"test").unwrap();
 
-        mgr.start(file.to_str().unwrap(), DocType::Ppt).await.unwrap();
+        mgr.start(file.to_str().unwrap(), DocType::Ppt)
+            .await
+            .unwrap();
 
         // Give the spawned task a moment
         tokio::time::sleep(Duration::from_millis(50)).await;
@@ -793,7 +799,9 @@ mod tests {
         let file = dir.path().join("test.docx");
         std::fs::write(&file, b"test").unwrap();
 
-        mgr.start(file.to_str().unwrap(), DocType::Word).await.unwrap();
+        mgr.start(file.to_str().unwrap(), DocType::Word)
+            .await
+            .unwrap();
 
         tokio::time::sleep(Duration::from_millis(50)).await;
         assert_eq!(spawner.update_count.load(Ordering::SeqCst), 0);

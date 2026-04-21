@@ -70,10 +70,7 @@ fn resolve_log_dir() -> String {
     }
     // Linux: XDG state dir
     if let Some(state) = dirs::state_dir() {
-        return state
-            .join("aionui/logs")
-            .to_string_lossy()
-            .into_owned();
+        return state.join("aionui/logs").to_string_lossy().into_owned();
     }
     // Fallback: data_dir/aionui/logs
     dirs::data_dir()
@@ -109,10 +106,7 @@ mod tests {
     #[test]
     fn test_map_arch_known() {
         let a = map_arch();
-        assert!(
-            ["x64", "arm64"].contains(&a),
-            "unexpected arch: {a}"
-        );
+        assert!(["x64", "arm64"].contains(&a), "unexpected arch: {a}");
     }
 
     #[test]
@@ -131,18 +125,27 @@ mod tests {
         // We cannot reliably set env in parallel tests, so just verify
         // the default path contains "aionui".
         let dir = resolve_cache_dir();
-        assert!(dir.contains("aionui"), "cache_dir should contain 'aionui': {dir}");
+        assert!(
+            dir.contains("aionui"),
+            "cache_dir should contain 'aionui': {dir}"
+        );
     }
 
     #[test]
     fn test_env_override_work_dir() {
         let dir = resolve_work_dir();
-        assert!(dir.contains("aionui"), "work_dir should contain 'aionui': {dir}");
+        assert!(
+            dir.contains("aionui"),
+            "work_dir should contain 'aionui': {dir}"
+        );
     }
 
     #[test]
     fn test_env_override_log_dir() {
         let dir = resolve_log_dir();
-        assert!(dir.contains("aionui"), "log_dir should contain 'aionui': {dir}");
+        assert!(
+            dir.contains("aionui"),
+            "log_dir should contain 'aionui': {dir}"
+        );
     }
 }

@@ -19,7 +19,9 @@ pub async fn is_cli_installed(name: &str) -> Result<bool, McpError> {
         .arg(name)
         .output()
         .await
-        .map_err(|e| McpError::AgentOperationFailed(format!("failed to run `which {name}`: {e}")))?;
+        .map_err(|e| {
+            McpError::AgentOperationFailed(format!("failed to run `which {name}`: {e}"))
+        })?;
 
     Ok(output.status.success())
 }
@@ -106,7 +108,11 @@ pub async fn run_cli_strict(
             "`{program} {}` exited with {}: {}",
             args.join(" "),
             output.status,
-            if stderr.is_empty() { &stdout } else { stderr.as_ref() }
+            if stderr.is_empty() {
+                &stdout
+            } else {
+                stderr.as_ref()
+            }
         )));
     }
 

@@ -170,11 +170,7 @@ async fn create_zip_with_request_id() {
     }];
 
     let result = svc
-        .create_zip(
-            zip_path.to_str().unwrap(),
-            entries,
-            Some("req-123".into()),
-        )
+        .create_zip(zip_path.to_str().unwrap(), entries, Some("req-123".into()))
         .await
         .unwrap();
     assert!(result);
@@ -207,13 +203,9 @@ async fn cancel_zip_completed_request_returns_false() {
     }];
 
     // Complete the ZIP first
-    svc.create_zip(
-        zip_path.to_str().unwrap(),
-        entries,
-        Some("req-done".into()),
-    )
-    .await
-    .unwrap();
+    svc.create_zip(zip_path.to_str().unwrap(), entries, Some("req-done".into()))
+        .await
+        .unwrap();
 
     // After completion, the token is cleaned up — cancel returns false
     let result = svc.cancel_zip("req-done").await;
@@ -313,7 +305,11 @@ async fn create_zip_rejects_nonexistent_disk_entry_in_sandbox() {
     // validate_path rejects it before any ZIP is created.
     let entries = vec![ZipEntry::Disk {
         name: "missing.txt".into(),
-        file_path: dir.path().join("no_such.txt").to_string_lossy().into_owned(),
+        file_path: dir
+            .path()
+            .join("no_such.txt")
+            .to_string_lossy()
+            .into_owned(),
     }];
 
     let result = svc

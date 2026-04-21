@@ -113,7 +113,13 @@ mod tests {
     async fn disabled_config_returns_disabled_error() {
         let svc = SttService::new(Client::new());
         let result = svc
-            .transcribe(vec![0u8; 10], "test.wav", "audio/wav", None, &make_disabled_config())
+            .transcribe(
+                vec![0u8; 10],
+                "test.wav",
+                "audio/wav",
+                None,
+                &make_disabled_config(),
+            )
             .await;
         assert!(matches!(result, Err(SttError::Disabled)));
     }

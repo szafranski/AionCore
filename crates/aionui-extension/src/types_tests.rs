@@ -5,7 +5,10 @@ use serde_json::json;
 
 #[test]
 fn test_risk_level_serde() {
-    assert_eq!(serde_json::to_string(&RiskLevel::Safe).unwrap(), r#""safe""#);
+    assert_eq!(
+        serde_json::to_string(&RiskLevel::Safe).unwrap(),
+        r#""safe""#
+    );
     assert_eq!(
         serde_json::to_string(&RiskLevel::Moderate).unwrap(),
         r#""moderate""#

@@ -40,10 +40,7 @@ impl AnthropicRotatingClient {
     /// Native Anthropic Messages API call.
     ///
     /// POST /v1/messages with `x-api-key` + `anthropic-version` headers.
-    pub async fn create_message(
-        &self,
-        request: &Value,
-    ) -> Result<Value, ApiClientError> {
+    pub async fn create_message(&self, request: &Value) -> Result<Value, ApiClientError> {
         self.inner
             .execute_with_retry(|client, base_url, api_key| {
                 client
@@ -56,10 +53,7 @@ impl AnthropicRotatingClient {
     }
 
     /// OpenAI-compatible chat completion, converted to/from Anthropic format.
-    pub async fn create_chat_completion(
-        &self,
-        request: &Value,
-    ) -> Result<Value, ApiClientError> {
+    pub async fn create_chat_completion(&self, request: &Value) -> Result<Value, ApiClientError> {
         let anthropic_request = openai_to_anthropic_request(request);
 
         let response = self
@@ -88,10 +82,7 @@ fn openai_to_anthropic_request(openai: &Value) -> Value {
 
     if let Some(openai_messages) = openai.get("messages").and_then(|v| v.as_array()) {
         for msg in openai_messages {
-            let role = msg
-                .get("role")
-                .and_then(|v| v.as_str())
-                .unwrap_or("user");
+            let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
             let content = msg.get("content").cloned().unwrap_or(json!(""));
 
             match role {

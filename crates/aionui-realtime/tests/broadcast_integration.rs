@@ -75,10 +75,7 @@ async fn high_throughput_broadcast() {
 
     let count = 100;
     for i in 0..count {
-        bus.broadcast(WebSocketMessage::new(
-            format!("evt-{i}"),
-            json!({"seq": i}),
-        ));
+        bus.broadcast(WebSocketMessage::new(format!("evt-{i}"), json!({"seq": i})));
     }
 
     for i in 0..count {

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use aionui_common::{generate_id, now_ms};
-use aionui_db::models::AssistantSessionRow;
 use aionui_db::IChannelRepository;
+use aionui_db::models::AssistantSessionRow;
 use tracing::{debug, info};
 
 use crate::error::ChannelError;
@@ -64,9 +64,7 @@ impl SessionManager {
     }
 
     /// Returns all active sessions.
-    pub async fn get_active_sessions(
-        &self,
-    ) -> Result<Vec<AssistantSessionRow>, ChannelError> {
+    pub async fn get_active_sessions(&self) -> Result<Vec<AssistantSessionRow>, ChannelError> {
         let sessions = self.repo.get_all_sessions().await?;
         Ok(sessions)
     }
@@ -136,10 +134,7 @@ impl SessionManager {
     /// Removes all sessions belonging to a user.
     ///
     /// Called when a user is revoked to clean up their session state.
-    pub async fn cleanup_user_sessions(
-        &self,
-        user_id: &str,
-    ) -> Result<(), ChannelError> {
+    pub async fn cleanup_user_sessions(&self, user_id: &str) -> Result<(), ChannelError> {
         self.repo.delete_sessions_by_user(user_id).await?;
         info!(user_id = %user_id, "cleaned up user sessions");
         Ok(())
@@ -170,11 +165,11 @@ impl SessionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aionui_common::TimestampMs;
     use aionui_db::models::{
         AssistantSessionRow, AssistantUserRow, ChannelPluginRow, PairingCodeRow,
     };
     use aionui_db::{DbError, IChannelRepository, UpdatePluginStatusParams};
-    use aionui_common::TimestampMs;
     use std::sync::Mutex;
 
     // ── Mock IChannelRepository ────────────────────────────────────────
@@ -248,10 +243,7 @@ mod tests {
             Ok(self.sessions.lock().unwrap().clone())
         }
 
-        async fn get_session(
-            &self,
-            id: &str,
-        ) -> Result<Option<AssistantSessionRow>, DbError> {
+        async fn get_session(&self, id: &str) -> Result<Option<AssistantSessionRow>, DbError> {
             let sessions = self.sessions.lock().unwrap();
             Ok(sessions.iter().find(|s| s.id == id).cloned())
         }
@@ -264,9 +256,10 @@ mod tests {
         ) -> Result<AssistantSessionRow, DbError> {
             let mut sessions = self.sessions.lock().unwrap();
             // Look for existing session by user_id + chat_id
-            if let Some(existing) = sessions.iter_mut().find(|s| {
-                s.user_id == user_id && s.chat_id.as_deref() == Some(chat_id)
-            }) {
+            if let Some(existing) = sessions
+                .iter_mut()
+                .find(|s| s.user_id == user_id && s.chat_id.as_deref() == Some(chat_id))
+            {
                 existing.last_activity = new_row.last_activity;
                 return Ok(existing.clone());
             }
@@ -331,9 +324,7 @@ mod tests {
             chat_id: &str,
         ) -> Result<(), DbError> {
             let mut sessions = self.sessions.lock().unwrap();
-            sessions.retain(|s| {
-                !(s.user_id == user_id && s.chat_id.as_deref() == Some(chat_id))
-            });
+            sessions.retain(|s| !(s.user_id == user_id && s.chat_id.as_deref() == Some(chat_id)));
             Ok(())
         }
 
@@ -350,17 +341,10 @@ mod tests {
         ) -> Result<Option<PairingCodeRow>, DbError> {
             Ok(None)
         }
-        async fn update_pairing_status(
-            &self,
-            _code: &str,
-            _status: &str,
-        ) -> Result<(), DbError> {
+        async fn update_pairing_status(&self, _code: &str, _status: &str) -> Result<(), DbError> {
             Ok(())
         }
-        async fn cleanup_expired_pairings(
-            &self,
-            _now: TimestampMs,
-        ) -> Result<u64, DbError> {
+        async fn cleanup_expired_pairings(&self, _now: TimestampMs) -> Result<u64, DbError> {
             Ok(0)
         }
     }
@@ -529,18 +513,13 @@ mod tests {
             .into_iter()
             .find(|s| s.id == session.id)
             .unwrap();
-        assert_eq!(
-            updated.conversation_id.as_deref(),
-            Some("conv_123")
-        );
+        assert_eq!(updated.conversation_id.as_deref(), Some("conv_123"));
     }
 
     #[tokio::test]
     async fn bind_conversation_not_found() {
         let (mgr, _repo) = make_manager();
-        let err = mgr
-            .bind_conversation("nonexistent", "conv_123")
-            .await;
+        let err = mgr.bind_conversation("nonexistent", "conv_123").await;
         assert!(err.is_err());
     }
 
@@ -554,10 +533,7 @@ mod tests {
             .await
             .unwrap();
 
-        let s2 = mgr
-            .reset_session("u1", "c1", "gemini", None)
-            .await
-            .unwrap();
+        let s2 = mgr.reset_session("u1", "c1", "gemini", None).await.unwrap();
 
         // New session should have a different ID
         assert_ne!(s1.id, s2.id);
@@ -572,10 +548,7 @@ mod tests {
     #[tokio::test]
     async fn reset_session_noop_when_no_existing() {
         let (mgr, repo) = make_manager();
-        let session = mgr
-            .reset_session("u1", "c1", "acp", None)
-            .await
-            .unwrap();
+        let session = mgr.reset_session("u1", "c1", "acp", None).await.unwrap();
 
         assert_eq!(session.user_id, "u1");
         assert_eq!(repo.get_sessions().len(), 1);
@@ -605,9 +578,7 @@ mod tests {
     #[tokio::test]
     async fn update_agent_type_not_found() {
         let (mgr, _repo) = make_manager();
-        let err = mgr
-            .update_agent_type("nonexistent", "acp")
-            .await;
+        let err = mgr.update_agent_type("nonexistent", "acp").await;
         assert!(err.is_err());
     }
 }

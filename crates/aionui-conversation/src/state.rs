@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use aionui_ai_agent::IWorkerTaskManager;
 use crate::service::ConversationService;
+use aionui_ai_agent::IWorkerTaskManager;
 
 /// Shared state for conversation route handlers.
 #[derive(Clone)]

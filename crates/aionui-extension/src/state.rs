@@ -162,10 +162,8 @@ impl ExtensionStateStore {
 
                 // Debounce: wait for the configured duration, collapsing
                 // additional notifications.
-                tokio::time::sleep(std::time::Duration::from_millis(
-                    STATE_PERSIST_DEBOUNCE_MS,
-                ))
-                .await;
+                tokio::time::sleep(std::time::Duration::from_millis(STATE_PERSIST_DEBOUNCE_MS))
+                    .await;
 
                 let snapshot = {
                     let guard = inner.states.lock().await;
@@ -195,10 +193,7 @@ pub fn load_states_from_file(
     match std::fs::read(path) {
         Ok(bytes) => {
             let states: Vec<ExtensionState> = serde_json::from_slice(&bytes)?;
-            Ok(states
-                .into_iter()
-                .map(|s| (s.name.clone(), s))
-                .collect())
+            Ok(states.into_iter().map(|s| (s.name.clone(), s)).collect())
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             debug!(path = %path.display(), "no state file found — starting fresh");

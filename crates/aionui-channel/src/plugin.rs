@@ -1,7 +1,6 @@
 use crate::error::ChannelError;
 use crate::types::{
-    BotInfo, PluginConfig, PluginStatus, PluginType, UnifiedIncomingMessage,
-    UnifiedOutgoingMessage,
+    BotInfo, PluginConfig, PluginStatus, PluginType, UnifiedIncomingMessage, UnifiedOutgoingMessage,
 };
 
 /// Callback channels for a channel plugin.
@@ -92,9 +91,7 @@ pub trait ChannelPlugin: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{
-        OutgoingMessageType, PluginCredentials, PluginStatus, PluginType,
-    };
+    use crate::types::{OutgoingMessageType, PluginCredentials, PluginStatus, PluginType};
     use std::collections::HashMap;
     use tokio::sync::mpsc;
 
@@ -239,7 +236,10 @@ mod tests {
         assert!(plugin.bot_info().is_none());
 
         let config = make_test_config(Some("bot:123"));
-        plugin.initialize(config, make_test_callbacks()).await.unwrap();
+        plugin
+            .initialize(config, make_test_callbacks())
+            .await
+            .unwrap();
         assert_eq!(plugin.status(), PluginStatus::Ready);
         assert!(plugin.bot_info().is_some());
 
@@ -264,10 +264,16 @@ mod tests {
     async fn send_message_returns_id() {
         let mut plugin = MockPlugin::new(PluginType::Telegram);
         let config = make_test_config(Some("bot:abc"));
-        plugin.initialize(config, make_test_callbacks()).await.unwrap();
+        plugin
+            .initialize(config, make_test_callbacks())
+            .await
+            .unwrap();
         plugin.start().await.unwrap();
 
-        let msg_id = plugin.send_message("chat_1", make_test_outgoing()).await.unwrap();
+        let msg_id = plugin
+            .send_message("chat_1", make_test_outgoing())
+            .await
+            .unwrap();
         assert_eq!(msg_id, "mock_msg_id");
     }
 
@@ -275,7 +281,10 @@ mod tests {
     async fn edit_message_ok() {
         let mut plugin = MockPlugin::new(PluginType::Lark);
         let config = make_test_config(Some("token:xyz"));
-        plugin.initialize(config, make_test_callbacks()).await.unwrap();
+        plugin
+            .initialize(config, make_test_callbacks())
+            .await
+            .unwrap();
         plugin.start().await.unwrap();
 
         let result = plugin
@@ -300,7 +309,10 @@ mod tests {
     async fn trait_object_dispatch() {
         let mut plugin = MockPlugin::new(PluginType::Telegram);
         let config = make_test_config(Some("bot:obj"));
-        plugin.initialize(config, make_test_callbacks()).await.unwrap();
+        plugin
+            .initialize(config, make_test_callbacks())
+            .await
+            .unwrap();
 
         // Verify the plugin can be used as a trait object
         let plugin_ref: &dyn ChannelPlugin = &plugin;

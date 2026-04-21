@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use axum::Router;
 use axum::extract::{Extension, Json, Path, Query, State};
 use axum::routing::{get, post};
-use axum::Router;
 
 use aionui_api_types::ApiResponse;
 use aionui_auth::CurrentUser;
@@ -24,14 +24,8 @@ pub struct AuxiliaryRouterState {
 /// Build the auxiliary routes router.
 pub fn auxiliary_routes(state: AuxiliaryRouterState) -> Router {
     Router::new()
-        .route(
-            "/api/conversations/{id}/workspace",
-            get(browse_workspace),
-        )
-        .route(
-            "/api/conversations/{id}/side-question",
-            post(side_question),
-        )
+        .route("/api/conversations/{id}/workspace", get(browse_workspace))
+        .route("/api/conversations/{id}/side-question", post(side_question))
         .route(
             "/api/conversations/{id}/reload-context",
             post(reload_context),
@@ -104,12 +98,12 @@ async fn browse_workspace(
     let browse_path = base.join(query.path.trim_start_matches('/'));
 
     // Security: ensure the resolved path is within the workspace
-    let canonical_base = base.canonicalize().map_err(|e| {
-        AppError::Internal(format!("Failed to resolve workspace path: {e}"))
-    })?;
-    let canonical_browse = browse_path.canonicalize().map_err(|_| {
-        AppError::NotFound("Directory not found".into())
-    })?;
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| AppError::Internal(format!("Failed to resolve workspace path: {e}")))?;
+    let canonical_browse = browse_path
+        .canonicalize()
+        .map_err(|_| AppError::NotFound("Directory not found".into()))?;
     if !canonical_browse.starts_with(&canonical_base) {
         return Err(AppError::BadRequest(
             "Path traversal outside workspace is not allowed".into(),
@@ -128,9 +122,9 @@ async fn browse_workspace(
     }
 
     let mut entries = Vec::new();
-    let mut dir_reader = tokio::fs::read_dir(&canonical_browse).await.map_err(|e| {
-        AppError::Internal(format!("Failed to read directory: {e}"))
-    })?;
+    let mut dir_reader = tokio::fs::read_dir(&canonical_browse)
+        .await
+        .map_err(|e| AppError::Internal(format!("Failed to read directory: {e}")))?;
 
     while let Ok(Some(entry)) = dir_reader.next_entry().await {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -143,9 +137,10 @@ async fn browse_workspace(
             continue;
         }
 
-        let file_type = entry.file_type().await.map_err(|e| {
-            AppError::Internal(format!("Failed to read file type: {e}"))
-        })?;
+        let file_type = entry
+            .file_type()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to read file type: {e}")))?;
 
         let entry_type = if file_type.is_dir() {
             "directory"
@@ -284,9 +279,7 @@ async fn get_openclaw_runtime(
     let openclaw = handle
         .as_any()
         .downcast_ref::<OpenClawAgentManager>()
-        .ok_or_else(|| {
-            AppError::Internal("Failed to downcast to OpenClawAgentManager".into())
-        })?;
+        .ok_or_else(|| AppError::Internal("Failed to downcast to OpenClawAgentManager".into()))?;
 
     let diagnostics = openclaw.get_diagnostics().await;
     Ok(Json(ApiResponse::ok(diagnostics)))

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Json, State};
 use axum::routing::{get, post};
-use axum::Router;
 use tracing::warn;
 
 use aionui_api_types::{
@@ -339,8 +339,8 @@ async fn weixin_login_sse(
 
     use tokio::sync::mpsc;
 
-    use crate::plugins::weixin::weixin_login_stream;
     use crate::plugins::weixin::WeixinLoginEvent;
+    use crate::plugins::weixin::weixin_login_stream;
 
     let rx = weixin_login_stream();
 

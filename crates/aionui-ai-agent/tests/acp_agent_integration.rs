@@ -139,11 +139,8 @@ fn event_type_name(event: &AgentStreamEvent) -> &'static str {
 #[tokio::test]
 async fn acp_agent_type_is_acp() {
     let _guard = serial();
-    let (agent, _rx) = make_mock_agent(
-        r#"echo '{"type":"finish","data":{}}'"#,
-        AcpBackend::Claude,
-    )
-    .await;
+    let (agent, _rx) =
+        make_mock_agent(r#"echo '{"type":"finish","data":{}}'"#, AcpBackend::Claude).await;
 
     assert_eq!(agent.agent_type(), aionui_common::AgentType::Acp);
     assert_eq!(agent.conversation_id(), "test-conv-1");
@@ -396,10 +393,18 @@ async fn acp_agent_multiple_event_types() {
 
     let events = wait_for_event(&mut rx, |e| matches!(e, AgentStreamEvent::Finish(_))).await;
 
-    assert!(events.len() >= 4, "Expected 4+ events, got {}", events.len());
+    assert!(
+        events.len() >= 4,
+        "Expected 4+ events, got {}",
+        events.len()
+    );
 
-    assert!(matches!(&events[0], AgentStreamEvent::Start(d) if d.session_id == Some("sess-multi".into())));
+    assert!(
+        matches!(&events[0], AgentStreamEvent::Start(d) if d.session_id == Some("sess-multi".into()))
+    );
     assert!(matches!(&events[1], AgentStreamEvent::Thinking(d) if d.content == "Analyzing..."));
     assert!(matches!(&events[2], AgentStreamEvent::Text(d) if d.content == "Result"));
-    assert!(matches!(&events[3], AgentStreamEvent::Finish(d) if d.session_id == Some("sess-multi".into())));
+    assert!(
+        matches!(&events[3], AgentStreamEvent::Finish(d) if d.session_id == Some("sess-multi".into()))
+    );
 }

@@ -82,10 +82,7 @@ async fn workspace_browse_empty_path() {
     let (mut app, services) = build_app().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
-    let req = get_with_token(
-        "/api/conversations/some-conv/workspace?path=",
-        &token,
-    );
+    let req = get_with_token("/api/conversations/some-conv/workspace?path=", &token);
     let resp = app.oneshot(req).await.unwrap();
     // Empty path should return 400 (validated before agent lookup)
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
@@ -159,8 +156,7 @@ async fn reload_context_requires_auth() {
 async fn reload_context_no_active_task() {
     let (mut app, services) = build_app().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "Reload Test", "gemini").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Reload Test", "gemini").await;
 
     let req = json_with_token(
         "POST",
@@ -191,8 +187,7 @@ async fn slash_commands_requires_auth() {
 async fn slash_commands_no_active_task() {
     let (mut app, services) = build_app().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &_csrf, "Slash Test", "gemini").await;
+    let conv_id = create_conversation(&mut app, &token, &_csrf, "Slash Test", "gemini").await;
 
     let req = get_with_token(
         &format!("/api/conversations/{conv_id}/slash-commands"),
@@ -221,8 +216,7 @@ async fn openclaw_runtime_no_active_task() {
     let (mut app, services) = build_app().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
     let conv_id =
-        create_conversation(&mut app, &token, &_csrf, "OpenClaw Test", "openclawGateway")
-            .await;
+        create_conversation(&mut app, &token, &_csrf, "OpenClaw Test", "openclawGateway").await;
 
     let req = get_with_token(
         &format!("/api/conversations/{conv_id}/openclaw/runtime"),
@@ -238,8 +232,7 @@ async fn openclaw_runtime_no_active_task() {
 async fn list_confirmations_no_task() {
     let (mut app, services) = build_app().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "Confirm Test", "acp").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Confirm Test", "acp").await;
 
     let req = get_with_token(
         &format!("/api/conversations/{conv_id}/confirmations"),
@@ -256,8 +249,7 @@ async fn list_confirmations_no_task() {
 async fn confirm_call_no_task() {
     let (mut app, services) = build_app().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "Confirm Test", "acp").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Confirm Test", "acp").await;
 
     let req = json_with_token(
         "POST",
@@ -274,8 +266,7 @@ async fn confirm_call_no_task() {
 async fn check_approval_no_task() {
     let (mut app, services) = build_app().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "Approval Test", "acp").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Approval Test", "acp").await;
 
     let req = get_with_token(
         &format!("/api/conversations/{conv_id}/approvals/check?action=edit_file"),
@@ -294,8 +285,7 @@ async fn check_approval_no_task() {
 async fn stop_stream_no_task() {
     let (mut app, services) = build_app().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "Stop Test", "gemini").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Stop Test", "gemini").await;
 
     let req = json_with_token(
         "POST",

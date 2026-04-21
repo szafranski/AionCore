@@ -14,8 +14,8 @@ use serde_json::{Value, json};
 use tokio::sync::broadcast;
 use tower::ServiceExt;
 
-use aionui_ai_agent::stream_event::TextEventData;
 use aionui_ai_agent::agent_manager::{AgentManagerHandle, IAgentManager};
+use aionui_ai_agent::stream_event::TextEventData;
 use aionui_ai_agent::types::{BuildTaskOptions, SendMessageData};
 use aionui_ai_agent::{AgentStreamEvent, IWorkerTaskManager};
 use aionui_common::{
@@ -199,11 +199,8 @@ impl IWorkerTaskManager for MockTaskManager {
 
 // ── Test App builder with mock agents ───────────────────────────
 
-async fn build_app_with_mock_tasks() -> (
-    axum::Router,
-    aionui_app::AppServices,
-    Arc<MockTaskManager>,
-) {
+async fn build_app_with_mock_tasks() -> (axum::Router, aionui_app::AppServices, Arc<MockTaskManager>)
+{
     let db = aionui_db::init_database_memory().await.unwrap();
     let services = aionui_app::AppServices::from_database(db).await.unwrap();
 
@@ -379,8 +376,7 @@ async fn check_approval_not_set() {
 async fn slash_commands_with_mock_returns_empty() {
     let (mut app, services, mock_tm) = build_app_with_mock_tasks().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "Pass123!").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "Slash Mock Test").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Slash Mock Test").await;
     mock_tm.insert(&conv_id, "/mock-workspace");
 
     let req = get_with_token(
@@ -401,8 +397,7 @@ async fn slash_commands_with_mock_returns_empty() {
 async fn reload_context_with_mock_agent() {
     let (mut app, services, mock_tm) = build_app_with_mock_tasks().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "Pass123!").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "Reload Mock Test").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Reload Mock Test").await;
     mock_tm.insert(&conv_id, "/mock-workspace");
 
     let req = json_with_token(
@@ -423,8 +418,7 @@ async fn reload_context_with_mock_agent() {
 async fn openclaw_runtime_wrong_agent_type() {
     let (mut app, services, mock_tm) = build_app_with_mock_tasks().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "Pass123!").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "OpenClaw Wrong Type").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "OpenClaw Wrong Type").await;
     mock_tm.insert(&conv_id, "/mock-workspace");
 
     let req = get_with_token(
@@ -436,18 +430,14 @@ async fn openclaw_runtime_wrong_agent_type() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 
     let json = body_json(resp).await;
-    assert!(json["error"]
-        .as_str()
-        .unwrap()
-        .contains("OpenClaw"));
+    assert!(json["error"].as_str().unwrap().contains("OpenClaw"));
 }
 
 #[tokio::test]
 async fn side_question_with_mock_agent() {
     let (mut app, services, mock_tm) = build_app_with_mock_tasks().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "Pass123!").await;
-    let conv_id =
-        create_conversation(&mut app, &token, &csrf, "Side Q Mock").await;
+    let conv_id = create_conversation(&mut app, &token, &csrf, "Side Q Mock").await;
     mock_tm.insert(&conv_id, "/mock-workspace");
 
     let req = json_with_token(

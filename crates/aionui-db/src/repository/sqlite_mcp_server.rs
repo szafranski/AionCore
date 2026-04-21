@@ -22,41 +22,33 @@ impl SqliteMcpServerRepository {
 #[async_trait::async_trait]
 impl IMcpServerRepository for SqliteMcpServerRepository {
     async fn list(&self) -> Result<Vec<McpServerRow>, DbError> {
-        let rows = sqlx::query_as::<_, McpServerRow>(
-            "SELECT * FROM mcp_servers ORDER BY created_at ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows =
+            sqlx::query_as::<_, McpServerRow>("SELECT * FROM mcp_servers ORDER BY created_at ASC")
+                .fetch_all(&self.pool)
+                .await?;
 
         Ok(rows)
     }
 
     async fn find_by_id(&self, id: &str) -> Result<Option<McpServerRow>, DbError> {
-        let row = sqlx::query_as::<_, McpServerRow>(
-            "SELECT * FROM mcp_servers WHERE id = ?",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, McpServerRow>("SELECT * FROM mcp_servers WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(row)
     }
 
     async fn find_by_name(&self, name: &str) -> Result<Option<McpServerRow>, DbError> {
-        let row = sqlx::query_as::<_, McpServerRow>(
-            "SELECT * FROM mcp_servers WHERE name = ?",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, McpServerRow>("SELECT * FROM mcp_servers WHERE name = ?")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(row)
     }
 
-    async fn create(
-        &self,
-        params: CreateMcpServerParams<'_>,
-    ) -> Result<McpServerRow, DbError> {
+    async fn create(&self, params: CreateMcpServerParams<'_>) -> Result<McpServerRow, DbError> {
         let id = aionui_common::generate_prefixed_id("mcp");
         let now = aionui_common::now_ms();
         let status = "disconnected";
@@ -112,9 +104,10 @@ impl IMcpServerRepository for SqliteMcpServerRepository {
         id: &str,
         params: UpdateMcpServerParams<'_>,
     ) -> Result<McpServerRow, DbError> {
-        let existing = self.find_by_id(id).await?.ok_or_else(|| {
-            DbError::NotFound(format!("MCP server '{id}' not found"))
-        })?;
+        let existing = self
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| DbError::NotFound(format!("MCP server '{id}' not found")))?;
 
         let merged = merge_update(existing, params);
 
@@ -154,9 +147,7 @@ impl IMcpServerRepository for SqliteMcpServerRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "MCP server '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("MCP server '{id}' not found")));
         }
 
         Ok(())
@@ -212,34 +203,24 @@ impl IMcpServerRepository for SqliteMcpServerRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "MCP server '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("MCP server '{id}' not found")));
         }
 
         Ok(())
     }
 
-    async fn update_tools(
-        &self,
-        id: &str,
-        tools: Option<&str>,
-    ) -> Result<(), DbError> {
+    async fn update_tools(&self, id: &str, tools: Option<&str>) -> Result<(), DbError> {
         let now = aionui_common::now_ms();
 
-        let result = sqlx::query(
-            "UPDATE mcp_servers SET tools = ?, updated_at = ? WHERE id = ?",
-        )
-        .bind(tools)
-        .bind(now)
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        let result = sqlx::query("UPDATE mcp_servers SET tools = ?, updated_at = ? WHERE id = ?")
+            .bind(tools)
+            .bind(now)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "MCP server '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("MCP server '{id}' not found")));
         }
 
         Ok(())
@@ -264,9 +245,7 @@ fn merge_update(existing: McpServerRow, params: UpdateMcpServerParams<'_>) -> Mc
             .transport_config
             .unwrap_or(&existing.transport_config)
             .to_string(),
-        tools: params
-            .tools
-            .map_or(existing.tools, |v| v.map(String::from)),
+        tools: params.tools.map_or(existing.tools, |v| v.map(String::from)),
         status: existing.status,
         last_connected: existing.last_connected,
         original_json: params
@@ -593,10 +572,7 @@ mod tests {
     #[tokio::test]
     async fn update_tools_nonexistent_returns_not_found() {
         let (repo, _db) = setup().await;
-        let err = repo
-            .update_tools("no_id", Some("[]"))
-            .await
-            .unwrap_err();
+        let err = repo.update_tools("no_id", Some("[]")).await.unwrap_err();
         assert!(matches!(err, DbError::NotFound(_)));
     }
 }

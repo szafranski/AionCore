@@ -79,11 +79,11 @@ impl TeamEventEmitter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::TeammateRole;
     use aionui_api_types::{
         TeamAgentRemovedPayload, TeamAgentRenamedPayload, TeamAgentSpawnedPayload,
         TeamAgentStatusPayload,
     };
-    use crate::types::TeammateRole;
 
     struct RecordingBroadcaster {
         events: std::sync::Mutex<Vec<WebSocketMessage<serde_json::Value>>>,

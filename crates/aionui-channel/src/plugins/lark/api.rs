@@ -83,14 +83,10 @@ impl LarkApi {
             .json(&body)
             .send()
             .await
-            .map_err(|e| {
-                ChannelError::ConnectionFailed(format!("Lark token request failed: {e}"))
-            })?
+            .map_err(|e| ChannelError::ConnectionFailed(format!("Lark token request failed: {e}")))?
             .json()
             .await
-            .map_err(|e| {
-                ChannelError::ConnectionFailed(format!("Lark token parse failed: {e}"))
-            })?;
+            .map_err(|e| ChannelError::ConnectionFailed(format!("Lark token parse failed: {e}")))?;
 
         if resp.code != 0 {
             return Err(ChannelError::ConnectionFailed(format!(
@@ -105,7 +101,10 @@ impl LarkApi {
 
         let expires_in = Duration::from_secs(resp.expire.unwrap_or(7200) as u64);
 
-        debug!(expires_in_secs = expires_in.as_secs(), "Lark token refreshed");
+        debug!(
+            expires_in_secs = expires_in.as_secs(),
+            "Lark token refreshed"
+        );
 
         let mut cache = self.token_cache.write().await;
         *cache = Some(TokenCache {
@@ -171,8 +170,9 @@ impl LarkApi {
             )));
         }
 
-        resp.data
-            .ok_or_else(|| ChannelError::ConnectionFailed("Lark WS endpoint returned no URL".into()))
+        resp.data.ok_or_else(|| {
+            ChannelError::ConnectionFailed("Lark WS endpoint returned no URL".into())
+        })
     }
 
     /// Send an interactive card message to a chat.
@@ -185,9 +185,7 @@ impl LarkApi {
         card_content: &str,
     ) -> Result<SendMessageData, ChannelError> {
         let token = self.get_token().await?;
-        let url = format!(
-            "{LARK_OPEN_API_BASE}/im/v1/messages?receive_id_type=chat_id"
-        );
+        let url = format!("{LARK_OPEN_API_BASE}/im/v1/messages?receive_id_type=chat_id");
 
         debug!(chat_id, "Sending Lark card message");
 
@@ -220,8 +218,9 @@ impl LarkApi {
             )));
         }
 
-        resp.data
-            .ok_or_else(|| ChannelError::MessageSendFailed("Lark send card returned no data".into()))
+        resp.data.ok_or_else(|| {
+            ChannelError::MessageSendFailed("Lark send card returned no data".into())
+        })
     }
 
     /// Update (patch) an existing interactive card message.
@@ -256,11 +255,7 @@ impl LarkApi {
             })?;
 
         if resp.code != 0 {
-            warn!(
-                code = resp.code,
-                msg = resp.msg,
-                "Lark update card error"
-            );
+            warn!(code = resp.code, msg = resp.msg, "Lark update card error");
             return Err(ChannelError::MessageSendFailed(format!(
                 "Lark update card error (code={}): {}",
                 resp.code, resp.msg

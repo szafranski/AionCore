@@ -13,10 +13,10 @@ use crate::events::CronEventEmitter;
 
 use crate::error::CronError;
 use crate::executor::{ExecutionResult, JobExecutor, RETRY_INTERVAL_MS};
-use crate::scheduler::{compute_next_run, validate_schedule, CronScheduler};
+use crate::scheduler::{CronScheduler, compute_next_run, validate_schedule};
 use crate::types::{
-    cron_job_from_row, cron_job_to_response, cron_job_to_row, schedule_from_dto, CreatedBy,
-    CronAgentConfig, CronJob, CronSchedule, ExecutionMode,
+    CreatedBy, CronAgentConfig, CronJob, CronSchedule, ExecutionMode, cron_job_from_row,
+    cron_job_to_response, cron_job_to_row, schedule_from_dto,
 };
 
 const PLACEHOLDER_PATTERNS: &[&str] = &[
@@ -64,10 +64,7 @@ impl CronService {
 
         let execution_mode = parse_execution_mode(req.execution_mode.as_deref())?;
         let created_by = CreatedBy::from_str(&req.created_by)?;
-        let message = req
-            .message
-            .or(req.prompt)
-            .unwrap_or_default();
+        let message = req.message.or(req.prompt).unwrap_or_default();
 
         let agent_config = req.agent_config.map(|c| CronAgentConfig {
             backend: c.backend,
@@ -201,10 +198,7 @@ impl CronService {
         cron_job_from_row(row)
     }
 
-    pub async fn list_jobs(
-        &self,
-        query: &ListCronJobsQuery,
-    ) -> Result<Vec<CronJob>, CronError> {
+    pub async fn list_jobs(&self, query: &ListCronJobsQuery) -> Result<Vec<CronJob>, CronError> {
         let rows = if let Some(conv_id) = &query.conversation_id {
             self.repo.list_by_conversation(conv_id).await?
         } else {
@@ -339,7 +333,8 @@ impl CronService {
             }
             ExecutionResult::Error { message } => {
                 self.update_job_after_error(job_id, &message).await;
-                self.emitter.emit_job_executed(job_id, "error", Some(&message));
+                self.emitter
+                    .emit_job_executed(job_id, "error", Some(&message));
                 Err(CronError::Scheduler(message))
             }
             _ => Err(CronError::Scheduler("unexpected execution result".into())),
@@ -379,10 +374,7 @@ impl CronService {
             .await?
             .ok_or_else(|| CronError::JobNotFound(job_id.to_owned()))?;
 
-        let has_skill = row
-            .skill_content
-            .as_ref()
-            .is_some_and(|s| !s.is_empty());
+        let has_skill = row.skill_content.as_ref().is_some_and(|s| !s.is_empty());
 
         Ok(HasSkillResponse { has_skill })
     }
@@ -463,7 +455,8 @@ impl CronService {
             ExecutionResult::Error { message } => {
                 self.update_job_after_error(job_id, &message).await;
                 self.reschedule_after_execution(&job).await;
-                self.emitter.emit_job_executed(job_id, "error", Some(&message));
+                self.emitter
+                    .emit_job_executed(job_id, "error", Some(&message));
             }
         }
     }
@@ -532,7 +525,8 @@ impl CronService {
                 next_run_at: None,
                 ..job.clone()
             };
-            self.emitter.emit_job_updated(&cron_job_to_response(&disabled));
+            self.emitter
+                .emit_job_updated(&cron_job_to_response(&disabled));
 
             info!(job_id = %job.id, "At-type job executed, auto-disabled");
             return;
@@ -656,10 +650,7 @@ impl aionui_ai_agent::middleware::ICronService for CronService {
         match self.add_job(req).await {
             Ok(job) => aionui_ai_agent::middleware::CronCommandResult {
                 success: true,
-                message: format!(
-                    "Created cron job '{}' ({})",
-                    job.name, job.id
-                ),
+                message: format!("Created cron job '{}' ({})", job.name, job.id),
             },
             Err(e) => aionui_ai_agent::middleware::CronCommandResult {
                 success: false,
@@ -668,10 +659,7 @@ impl aionui_ai_agent::middleware::ICronService for CronService {
         }
     }
 
-    async fn list_jobs(
-        &self,
-        _user_id: &str,
-    ) -> aionui_ai_agent::middleware::CronCommandResult {
+    async fn list_jobs(&self, _user_id: &str) -> aionui_ai_agent::middleware::CronCommandResult {
         let query = ListCronJobsQuery::default();
         match self.list_jobs(&query).await {
             Ok(jobs) => {
@@ -692,11 +680,7 @@ impl aionui_ai_agent::middleware::ICronService for CronService {
 
                 aionui_ai_agent::middleware::CronCommandResult {
                     success: true,
-                    message: format!(
-                        "Found {} cron job(s):\n{}",
-                        jobs.len(),
-                        lines.join("\n")
-                    ),
+                    message: format!("Found {} cron job(s):\n{}", jobs.len(), lines.join("\n")),
                 }
             }
             Err(e) => aionui_ai_agent::middleware::CronCommandResult {
@@ -894,10 +878,7 @@ mod tests {
 
     #[test]
     fn parse_mode_none_defaults_to_existing() {
-        assert_eq!(
-            parse_execution_mode(None).unwrap(),
-            ExecutionMode::Existing
-        );
+        assert_eq!(parse_execution_mode(None).unwrap(), ExecutionMode::Existing);
     }
 
     #[test]

@@ -6,7 +6,7 @@ use crate::adapter::{DetectedServer, McpAgentAdapter};
 use crate::error::McpError;
 use crate::types::McpServerTransport;
 
-use super::cli_helpers::{is_cli_installed, run_cli_strict, DETECT_TIMEOUT, MUTATE_TIMEOUT};
+use super::cli_helpers::{DETECT_TIMEOUT, MUTATE_TIMEOUT, is_cli_installed, run_cli_strict};
 
 const CLI_NAME: &str = "codex";
 
@@ -37,8 +37,7 @@ impl McpAgentAdapter for CodexAdapter {
             return Err(McpError::AgentNotInstalled(CLI_NAME.into()));
         }
 
-        let stdout =
-            run_cli_strict(CLI_NAME, &["mcp", "list", "--json"], DETECT_TIMEOUT).await?;
+        let stdout = run_cli_strict(CLI_NAME, &["mcp", "list", "--json"], DETECT_TIMEOUT).await?;
 
         parse_codex_list_json(&stdout)
     }
@@ -90,12 +89,8 @@ impl McpAgentAdapter for CodexAdapter {
         }
 
         // Codex has no scope parameter; remove is simple.
-        let (stdout, _stderr) = super::cli_helpers::run_cli(
-            CLI_NAME,
-            &["mcp", "remove", name],
-            MUTATE_TIMEOUT,
-        )
-        .await?;
+        let (stdout, _stderr) =
+            super::cli_helpers::run_cli(CLI_NAME, &["mcp", "remove", name], MUTATE_TIMEOUT).await?;
 
         // Idempotent: treat "not found" as success.
         let lower = stdout.to_lowercase();
@@ -136,8 +131,7 @@ fn parse_codex_list_json(json_str: &str) -> Result<Vec<DetectedServer>, McpError
         return Ok(Vec::new());
     }
 
-    let entries: Vec<serde_json::Value> =
-        serde_json::from_str(trimmed).map_err(McpError::from)?;
+    let entries: Vec<serde_json::Value> = serde_json::from_str(trimmed).map_err(McpError::from)?;
 
     let mut servers = Vec::new();
 
@@ -351,7 +345,10 @@ mod tests {
         ]"#;
         let servers = parse_codex_list_json(json).unwrap();
         assert_eq!(servers.len(), 1);
-        assert!(matches!(servers[0].transport, McpServerTransport::Http { .. }));
+        assert!(matches!(
+            servers[0].transport,
+            McpServerTransport::Http { .. }
+        ));
     }
 
     #[test]
@@ -426,7 +423,10 @@ mod tests {
         ]"#;
         let servers = parse_codex_list_json(json).unwrap();
         assert_eq!(servers.len(), 1);
-        assert!(matches!(servers[0].transport, McpServerTransport::Stdio { .. }));
+        assert!(matches!(
+            servers[0].transport,
+            McpServerTransport::Stdio { .. }
+        ));
     }
 
     #[test]

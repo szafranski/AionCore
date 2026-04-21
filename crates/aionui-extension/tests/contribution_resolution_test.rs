@@ -14,11 +14,7 @@ use aionui_extension::{
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn make_loaded_extension(
-    name: &str,
-    dir: &str,
-    contributes: ExtContributes,
-) -> LoadedExtension {
+fn make_loaded_extension(name: &str, dir: &str, contributes: ExtContributes) -> LoadedExtension {
     LoadedExtension {
         manifest: ExtensionManifest {
             name: name.to_owned(),
@@ -50,11 +46,7 @@ fn make_loaded_extension(
     }
 }
 
-fn make_loaded_extension_with_i18n(
-    name: &str,
-    dir: &str,
-    i18n: I18nConfig,
-) -> LoadedExtension {
+fn make_loaded_extension_with_i18n(name: &str, dir: &str, i18n: I18nConfig) -> LoadedExtension {
     LoadedExtension {
         manifest: ExtensionManifest {
             name: name.to_owned(),
@@ -128,7 +120,13 @@ fn cr1_acp_adapter_resolved_with_env_and_avatar() {
     assert_eq!(adapter.id, "claude-adapter");
     assert_eq!(adapter.cli_command.as_deref(), Some("claude"));
     assert_eq!(adapter.env["API_KEY"], "test-key-123");
-    assert!(adapter.avatar.as_ref().unwrap().contains("icons/claude.png"));
+    assert!(
+        adapter
+            .avatar
+            .as_ref()
+            .unwrap()
+            .contains("icons/claude.png")
+    );
 
     unsafe { std::env::remove_var("_CR1_API_KEY") };
 }
@@ -191,11 +189,7 @@ fn cr3_assistant_file_reference_resolved() {
         ..Default::default()
     };
 
-    let ext = make_loaded_extension(
-        "helper-ext",
-        &dir.to_string_lossy(),
-        contributes,
-    );
+    let ext = make_loaded_extension("helper-ext", &dir.to_string_lossy(), contributes);
     let result = resolve_extension_contributions(&ext);
 
     assert_eq!(result.assistants.len(), 1);
@@ -231,11 +225,7 @@ fn cr4_agent_file_reference_resolved() {
         ..Default::default()
     };
 
-    let ext = make_loaded_extension(
-        "agent-ext",
-        &dir.to_string_lossy(),
-        contributes,
-    );
+    let ext = make_loaded_extension("agent-ext", &dir.to_string_lossy(), contributes);
     let result = resolve_extension_contributions(&ext);
 
     assert_eq!(result.agents.len(), 1);
@@ -300,18 +290,23 @@ fn cr6_theme_css_content_loaded() {
         ..Default::default()
     };
 
-    let ext = make_loaded_extension(
-        "theme-ext",
-        &dir.to_string_lossy(),
-        contributes,
-    );
+    let ext = make_loaded_extension("theme-ext", &dir.to_string_lossy(), contributes);
     let result = resolve_extension_contributions(&ext);
 
     assert_eq!(result.themes.len(), 1);
     let theme = &result.themes[0];
     assert_eq!(theme.extension_name, "theme-ext");
-    assert_eq!(theme.css_content, ":root { --bg: #1a1a2e; --text: #eaeaea; }");
-    assert!(theme.cover_image.as_ref().unwrap().contains("images/dark-preview.png"));
+    assert_eq!(
+        theme.css_content,
+        ":root { --bg: #1a1a2e; --text: #eaeaea; }"
+    );
+    assert!(
+        theme
+            .cover_image
+            .as_ref()
+            .unwrap()
+            .contains("images/dark-preview.png")
+    );
 
     std::fs::remove_dir_all(&dir).unwrap();
 }

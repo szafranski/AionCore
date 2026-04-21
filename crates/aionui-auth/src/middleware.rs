@@ -7,8 +7,8 @@ use axum::response::Response;
 use aionui_common::AppError;
 use aionui_db::IUserRepository;
 
-use crate::extract::extract_token_from_headers;
 use crate::JwtService;
+use crate::extract::extract_token_from_headers;
 
 /// Authenticated user injected into request extensions by the auth middleware.
 ///

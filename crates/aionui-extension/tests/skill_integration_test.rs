@@ -8,11 +8,11 @@ use std::path::Path;
 
 use aionui_extension::external_paths::ExternalPathsManager;
 use aionui_extension::skill_service::{
-    delete_assistant_rule, delete_assistant_skill, delete_skill, detect_and_count_external_skills,
-    export_skill_with_symlink, import_skill, import_skill_with_symlink, list_available_skills,
-    read_assistant_rule, read_assistant_skill, read_builtin_rule, read_builtin_skill,
-    read_skill_info, resolve_skill_paths, scan_for_skills, write_assistant_rule,
-    write_assistant_skill, NamedPath, SkillPaths,
+    NamedPath, SkillPaths, delete_assistant_rule, delete_assistant_skill, delete_skill,
+    detect_and_count_external_skills, export_skill_with_symlink, import_skill,
+    import_skill_with_symlink, list_available_skills, read_assistant_rule, read_assistant_skill,
+    read_builtin_rule, read_builtin_skill, read_skill_info, resolve_skill_paths, scan_for_skills,
+    write_assistant_rule, write_assistant_skill,
 };
 use tempfile::TempDir;
 
@@ -235,10 +235,12 @@ async fn sm11_get_skill_paths() {
     let paths = resolve_skill_paths(resource_dir);
 
     assert!(paths.user_skills_dir.to_string_lossy().contains("skills"));
-    assert!(paths
-        .builtin_skills_dir
-        .to_string_lossy()
-        .contains("builtin-skills"));
+    assert!(
+        paths
+            .builtin_skills_dir
+            .to_string_lossy()
+            .contains("builtin-skills")
+    );
 }
 
 // ===========================================================================
@@ -306,15 +308,11 @@ async fn rm2_assistant_rule_locale_fallback() {
     assert_eq!(content, "Default rule");
 
     // 3. No locale → default
-    let content = read_assistant_rule(&paths, "abc123", None)
-        .await
-        .unwrap();
+    let content = read_assistant_rule(&paths, "abc123", None).await.unwrap();
     assert_eq!(content, "Default rule");
 
     // 4. Not found → empty string
-    let content = read_assistant_rule(&paths, "missing", None)
-        .await
-        .unwrap();
+    let content = read_assistant_rule(&paths, "missing", None).await.unwrap();
     assert!(content.is_empty());
 }
 
@@ -356,9 +354,7 @@ async fn rm4_delete_assistant_rule_all_locales() {
     assert!(deleted);
 
     // Verify all versions removed
-    let content = read_assistant_rule(&paths, "abc123", None)
-        .await
-        .unwrap();
+    let content = read_assistant_rule(&paths, "abc123", None).await.unwrap();
     assert!(content.is_empty());
     let content = read_assistant_rule(&paths, "abc123", Some("zh-CN"))
         .await
@@ -410,9 +406,7 @@ async fn rm6_write_and_delete_assistant_skill() {
     let deleted = delete_assistant_skill(&paths, "abc123").await.unwrap();
     assert!(deleted);
 
-    let content = read_assistant_skill(&paths, "abc123", None)
-        .await
-        .unwrap();
+    let content = read_assistant_skill(&paths, "abc123", None).await.unwrap();
     assert!(content.is_empty());
 }
 
@@ -542,9 +536,11 @@ async fn security_builtin_read_path_traversal() {
     let paths = make_paths(tmp.path());
 
     assert!(read_builtin_rule(&paths, "../secret.md").await.is_err());
-    assert!(read_builtin_skill(&paths, "../../etc/passwd")
-        .await
-        .is_err());
+    assert!(
+        read_builtin_skill(&paths, "../../etc/passwd")
+            .await
+            .is_err()
+    );
     assert!(read_builtin_rule(&paths, "").await.is_err());
 }
 
@@ -555,12 +551,24 @@ async fn security_assistant_crud_path_traversal_id() {
     let paths = make_paths(tmp.path());
 
     // read
-    assert!(read_assistant_rule(&paths, "../escape", None).await.is_err());
+    assert!(
+        read_assistant_rule(&paths, "../escape", None)
+            .await
+            .is_err()
+    );
     assert!(read_assistant_skill(&paths, "foo/bar", None).await.is_err());
 
     // write
-    assert!(write_assistant_rule(&paths, "../escape", "x", None).await.is_err());
-    assert!(write_assistant_skill(&paths, "foo\\bar", "x", None).await.is_err());
+    assert!(
+        write_assistant_rule(&paths, "../escape", "x", None)
+            .await
+            .is_err()
+    );
+    assert!(
+        write_assistant_skill(&paths, "foo\\bar", "x", None)
+            .await
+            .is_err()
+    );
 
     // delete
     assert!(delete_assistant_rule(&paths, "../escape").await.is_err());
@@ -573,8 +581,24 @@ async fn security_assistant_crud_path_traversal_locale() {
     let tmp = TempDir::new().unwrap();
     let paths = make_paths(tmp.path());
 
-    assert!(read_assistant_rule(&paths, "valid", Some("../bad")).await.is_err());
-    assert!(write_assistant_rule(&paths, "valid", "x", Some("../../evil")).await.is_err());
-    assert!(read_assistant_skill(&paths, "valid", Some("a/b")).await.is_err());
-    assert!(write_assistant_skill(&paths, "valid", "x", Some("a\\b")).await.is_err());
+    assert!(
+        read_assistant_rule(&paths, "valid", Some("../bad"))
+            .await
+            .is_err()
+    );
+    assert!(
+        write_assistant_rule(&paths, "valid", "x", Some("../../evil"))
+            .await
+            .is_err()
+    );
+    assert!(
+        read_assistant_skill(&paths, "valid", Some("a/b"))
+            .await
+            .is_err()
+    );
+    assert!(
+        write_assistant_skill(&paths, "valid", "x", Some("a\\b"))
+            .await
+            .is_err()
+    );
 }

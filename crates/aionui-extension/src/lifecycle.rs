@@ -76,9 +76,7 @@ pub async fn execute_hook(
             path = %script.display(),
             "lifecycle hook script not found, skipping"
         );
-        return Err(ExtensionError::HookNotFound(
-            script.display().to_string(),
-        ));
+        return Err(ExtensionError::HookNotFound(script.display().to_string()));
     }
 
     let timeout_secs = kind.timeout_secs();
@@ -97,11 +95,8 @@ pub async fn execute_hook(
         .kill_on_drop(true)
         .output();
 
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(timeout_secs),
-        child_future,
-    )
-    .await;
+    let result =
+        tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), child_future).await;
 
     match result {
         Err(_elapsed) => {
@@ -154,10 +149,7 @@ pub async fn execute_hook(
                 Err(ExtensionError::HookFailed {
                     extension_name: extension_name.to_owned(),
                     hook: label.to_owned(),
-                    reason: format!(
-                        "exit code {code}: {}",
-                        stderr.trim()
-                    ),
+                    reason: format!("exit code {code}: {}", stderr.trim()),
                 })
             }
         }
@@ -169,10 +161,7 @@ pub async fn execute_hook(
 /// Returns `true` when:
 /// - There is no persisted version (first-time install).
 /// - The persisted version differs from the current manifest version.
-pub fn needs_install_hook(
-    current_version: &str,
-    persisted_version: Option<&str>,
-) -> bool {
+pub fn needs_install_hook(current_version: &str, persisted_version: Option<&str>) -> bool {
     match persisted_version {
         None => true,
         Some(prev) => prev != current_version,
@@ -291,20 +280,10 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(
-                &script_path,
-                std::fs::Permissions::from_mode(0o755),
-            )
-            .unwrap();
+            std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let result = execute_hook(
-            dir.path(),
-            "hook.sh",
-            HookKind::OnActivate,
-            "test-ext",
-        )
-        .await;
+        let result = execute_hook(dir.path(), "hook.sh", HookKind::OnActivate, "test-ext").await;
 
         assert!(result.is_ok());
     }
@@ -322,20 +301,10 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(
-                &script_path,
-                std::fs::Permissions::from_mode(0o755),
-            )
-            .unwrap();
+            std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let result = execute_hook(
-            dir.path(),
-            "fail.sh",
-            HookKind::OnInstall,
-            "test-ext",
-        )
-        .await;
+        let result = execute_hook(dir.path(), "fail.sh", HookKind::OnInstall, "test-ext").await;
 
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -362,11 +331,7 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(
-                &script_path,
-                std::fs::Permissions::from_mode(0o755),
-            )
-            .unwrap();
+            std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
         // Use a very short timeout override via a direct timeout wrapper
@@ -389,29 +354,16 @@ mod tests {
         let marker = dir.path().join("cwd_marker.txt");
         let script_path = dir.path().join("check_cwd.sh");
         // Write cwd to a file so we can verify it
-        std::fs::write(
-            &script_path,
-            "#!/bin/sh\npwd > cwd_marker.txt\n",
-        )
-        .unwrap();
+        std::fs::write(&script_path, "#!/bin/sh\npwd > cwd_marker.txt\n").unwrap();
 
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(
-                &script_path,
-                std::fs::Permissions::from_mode(0o755),
-            )
-            .unwrap();
+            std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let result = execute_hook(
-            dir.path(),
-            "check_cwd.sh",
-            HookKind::OnActivate,
-            "test-ext",
-        )
-        .await;
+        let result =
+            execute_hook(dir.path(), "check_cwd.sh", HookKind::OnActivate, "test-ext").await;
 
         assert!(result.is_ok());
         assert!(marker.exists());

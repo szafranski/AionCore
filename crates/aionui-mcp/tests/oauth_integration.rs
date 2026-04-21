@@ -7,9 +7,7 @@
 
 use std::sync::Arc;
 
-use aionui_db::{
-    IOAuthTokenRepository, SqliteOAuthTokenRepository, UpsertOAuthTokenParams,
-};
+use aionui_db::{IOAuthTokenRepository, SqliteOAuthTokenRepository, UpsertOAuthTokenParams};
 use aionui_mcp::McpOAuthService;
 
 async fn make_service() -> (McpOAuthService, Arc<dyn IOAuthTokenRepository>) {
@@ -212,7 +210,9 @@ async fn logout_deletes_stored_token() {
 async fn logout_idempotent_for_unauthenticated() {
     let (svc, _repo) = make_service().await;
     // Should not error.
-    svc.logout("https://never-authed.example.com").await.unwrap();
+    svc.logout("https://never-authed.example.com")
+        .await
+        .unwrap();
 }
 
 // ---------------------------------------------------------------------------
@@ -240,10 +240,7 @@ async fn get_token_returns_access_token_when_valid() {
     .await
     .unwrap();
 
-    let token = svc
-        .get_token("https://valid.example.com")
-        .await
-        .unwrap();
+    let token = svc.get_token("https://valid.example.com").await.unwrap();
     assert_eq!(token.as_deref(), Some("my_access_token"));
 }
 
@@ -262,10 +259,7 @@ async fn get_token_returns_expired_token_when_no_refresh_token() {
     .unwrap();
 
     // With no refresh_token, returns the expired token as-is.
-    let token = svc
-        .get_token("https://expired.example.com")
-        .await
-        .unwrap();
+    let token = svc.get_token("https://expired.example.com").await.unwrap();
     assert_eq!(token.as_deref(), Some("old_access"));
 }
 

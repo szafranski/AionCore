@@ -38,29 +38,21 @@ impl ITeamRepository for SqliteTeamRepository {
     }
 
     async fn list_teams(&self) -> Result<Vec<TeamRow>, DbError> {
-        let rows = sqlx::query_as::<_, TeamRow>(
-            "SELECT * FROM teams ORDER BY created_at ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows = sqlx::query_as::<_, TeamRow>("SELECT * FROM teams ORDER BY created_at ASC")
+            .fetch_all(&self.pool)
+            .await?;
         Ok(rows)
     }
 
     async fn get_team(&self, team_id: &str) -> Result<Option<TeamRow>, DbError> {
-        let row = sqlx::query_as::<_, TeamRow>(
-            "SELECT * FROM teams WHERE id = ?",
-        )
-        .bind(team_id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, TeamRow>("SELECT * FROM teams WHERE id = ?")
+            .bind(team_id)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(row)
     }
 
-    async fn update_team(
-        &self,
-        team_id: &str,
-        params: &UpdateTeamParams,
-    ) -> Result<(), DbError> {
+    async fn update_team(&self, team_id: &str, params: &UpdateTeamParams) -> Result<(), DbError> {
         let mut set_clauses = Vec::new();
         if params.name.is_some() {
             set_clauses.push("name = ?");
@@ -77,10 +69,7 @@ impl ITeamRepository for SqliteTeamRepository {
         }
 
         set_clauses.push("updated_at = ?");
-        let sql = format!(
-            "UPDATE teams SET {} WHERE id = ?",
-            set_clauses.join(", ")
-        );
+        let sql = format!("UPDATE teams SET {} WHERE id = ?", set_clauses.join(", "));
 
         let mut query = sqlx::query(&sql);
         if let Some(ref name) = params.name {
@@ -261,11 +250,7 @@ impl ITeamRepository for SqliteTeamRepository {
         Ok(row)
     }
 
-    async fn update_task(
-        &self,
-        task_id: &str,
-        params: &UpdateTaskParams,
-    ) -> Result<(), DbError> {
+    async fn update_task(&self, task_id: &str, params: &UpdateTaskParams) -> Result<(), DbError> {
         let mut set_clauses = Vec::new();
         if params.status.is_some() {
             set_clauses.push("status = ?");
@@ -329,38 +314,28 @@ impl ITeamRepository for SqliteTeamRepository {
         Ok(rows)
     }
 
-    async fn append_to_blocks(
-        &self,
-        task_id: &str,
-        blocked_task_id: &str,
-    ) -> Result<(), DbError> {
+    async fn append_to_blocks(&self, task_id: &str, blocked_task_id: &str) -> Result<(), DbError> {
         // Read current blocks, append, and write back within a transaction.
         let mut tx = self.pool.begin().await?;
 
-        let row = sqlx::query_as::<_, TeamTaskRow>(
-            "SELECT * FROM team_tasks WHERE id = ?",
-        )
-        .bind(task_id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| DbError::NotFound(format!("task {task_id}")))?;
+        let row = sqlx::query_as::<_, TeamTaskRow>("SELECT * FROM team_tasks WHERE id = ?")
+            .bind(task_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| DbError::NotFound(format!("task {task_id}")))?;
 
-        let mut blocks: Vec<String> = serde_json::from_str(&row.blocks)
-            .unwrap_or_default();
+        let mut blocks: Vec<String> = serde_json::from_str(&row.blocks).unwrap_or_default();
         if !blocks.contains(&blocked_task_id.to_string()) {
             blocks.push(blocked_task_id.to_string());
         }
-        let new_blocks = serde_json::to_string(&blocks)
-            .unwrap_or_else(|_| "[]".to_string());
+        let new_blocks = serde_json::to_string(&blocks).unwrap_or_else(|_| "[]".to_string());
 
-        sqlx::query(
-            "UPDATE team_tasks SET blocks = ?, updated_at = ? WHERE id = ?",
-        )
-        .bind(&new_blocks)
-        .bind(now_ms())
-        .bind(task_id)
-        .execute(&mut *tx)
-        .await?;
+        sqlx::query("UPDATE team_tasks SET blocks = ?, updated_at = ? WHERE id = ?")
+            .bind(&new_blocks)
+            .bind(now_ms())
+            .bind(task_id)
+            .execute(&mut *tx)
+            .await?;
 
         tx.commit().await?;
         Ok(())
@@ -374,28 +349,23 @@ impl ITeamRepository for SqliteTeamRepository {
         // Read current blocked_by, remove, and write back within a transaction.
         let mut tx = self.pool.begin().await?;
 
-        let row = sqlx::query_as::<_, TeamTaskRow>(
-            "SELECT * FROM team_tasks WHERE id = ?",
-        )
-        .bind(task_id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(|| DbError::NotFound(format!("task {task_id}")))?;
+        let row = sqlx::query_as::<_, TeamTaskRow>("SELECT * FROM team_tasks WHERE id = ?")
+            .bind(task_id)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or_else(|| DbError::NotFound(format!("task {task_id}")))?;
 
-        let mut blocked_by: Vec<String> = serde_json::from_str(&row.blocked_by)
-            .unwrap_or_default();
+        let mut blocked_by: Vec<String> = serde_json::from_str(&row.blocked_by).unwrap_or_default();
         blocked_by.retain(|id| id != unblocked_task_id);
-        let new_blocked_by = serde_json::to_string(&blocked_by)
-            .unwrap_or_else(|_| "[]".to_string());
+        let new_blocked_by =
+            serde_json::to_string(&blocked_by).unwrap_or_else(|_| "[]".to_string());
 
-        sqlx::query(
-            "UPDATE team_tasks SET blocked_by = ?, updated_at = ? WHERE id = ?",
-        )
-        .bind(&new_blocked_by)
-        .bind(now_ms())
-        .bind(task_id)
-        .execute(&mut *tx)
-        .await?;
+        sqlx::query("UPDATE team_tasks SET blocked_by = ?, updated_at = ? WHERE id = ?")
+            .bind(&new_blocked_by)
+            .bind(now_ms())
+            .bind(task_id)
+            .execute(&mut *tx)
+            .await?;
 
         tx.commit().await?;
         Ok(())

@@ -26,12 +26,10 @@ impl IConversationRepository for SqliteConversationRepository {
     // ── Conversation CRUD ───────────────────────────────────────────
 
     async fn get(&self, id: &str) -> Result<Option<ConversationRow>, DbError> {
-        let row = sqlx::query_as::<_, ConversationRow>(
-            "SELECT * FROM conversations WHERE id = ?",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, ConversationRow>("SELECT * FROM conversations WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(row)
     }
@@ -62,11 +60,7 @@ impl IConversationRepository for SqliteConversationRepository {
         Ok(())
     }
 
-    async fn update(
-        &self,
-        id: &str,
-        updates: &ConversationRowUpdate,
-    ) -> Result<(), DbError> {
+    async fn update(&self, id: &str, updates: &ConversationRowUpdate) -> Result<(), DbError> {
         // Build dynamic SET clause
         let mut set_parts: Vec<String> = Vec::new();
         let mut binds: Vec<BindValue> = Vec::new();
@@ -118,9 +112,7 @@ impl IConversationRepository for SqliteConversationRepository {
         let result = query.execute(&self.pool).await?;
 
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Conversation '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Conversation '{id}' not found")));
         }
 
         Ok(())
@@ -133,9 +125,7 @@ impl IConversationRepository for SqliteConversationRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Conversation '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Conversation '{id}' not found")));
         }
 
         Ok(())
@@ -158,7 +148,8 @@ impl IConversationRepository for SqliteConversationRepository {
             where_parts.push(
                 "(c.updated_at < (SELECT updated_at FROM conversations WHERE id = ?) \
                  OR (c.updated_at = (SELECT updated_at FROM conversations WHERE id = ?) \
-                     AND c.id < ?))".to_string(),
+                     AND c.id < ?))"
+                    .to_string(),
             );
             binds.push(BindValue::Str(cursor_id.clone()));
             binds.push(BindValue::Str(cursor_id.clone()));
@@ -257,19 +248,12 @@ impl IConversationRepository for SqliteConversationRepository {
         .bind(user_id)
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| {
-            DbError::NotFound(format!(
-                "Conversation '{conversation_id}' not found"
-            ))
-        })?;
+        .ok_or_else(|| DbError::NotFound(format!("Conversation '{conversation_id}' not found")))?;
 
         // Extract workspace from extra JSON
-        let workspace: Option<String> =
-            serde_json::from_str::<serde_json::Value>(&target.extra)
-                .ok()
-                .and_then(|v: serde_json::Value| {
-                    v.get("workspace")?.as_str().map(String::from)
-                });
+        let workspace: Option<String> = serde_json::from_str::<serde_json::Value>(&target.extra)
+            .ok()
+            .and_then(|v: serde_json::Value| v.get("workspace")?.as_str().map(String::from));
 
         let Some(ref workspace) = workspace else {
             return Ok(Vec::new());
@@ -310,12 +294,11 @@ impl IConversationRepository for SqliteConversationRepository {
         let offset = (effective_page - 1) * effective_size;
         let fetch_limit = effective_size + 1;
 
-        let count_row: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM messages WHERE conversation_id = ?",
-        )
-        .bind(conv_id)
-        .fetch_one(&self.pool)
-        .await?;
+        let count_row: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM messages WHERE conversation_id = ?")
+                .bind(conv_id)
+                .fetch_one(&self.pool)
+                .await?;
         let total = count_row.0 as u64;
 
         let sql = format!(
@@ -368,11 +351,7 @@ impl IConversationRepository for SqliteConversationRepository {
         Ok(())
     }
 
-    async fn update_message(
-        &self,
-        id: &str,
-        updates: &MessageRowUpdate,
-    ) -> Result<(), DbError> {
+    async fn update_message(&self, id: &str, updates: &MessageRowUpdate) -> Result<(), DbError> {
         let mut set_parts: Vec<String> = Vec::new();
         let mut binds: Vec<BindValue> = Vec::new();
 
@@ -393,10 +372,7 @@ impl IConversationRepository for SqliteConversationRepository {
             return Ok(());
         }
 
-        let sql = format!(
-            "UPDATE messages SET {} WHERE id = ?",
-            set_parts.join(", ")
-        );
+        let sql = format!("UPDATE messages SET {} WHERE id = ?", set_parts.join(", "));
 
         let mut query = sqlx::query(&sql);
         for bind in &binds {
@@ -413,10 +389,7 @@ impl IConversationRepository for SqliteConversationRepository {
         Ok(())
     }
 
-    async fn delete_messages_by_conversation(
-        &self,
-        conv_id: &str,
-    ) -> Result<(), DbError> {
+    async fn delete_messages_by_conversation(&self, conv_id: &str) -> Result<(), DbError> {
         sqlx::query("DELETE FROM messages WHERE conversation_id = ?")
             .bind(conv_id)
             .execute(&self.pool)
@@ -533,15 +506,9 @@ fn bind_value<'q>(
 
 /// Binds a `BindValue` to a `sqlx::query::QueryAs`.
 fn bind_value_as<'q, T>(
-    query: sqlx::query::QueryAs<
-        'q,
-        sqlx::Sqlite,
-        T,
-        sqlx::sqlite::SqliteArguments<'q>,
-    >,
+    query: sqlx::query::QueryAs<'q, sqlx::Sqlite, T, sqlx::sqlite::SqliteArguments<'q>>,
     val: &'q BindValue,
-) -> sqlx::query::QueryAs<'q, sqlx::Sqlite, T, sqlx::sqlite::SqliteArguments<'q>>
-{
+) -> sqlx::query::QueryAs<'q, sqlx::Sqlite, T, sqlx::sqlite::SqliteArguments<'q>> {
     match val {
         BindValue::Str(s) => query.bind(s.as_str()),
         BindValue::OptStr(s) => query.bind(s.as_deref()),
@@ -564,9 +531,7 @@ fn append_filter_conditions(
         binds.push(BindValue::Str(source.clone()));
     }
     if let Some(ref cron_job_id) = filters.cron_job_id {
-        where_parts.push(
-            "json_extract(c.extra, '$.cronJobId') = ?".to_string(),
-        );
+        where_parts.push("json_extract(c.extra, '$.cronJobId') = ?".to_string());
         binds.push(BindValue::Str(cron_job_id.clone()));
     }
     if let Some(pinned) = filters.pinned {
@@ -576,10 +541,7 @@ fn append_filter_conditions(
 }
 
 /// Builds a count query and bind values for the total (ignoring cursor).
-fn build_count_sql(
-    user_id: &str,
-    filters: &ConversationFilters,
-) -> (String, Vec<BindValue>) {
+fn build_count_sql(user_id: &str, filters: &ConversationFilters) -> (String, Vec<BindValue>) {
     let mut where_parts = vec!["c.user_id = ?".to_string()];
     let mut binds: Vec<BindValue> = vec![BindValue::Str(user_id.to_string())];
 
@@ -594,11 +556,7 @@ fn build_count_sql(
 }
 
 /// Executes a dynamic count query.
-async fn execute_count(
-    pool: &SqlitePool,
-    sql: &str,
-    binds: &[BindValue],
-) -> Result<u64, DbError> {
+async fn execute_count(pool: &SqlitePool, sql: &str, binds: &[BindValue]) -> Result<u64, DbError> {
     let mut query = sqlx::query_as::<_, (i64,)>(sql);
     for bind in binds {
         query = bind_value_as(query, bind);
@@ -627,8 +585,7 @@ mod tests {
             r#type: "gemini".to_string(),
             extra: r#"{"workspace":"/home/user/project"}"#.to_string(),
             model: Some(
-                r#"{"providerId":"prov_1","model":"claude-sonnet-4-20250514"}"#
-                    .to_string(),
+                r#"{"providerId":"prov_1","model":"claude-sonnet-4-20250514"}"#.to_string(),
             ),
             status: "pending".to_string(),
             source: Some("aionui".to_string()),
@@ -1018,12 +975,7 @@ mod tests {
         repo.create(&c).await.unwrap();
 
         let found = repo
-            .find_by_source_and_chat(
-                SYSTEM_USER_ID,
-                "telegram",
-                "user:123",
-                "gemini",
-            )
+            .find_by_source_and_chat(SYSTEM_USER_ID, "telegram", "user:123", "gemini")
             .await
             .unwrap();
         assert!(found.is_some());
@@ -1031,12 +983,7 @@ mod tests {
 
         // Different chat ID → not found
         let not_found = repo
-            .find_by_source_and_chat(
-                SYSTEM_USER_ID,
-                "telegram",
-                "user:999",
-                "gemini",
-            )
+            .find_by_source_and_chat(SYSTEM_USER_ID, "telegram", "user:999", "gemini")
             .await
             .unwrap();
         assert!(not_found.is_none());
@@ -1081,10 +1028,7 @@ mod tests {
         c3.extra = r#"{"workspace":"/other/project"}"#.to_string();
         repo.create(&c3).await.unwrap();
 
-        let associated = repo
-            .list_associated(SYSTEM_USER_ID, &c1.id)
-            .await
-            .unwrap();
+        let associated = repo.list_associated(SYSTEM_USER_ID, &c1.id).await.unwrap();
         assert_eq!(associated.len(), 1);
         assert_eq!(associated[0].id, c2.id);
     }
@@ -1097,10 +1041,7 @@ mod tests {
         c.extra = r#"{}"#.to_string();
         repo.create(&c).await.unwrap();
 
-        let associated = repo
-            .list_associated(SYSTEM_USER_ID, &c.id)
-            .await
-            .unwrap();
+        let associated = repo.list_associated(SYSTEM_USER_ID, &c.id).await.unwrap();
         assert!(associated.is_empty());
     }
 

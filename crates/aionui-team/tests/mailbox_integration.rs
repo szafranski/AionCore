@@ -10,13 +10,12 @@
 
 use std::sync::Arc;
 
-use aionui_db::{init_database_memory, ITeamRepository, SqliteTeamRepository};
+use aionui_db::{ITeamRepository, SqliteTeamRepository, init_database_memory};
 use aionui_team::{Mailbox, MailboxMessageType};
 
 async fn setup() -> (Mailbox, aionui_db::Database) {
     let db = init_database_memory().await.unwrap();
-    let repo = Arc::new(SqliteTeamRepository::new(db.pool().clone()))
-        as Arc<dyn ITeamRepository>;
+    let repo = Arc::new(SqliteTeamRepository::new(db.pool().clone())) as Arc<dyn ITeamRepository>;
     (Mailbox::new(repo), db)
 }
 
@@ -26,7 +25,14 @@ async fn setup() -> (Mailbox, aionui_db::Database) {
 async fn mw1_write_text_message() {
     let (mailbox, _db) = setup().await;
     let msg = mailbox
-        .write("t1", "a1", "user", MailboxMessageType::Message, "hello", None)
+        .write(
+            "t1",
+            "a1",
+            "user",
+            MailboxMessageType::Message,
+            "hello",
+            None,
+        )
         .await
         .unwrap();
     assert_eq!(msg.msg_type, MailboxMessageType::Message);
@@ -203,11 +209,25 @@ async fn md2_delete_by_team_does_not_affect_other_teams() {
 async fn read_unread_scoped_to_target_agent() {
     let (mailbox, _db) = setup().await;
     mailbox
-        .write("t1", "a1", "user", MailboxMessageType::Message, "for-a1", None)
+        .write(
+            "t1",
+            "a1",
+            "user",
+            MailboxMessageType::Message,
+            "for-a1",
+            None,
+        )
         .await
         .unwrap();
     mailbox
-        .write("t1", "a2", "user", MailboxMessageType::Message, "for-a2", None)
+        .write(
+            "t1",
+            "a2",
+            "user",
+            MailboxMessageType::Message,
+            "for-a2",
+            None,
+        )
         .await
         .unwrap();
     let a1_msgs = mailbox.read_unread("t1", "a1").await.unwrap();

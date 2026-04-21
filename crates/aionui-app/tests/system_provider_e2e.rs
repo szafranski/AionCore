@@ -9,8 +9,7 @@ use wiremock::matchers::{header as match_header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use common::{
-    body_json, build_app, delete_with_token, get_with_token, json_with_token,
-    setup_and_login,
+    body_json, build_app, delete_with_token, get_with_token, json_with_token, setup_and_login,
 };
 
 // ===========================================================================
@@ -81,7 +80,11 @@ async fn provider_full_crud_with_auth() {
     // 5. Delete
     let resp = app
         .clone()
-        .oneshot(delete_with_token(&format!("/api/providers/{id}"), &token, &csrf))
+        .oneshot(delete_with_token(
+            &format!("/api/providers/{id}"),
+            &token,
+            &csrf,
+        ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -145,7 +148,11 @@ async fn provider_delete_nonexistent_with_auth() {
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let resp = app
-        .oneshot(delete_with_token("/api/providers/nonexistent", &token, &csrf))
+        .oneshot(delete_with_token(
+            "/api/providers/nonexistent",
+            &token,
+            &csrf,
+        ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);

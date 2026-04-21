@@ -19,10 +19,7 @@ impl EventBroadcaster for NoopBroadcaster {
 
 /// Create a `FileService` whose sandbox is rooted at the given temp directory.
 fn make_service(root: &std::path::Path) -> FileService {
-    FileService::new(
-        Arc::new(NoopBroadcaster),
-        vec![root.to_path_buf()],
-    )
+    FileService::new(Arc::new(NoopBroadcaster), vec![root.to_path_buf()])
 }
 
 // -----------------------------------------------------------------------
@@ -111,10 +108,7 @@ async fn get_files_by_dir_nonexistent_dir() {
     let svc = make_service(dir.path());
 
     let result = svc
-        .get_files_by_dir(
-            fake.to_str().unwrap(),
-            dir.path().to_str().unwrap(),
-        )
+        .get_files_by_dir(fake.to_str().unwrap(), dir.path().to_str().unwrap())
         .await;
 
     assert!(result.is_err());
@@ -169,11 +163,7 @@ async fn list_workspace_files_recursive() {
 #[tokio::test]
 async fn list_workspace_files_respects_gitignore() {
     let dir = tempfile::tempdir().unwrap();
-    fs::write(
-        dir.path().join(".gitignore"),
-        "*.log\nbuild/\n",
-    )
-    .unwrap();
+    fs::write(dir.path().join(".gitignore"), "*.log\nbuild/\n").unwrap();
     fs::write(dir.path().join("app.rs"), "").unwrap();
     fs::write(dir.path().join("debug.log"), "").unwrap();
     fs::create_dir(dir.path().join("build")).unwrap();
@@ -237,11 +227,7 @@ async fn list_workspace_files_cache_hit() {
     assert_eq!(second.len(), 1); // Still cached
 
     // Invalidate cache
-    svc.invalidate_cache(
-        &std::fs::canonicalize(dir.path())
-            .unwrap()
-            .to_string_lossy(),
-    );
+    svc.invalidate_cache(&std::fs::canonicalize(dir.path()).unwrap().to_string_lossy());
 
     // Now should see new file
     let third = svc.list_workspace_files(root).await.unwrap();
@@ -252,11 +238,7 @@ async fn list_workspace_files_cache_hit() {
 async fn list_workspace_files_relative_paths() {
     let dir = tempfile::tempdir().unwrap();
     fs::create_dir_all(dir.path().join("src/utils")).unwrap();
-    fs::write(
-        dir.path().join("src/utils/helper.ts"),
-        "",
-    )
-    .unwrap();
+    fs::write(dir.path().join("src/utils/helper.ts"), "").unwrap();
 
     let svc = make_service(dir.path());
     let files = svc
@@ -264,10 +246,7 @@ async fn list_workspace_files_relative_paths() {
         .await
         .unwrap();
 
-    let helper = files
-        .iter()
-        .find(|f| f.name == "helper.ts")
-        .unwrap();
+    let helper = files.iter().find(|f| f.name == "helper.ts").unwrap();
     assert_eq!(helper.relative_path, "src/utils/helper.ts");
 }
 
@@ -282,10 +261,7 @@ async fn get_file_metadata_text_file() {
     fs::write(&file, "hello world").unwrap();
 
     let svc = make_service(dir.path());
-    let meta = svc
-        .get_file_metadata(file.to_str().unwrap())
-        .await
-        .unwrap();
+    let meta = svc.get_file_metadata(file.to_str().unwrap()).await.unwrap();
 
     assert_eq!(meta.name, "hello.txt");
     assert_eq!(meta.size, 11);
@@ -301,10 +277,7 @@ async fn get_file_metadata_image() {
     fs::write(&png, [0x89, 0x50, 0x4E, 0x47]).unwrap();
 
     let svc = make_service(dir.path());
-    let meta = svc
-        .get_file_metadata(png.to_str().unwrap())
-        .await
-        .unwrap();
+    let meta = svc.get_file_metadata(png.to_str().unwrap()).await.unwrap();
 
     assert_eq!(meta.mime_type, "image/png");
 }
@@ -316,10 +289,7 @@ async fn get_file_metadata_directory() {
     fs::create_dir(&sub).unwrap();
 
     let svc = make_service(dir.path());
-    let meta = svc
-        .get_file_metadata(sub.to_str().unwrap())
-        .await
-        .unwrap();
+    let meta = svc.get_file_metadata(sub.to_str().unwrap()).await.unwrap();
 
     assert!(meta.is_directory);
     assert_eq!(meta.mime_type, "inode/directory");
@@ -332,9 +302,7 @@ async fn get_file_metadata_nonexistent() {
     let fake = dir.path().join("missing.txt");
 
     let svc = make_service(dir.path());
-    let result = svc
-        .get_file_metadata(fake.to_str().unwrap())
-        .await;
+    let result = svc.get_file_metadata(fake.to_str().unwrap()).await;
 
     assert!(result.is_err());
 }
@@ -347,9 +315,7 @@ async fn get_file_metadata_outside_sandbox() {
     fs::write(&secret, "secret").unwrap();
 
     let svc = make_service(sandbox.path());
-    let result = svc
-        .get_file_metadata(secret.to_str().unwrap())
-        .await;
+    let result = svc.get_file_metadata(secret.to_str().unwrap()).await;
 
     assert!(result.is_err());
 }
@@ -361,10 +327,7 @@ async fn get_file_metadata_json_file() {
     fs::write(&file, r#"{"key":"value"}"#).unwrap();
 
     let svc = make_service(dir.path());
-    let meta = svc
-        .get_file_metadata(file.to_str().unwrap())
-        .await
-        .unwrap();
+    let meta = svc.get_file_metadata(file.to_str().unwrap()).await.unwrap();
 
     assert_eq!(meta.mime_type, "application/json");
 }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE, HOST};
+use reqwest::header::{CONTENT_TYPE, HOST, HeaderMap, HeaderName, HeaderValue};
 
 use crate::types::DocType;
 use crate::watch_manager::OfficecliWatchManager;
@@ -98,8 +98,11 @@ impl ProxyService {
         let target_url = build_target_url(port, path);
 
         let mut req_headers = HeaderMap::new();
-        req_headers.insert(HOST, HeaderValue::from_str(&format!("127.0.0.1:{port}"))
-            .unwrap_or_else(|_| HeaderValue::from_static("127.0.0.1")));
+        req_headers.insert(
+            HOST,
+            HeaderValue::from_str(&format!("127.0.0.1:{port}"))
+                .unwrap_or_else(|_| HeaderValue::from_static("127.0.0.1")),
+        );
 
         for (key, value) in request_headers {
             let lower = key.to_lowercase();
@@ -135,9 +138,10 @@ impl ProxyService {
 
         let status = resp.status().as_u16();
         let resp_headers = resp.headers().clone();
-        let body = resp.bytes().await.map_err(|e| {
-            ProxyError::RequestFailed(format!("failed to read response body: {e}"))
-        })?;
+        let body = resp
+            .bytes()
+            .await
+            .map_err(|e| ProxyError::RequestFailed(format!("failed to read response body: {e}")))?;
 
         let mut out_headers = Vec::new();
         let is_html = is_html_content_type(&resp_headers);
@@ -199,18 +203,10 @@ pub enum ProxyError {
 impl From<ProxyError> for aionui_common::AppError {
     fn from(err: ProxyError) -> Self {
         match err {
-            ProxyError::PortNotActive(_) => {
-                aionui_common::AppError::Forbidden(err.to_string())
-            }
-            ProxyError::Timeout => {
-                aionui_common::AppError::Timeout(err.to_string())
-            }
-            ProxyError::ConnectionFailed(msg) => {
-                aionui_common::AppError::BadGateway(msg)
-            }
-            ProxyError::RequestFailed(msg) => {
-                aionui_common::AppError::BadGateway(msg)
-            }
+            ProxyError::PortNotActive(_) => aionui_common::AppError::Forbidden(err.to_string()),
+            ProxyError::Timeout => aionui_common::AppError::Timeout(err.to_string()),
+            ProxyError::ConnectionFailed(msg) => aionui_common::AppError::BadGateway(msg),
+            ProxyError::RequestFailed(msg) => aionui_common::AppError::BadGateway(msg),
         }
     }
 }
@@ -247,7 +243,11 @@ fn rewrite_location(location: &str, port: u16, proxy_base: &str) -> String {
         location.to_owned()
     };
 
-    if rewritten == "/" || (rewritten.starts_with('/') && !rewritten.starts_with("//") && !rewritten.starts_with(proxy_base)) {
+    if rewritten == "/"
+        || (rewritten.starts_with('/')
+            && !rewritten.starts_with("//")
+            && !rewritten.starts_with(proxy_base))
+    {
         if rewritten == "/" {
             format!("{proxy_base}/")
         } else {
@@ -260,8 +260,7 @@ fn rewrite_location(location: &str, port: u16, proxy_base: &str) -> String {
 
 fn inject_navigation_guard(body: &[u8], proxy_base: &str) -> Vec<u8> {
     let html = String::from_utf8_lossy(body);
-    let guard_script =
-        NAVIGATION_GUARD_TEMPLATE.replace("PROXY_BASE_PLACEHOLDER", proxy_base);
+    let guard_script = NAVIGATION_GUARD_TEMPLATE.replace("PROXY_BASE_PLACEHOLDER", proxy_base);
 
     let result = if let Some(pos) = find_head_tag_end(&html) {
         format!("{}{}{}", &html[..pos], guard_script, &html[pos..])
@@ -301,18 +300,12 @@ mod tests {
 
     #[test]
     fn build_target_url_root() {
-        assert_eq!(
-            build_target_url(3000, "/"),
-            "http://127.0.0.1:3000/"
-        );
+        assert_eq!(build_target_url(3000, "/"), "http://127.0.0.1:3000/");
     }
 
     #[test]
     fn build_target_url_empty_path() {
-        assert_eq!(
-            build_target_url(3000, ""),
-            "http://127.0.0.1:3000/"
-        );
+        assert_eq!(build_target_url(3000, ""), "http://127.0.0.1:3000/");
     }
 
     #[test]
@@ -332,7 +325,10 @@ mod tests {
     #[test]
     fn is_html_content_type_detects_html() {
         let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+        headers.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("text/html; charset=utf-8"),
+        );
         assert!(is_html_content_type(&headers));
     }
 
@@ -383,31 +379,19 @@ mod tests {
 
     #[test]
     fn rewrite_location_already_proxied() {
-        let result = rewrite_location(
-            "/api/ppt-proxy/8080/existing",
-            8080,
-            "/api/ppt-proxy/8080",
-        );
+        let result = rewrite_location("/api/ppt-proxy/8080/existing", 8080, "/api/ppt-proxy/8080");
         assert_eq!(result, "/api/ppt-proxy/8080/existing");
     }
 
     #[test]
     fn rewrite_location_external_url_unchanged() {
-        let result = rewrite_location(
-            "https://example.com/path",
-            8080,
-            "/api/ppt-proxy/8080",
-        );
+        let result = rewrite_location("https://example.com/path", 8080, "/api/ppt-proxy/8080");
         assert_eq!(result, "https://example.com/path");
     }
 
     #[test]
     fn rewrite_location_different_port_unchanged() {
-        let result = rewrite_location(
-            "http://localhost:9999/path",
-            8080,
-            "/api/ppt-proxy/8080",
-        );
+        let result = rewrite_location("http://localhost:9999/path", 8080, "/api/ppt-proxy/8080");
         assert_eq!(result, "http://localhost:9999/path");
     }
 
@@ -495,15 +479,13 @@ mod tests {
 
     #[test]
     fn proxy_error_connection_failed_to_bad_gateway() {
-        let err: aionui_common::AppError =
-            ProxyError::ConnectionFailed("refused".into()).into();
+        let err: aionui_common::AppError = ProxyError::ConnectionFailed("refused".into()).into();
         assert!(matches!(err, aionui_common::AppError::BadGateway(_)));
     }
 
     #[test]
     fn proxy_error_request_failed_to_bad_gateway() {
-        let err: aionui_common::AppError =
-            ProxyError::RequestFailed("network error".into()).into();
+        let err: aionui_common::AppError = ProxyError::RequestFailed("network error".into()).into();
         assert!(matches!(err, aionui_common::AppError::BadGateway(_)));
     }
 
@@ -513,10 +495,7 @@ mod tests {
             ProxyError::PortNotActive(8080).to_string(),
             "port 8080 is not an active preview port"
         );
-        assert_eq!(
-            ProxyError::Timeout.to_string(),
-            "proxy request timed out"
-        );
+        assert_eq!(ProxyError::Timeout.to_string(), "proxy request timed out");
         assert_eq!(
             ProxyError::ConnectionFailed("refused".into()).to_string(),
             "connection to preview server failed: refused"

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use aionui_common::{generate_id, now_ms};
-use aionui_db::models::MailboxMessageRow;
 use aionui_db::ITeamRepository;
+use aionui_db::models::MailboxMessageRow;
 use tracing::debug;
 
 use crate::error::TeamError;
@@ -66,10 +66,7 @@ impl Mailbox {
             "mailbox unread messages read"
         );
 
-        let messages = rows
-            .iter()
-            .filter_map(MailboxMessage::from_row)
-            .collect();
+        let messages = rows.iter().filter_map(MailboxMessage::from_row).collect();
         Ok(messages)
     }
 
@@ -80,10 +77,7 @@ impl Mailbox {
         limit: Option<i64>,
     ) -> Result<Vec<MailboxMessage>, TeamError> {
         let rows = self.repo.get_history(team_id, agent_id, limit).await?;
-        let messages = rows
-            .iter()
-            .filter_map(MailboxMessage::from_row)
-            .collect();
+        let messages = rows.iter().filter_map(MailboxMessage::from_row).collect();
         Ok(messages)
     }
 
@@ -111,14 +105,7 @@ mod tests {
             .await
             .unwrap();
         mailbox
-            .write(
-                "t1",
-                "a1",
-                "a2",
-                MailboxMessageType::Message,
-                "hello",
-                None,
-            )
+            .write("t1", "a1", "a2", MailboxMessageType::Message, "hello", None)
             .await
             .unwrap();
 
@@ -233,11 +220,25 @@ mod tests {
         let mailbox = Mailbox::new(repo);
 
         mailbox
-            .write("t1", "a1", "user", MailboxMessageType::Message, "for-a1", None)
+            .write(
+                "t1",
+                "a1",
+                "user",
+                MailboxMessageType::Message,
+                "for-a1",
+                None,
+            )
             .await
             .unwrap();
         mailbox
-            .write("t1", "a2", "user", MailboxMessageType::Message, "for-a2", None)
+            .write(
+                "t1",
+                "a2",
+                "user",
+                MailboxMessageType::Message,
+                "for-a2",
+                None,
+            )
             .await
             .unwrap();
 

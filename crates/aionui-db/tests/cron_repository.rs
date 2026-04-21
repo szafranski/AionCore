@@ -14,7 +14,7 @@ use std::sync::Arc;
 use aionui_common::now_ms;
 use aionui_db::models::CronJobRow;
 use aionui_db::{
-    init_database_memory, DbError, ICronRepository, SqliteCronRepository, UpdateCronJobParams,
+    DbError, ICronRepository, SqliteCronRepository, UpdateCronJobParams, init_database_memory,
 };
 
 async fn repo() -> (Arc<dyn ICronRepository>, aionui_db::Database) {

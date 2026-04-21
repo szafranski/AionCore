@@ -69,8 +69,7 @@ mod tests {
             icon: None,
         };
 
-        let result =
-            resolve_agent(&agent, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_agent(&agent, "my-ext", Path::new("/ext/my-ext")).unwrap();
 
         assert_eq!(result.extension_name, "my-ext");
         assert_eq!(result.id, "agent-1");
@@ -94,10 +93,7 @@ mod tests {
         };
 
         let result = resolve_agent(&agent, "my-ext", &dir).unwrap();
-        assert_eq!(
-            result.context.as_deref(),
-            Some("Agent context from file")
-        );
+        assert_eq!(result.context.as_deref(), Some("Agent context from file"));
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -113,9 +109,7 @@ mod tests {
             icon: None,
         };
 
-        let err =
-            resolve_agent(&agent, "my-ext", Path::new("/tmp/no_such_ext_dir"))
-                .unwrap_err();
+        let err = resolve_agent(&agent, "my-ext", Path::new("/tmp/no_such_ext_dir")).unwrap_err();
         assert!(matches!(err, ExtensionError::FileReferenceNotFound(_)));
     }
 
@@ -130,8 +124,7 @@ mod tests {
             icon: None,
         };
 
-        let result =
-            resolve_agent(&agent, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_agent(&agent, "my-ext", Path::new("/ext/my-ext")).unwrap();
         assert!(result.context.is_none());
     }
 }

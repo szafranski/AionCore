@@ -24,8 +24,7 @@ struct Cli {
 fn init_tracing() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .with_target(true)
         .init();
@@ -44,7 +43,10 @@ async fn main() -> Result<()> {
     };
 
     // Initialize database and all services
-    info!("Initializing database at {}", config.database_path().display());
+    info!(
+        "Initializing database at {}",
+        config.database_path().display()
+    );
     let database = aionui_db::init_database(&config.database_path()).await?;
     let services =
         AppServices::from_database_with_data_dir(database, config.data_dir.clone()).await?;

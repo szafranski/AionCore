@@ -211,9 +211,7 @@ pub struct ScannedSkill {
 /// Read skill info from a SKILL.md file without importing.
 ///
 /// Returns `(name, description)` extracted from frontmatter.
-pub async fn read_skill_info(
-    skill_path: &Path,
-) -> Result<(String, String), ExtensionError> {
+pub async fn read_skill_info(skill_path: &Path) -> Result<(String, String), ExtensionError> {
     let skill_file = if skill_path.is_dir() {
         skill_path.join(SKILL_MANIFEST_FILE)
     } else {
@@ -222,9 +220,7 @@ pub async fn read_skill_info(
 
     let content = tokio::fs::read_to_string(&skill_file)
         .await
-        .map_err(|_| {
-            ExtensionError::SkillNotFound(skill_path.display().to_string())
-        })?;
+        .map_err(|_| ExtensionError::SkillNotFound(skill_path.display().to_string()))?;
 
     let (name, description) = parse_frontmatter_fields(&content).ok_or_else(|| {
         ExtensionError::InvalidSkillPath(format!(
@@ -253,10 +249,7 @@ pub async fn read_skill_info(
 /// Import a skill by copying its directory to the user skills directory.
 ///
 /// Returns the skill name.
-pub async fn import_skill(
-    paths: &SkillPaths,
-    skill_path: &Path,
-) -> Result<String, ExtensionError> {
+pub async fn import_skill(paths: &SkillPaths, skill_path: &Path) -> Result<String, ExtensionError> {
     let (name, _) = read_skill_info(skill_path).await?;
     validate_filename(&name)?;
 
@@ -305,9 +298,7 @@ pub async fn export_skill_with_symlink(
     let skill_name = skill_path
         .file_name()
         .map(|f| f.to_string_lossy().into_owned())
-        .ok_or_else(|| {
-            ExtensionError::InvalidSkillPath(skill_path.display().to_string())
-        })?;
+        .ok_or_else(|| ExtensionError::InvalidSkillPath(skill_path.display().to_string()))?;
 
     let target_link = target_dir.join(&skill_name);
     tokio::fs::create_dir_all(target_dir).await?;
@@ -334,10 +325,7 @@ pub async fn export_skill_with_symlink(
 /// Delete a user-custom skill by name.
 ///
 /// Returns an error if the skill is built-in or does not exist.
-pub async fn delete_skill(
-    paths: &SkillPaths,
-    skill_name: &str,
-) -> Result<(), ExtensionError> {
+pub async fn delete_skill(paths: &SkillPaths, skill_name: &str) -> Result<(), ExtensionError> {
     // Safety: reject path traversal
     if skill_name.contains('/') || skill_name.contains('\\') || skill_name.contains("..") {
         return Err(ExtensionError::PathTraversal(skill_name.to_string()));
@@ -350,9 +338,7 @@ pub async fn delete_skill(
     if !user_path.exists() {
         // Check if it exists as a built-in
         if builtin_path.exists() {
-            return Err(ExtensionError::BuiltinSkillDeletion(
-                skill_name.to_string(),
-            ));
+            return Err(ExtensionError::BuiltinSkillDeletion(skill_name.to_string()));
         }
         return Err(ExtensionError::SkillNotFound(skill_name.to_string()));
     }
@@ -372,9 +358,7 @@ pub async fn delete_skill(
 // ---------------------------------------------------------------------------
 
 /// Scan a directory for subdirectories containing SKILL.md.
-pub async fn scan_for_skills(
-    folder_path: &Path,
-) -> Result<Vec<ScannedSkill>, ExtensionError> {
+pub async fn scan_for_skills(folder_path: &Path) -> Result<Vec<ScannedSkill>, ExtensionError> {
     scan_skill_dirs(folder_path).await
 }
 
@@ -537,10 +521,7 @@ async fn write_assistant_resource(
 }
 
 /// Delete all files matching `{assistant_id}*.md` in a directory.
-async fn delete_assistant_resource(
-    dir: &Path,
-    assistant_id: &str,
-) -> Result<bool, ExtensionError> {
+async fn delete_assistant_resource(dir: &Path, assistant_id: &str) -> Result<bool, ExtensionError> {
     validate_filename(assistant_id)?;
 
     let mut deleted_any = false;
@@ -680,7 +661,9 @@ async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), ExtensionError
 /// Create a symlink (platform-aware).
 #[cfg(unix)]
 async fn create_symlink(src: &Path, dst: &Path) -> Result<(), ExtensionError> {
-    tokio::fs::symlink(src, dst).await.map_err(ExtensionError::Io)
+    tokio::fs::symlink(src, dst)
+        .await
+        .map_err(ExtensionError::Io)
 }
 
 #[cfg(windows)]
@@ -708,8 +691,7 @@ mod tests {
 
     #[test]
     fn parse_frontmatter_valid() {
-        let content =
-            "---\nname: my-skill\ndescription: A useful skill\n---\nBody content here.";
+        let content = "---\nname: my-skill\ndescription: A useful skill\n---\nBody content here.";
         let (name, desc) = parse_frontmatter_fields(content).unwrap();
         assert_eq!(name, "my-skill");
         assert_eq!(desc, "A useful skill");
@@ -817,9 +799,7 @@ mod tests {
             .await
             .unwrap();
 
-        let content = read_assistant_rule(&paths, "abc123", None)
-            .await
-            .unwrap();
+        let content = read_assistant_rule(&paths, "abc123", None).await.unwrap();
         assert_eq!(content, "Be helpful.");
     }
 
@@ -851,9 +831,7 @@ mod tests {
         assert_eq!(content, "Default content");
 
         // Read without locale → default
-        let content = read_assistant_rule(&paths, "abc123", None)
-            .await
-            .unwrap();
+        let content = read_assistant_rule(&paths, "abc123", None).await.unwrap();
         assert_eq!(content, "Default content");
     }
 
@@ -862,9 +840,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let paths = make_test_paths(tmp.path());
 
-        let content = read_assistant_rule(&paths, "missing", None)
-            .await
-            .unwrap();
+        let content = read_assistant_rule(&paths, "missing", None).await.unwrap();
         assert!(content.is_empty());
     }
 
@@ -887,9 +863,7 @@ mod tests {
         assert!(deleted);
 
         // Verify all files are gone
-        let content = read_assistant_rule(&paths, "abc123", None)
-            .await
-            .unwrap();
+        let content = read_assistant_rule(&paths, "abc123", None).await.unwrap();
         assert!(content.is_empty());
         let content = read_assistant_rule(&paths, "abc123", Some("zh-CN"))
             .await
@@ -906,9 +880,7 @@ mod tests {
             .await
             .unwrap();
 
-        let content = read_assistant_skill(&paths, "abc123", None)
-            .await
-            .unwrap();
+        let content = read_assistant_skill(&paths, "abc123", None).await.unwrap();
         assert_eq!(content, "Skill content");
     }
 
@@ -936,8 +908,7 @@ mod tests {
     async fn write_assistant_rule_rejects_traversal_id() {
         let tmp = TempDir::new().unwrap();
         let paths = make_test_paths(tmp.path());
-        let result =
-            write_assistant_rule(&paths, "../../escape", "content", None).await;
+        let result = write_assistant_rule(&paths, "../../escape", "content", None).await;
         assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
     }
 
@@ -945,8 +916,7 @@ mod tests {
     async fn write_assistant_rule_rejects_traversal_locale() {
         let tmp = TempDir::new().unwrap();
         let paths = make_test_paths(tmp.path());
-        let result =
-            write_assistant_rule(&paths, "valid-id", "content", Some("../bad")).await;
+        let result = write_assistant_rule(&paths, "valid-id", "content", Some("../bad")).await;
         assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
     }
 
@@ -970,8 +940,7 @@ mod tests {
     async fn write_assistant_skill_rejects_traversal_id() {
         let tmp = TempDir::new().unwrap();
         let paths = make_test_paths(tmp.path());
-        let result =
-            write_assistant_skill(&paths, "../escape", "content", None).await;
+        let result = write_assistant_skill(&paths, "../escape", "content", None).await;
         assert!(matches!(result, Err(ExtensionError::PathTraversal(_))));
     }
 
@@ -1152,7 +1121,10 @@ mod tests {
         create_skill_in_dir(&paths.builtin_skills_dir, "protected", "Built-in skill");
 
         let result = delete_skill(&paths, "protected").await;
-        assert!(matches!(result, Err(ExtensionError::BuiltinSkillDeletion(_))));
+        assert!(matches!(
+            result,
+            Err(ExtensionError::BuiltinSkillDeletion(_))
+        ));
     }
 
     #[tokio::test]
@@ -1251,9 +1223,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join(SKILL_MANIFEST_FILE),
-            format!(
-                "---\nname: {name}\ndescription: {description}\n---\nBody content for {name}."
-            ),
+            format!("---\nname: {name}\ndescription: {description}\n---\nBody content for {name}."),
         )
         .unwrap();
     }

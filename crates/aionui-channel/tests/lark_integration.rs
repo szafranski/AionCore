@@ -18,10 +18,8 @@ mod lark_tests {
     use aionui_channel::manager::{ChannelManager, PluginFactory};
     use aionui_channel::plugin::ChannelPlugin;
     use aionui_channel::plugins::lark::LarkPlugin;
-    use aionui_channel::types::{
-        PluginConfig, PluginCredentials, PluginStatus, PluginType,
-    };
-    use aionui_db::{init_database_memory, IChannelRepository, SqliteChannelRepository};
+    use aionui_channel::types::{PluginConfig, PluginCredentials, PluginStatus, PluginType};
+    use aionui_db::{IChannelRepository, SqliteChannelRepository, init_database_memory};
     use aionui_realtime::EventBroadcaster;
     use std::sync::Arc;
     use tokio::sync::mpsc;
@@ -85,10 +83,7 @@ mod lark_tests {
         })
     }
 
-    fn make_lark_config(
-        app_id: Option<&str>,
-        app_secret: Option<&str>,
-    ) -> PluginConfig {
+    fn make_lark_config(app_id: Option<&str>, app_secret: Option<&str>) -> PluginConfig {
         PluginConfig {
             credentials: PluginCredentials {
                 token: None,
@@ -106,19 +101,13 @@ mod lark_tests {
         }
     }
 
-    fn make_lark_config_value(
-        app_id: Option<&str>,
-        app_secret: Option<&str>,
-    ) -> serde_json::Value {
+    fn make_lark_config_value(app_id: Option<&str>, app_secret: Option<&str>) -> serde_json::Value {
         let mut creds = serde_json::Map::new();
         if let Some(id) = app_id {
             creds.insert("appId".into(), serde_json::Value::String(id.into()));
         }
         if let Some(secret) = app_secret {
-            creds.insert(
-                "appSecret".into(),
-                serde_json::Value::String(secret.into()),
-            );
+            creds.insert("appSecret".into(), serde_json::Value::String(secret.into()));
         }
         serde_json::json!({
             "credentials": creds,

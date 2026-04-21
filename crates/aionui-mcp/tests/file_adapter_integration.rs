@@ -19,9 +19,7 @@ use aionui_mcp::{AionuiAdapter, McpAgentAdapter, McpServerTransport};
 mod aionui {
     use super::*;
     use aionui_db::models::McpServerRow;
-    use aionui_db::{
-        CreateMcpServerParams, DbError, IMcpServerRepository, UpdateMcpServerParams,
-    };
+    use aionui_db::{CreateMcpServerParams, DbError, IMcpServerRepository, UpdateMcpServerParams};
 
     struct MockRepo {
         servers: tokio::sync::Mutex<Vec<McpServerRow>>,
@@ -42,7 +40,13 @@ mod aionui {
         }
 
         async fn find_by_id(&self, id: &str) -> Result<Option<McpServerRow>, DbError> {
-            Ok(self.servers.lock().await.iter().find(|s| s.id == id).cloned())
+            Ok(self
+                .servers
+                .lock()
+                .await
+                .iter()
+                .find(|s| s.id == id)
+                .cloned())
         }
 
         async fn find_by_name(&self, name: &str) -> Result<Option<McpServerRow>, DbError> {
@@ -189,11 +193,7 @@ mod aionui {
 
     #[tokio::test]
     async fn remove_is_noop() {
-        let rows = vec![make_row(
-            "srv",
-            "stdio",
-            r#"{"command":"npx","args":[]}"#,
-        )];
+        let rows = vec![make_row("srv", "stdio", r#"{"command":"npx","args":[]}"#)];
         let repo = Arc::new(MockRepo::new(rows));
         let adapter = AionuiAdapter::new(repo);
 

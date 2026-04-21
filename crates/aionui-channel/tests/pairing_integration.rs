@@ -7,11 +7,9 @@
 use std::sync::{Arc, Mutex};
 
 use aionui_api_types::WebSocketMessage;
-use aionui_common::{now_ms, TimestampMs};
+use aionui_common::{TimestampMs, now_ms};
 use aionui_db::models::PairingCodeRow;
-use aionui_db::{
-    init_database_memory, IChannelRepository, SqliteChannelRepository,
-};
+use aionui_db::{IChannelRepository, SqliteChannelRepository, init_database_memory};
 use aionui_realtime::EventBroadcaster;
 
 use aionui_channel::constants::{PAIRING_CODE_LENGTH, PAIRING_CODE_TTL};
@@ -77,10 +75,7 @@ async fn pg1_code_is_six_digits() {
 async fn pg2_code_expires_after_ten_minutes() {
     let (svc, repo, _bc) = setup().await;
     let before = now_ms();
-    let code = svc
-        .request_pairing("u1", "telegram", None)
-        .await
-        .unwrap();
+    let code = svc.request_pairing("u1", "telegram", None).await.unwrap();
     let after = now_ms();
 
     let row = repo.get_pairing_by_code(&code).await.unwrap().unwrap();
@@ -231,10 +226,7 @@ async fn ap4_approve_expired_code() {
 #[tokio::test]
 async fn ap5_double_approve_returns_already_processed() {
     let (svc, _repo, _bc) = setup().await;
-    let code = svc
-        .request_pairing("u1", "telegram", None)
-        .await
-        .unwrap();
+    let code = svc.request_pairing("u1", "telegram", None).await.unwrap();
     svc.approve_pairing(&code).await.unwrap();
 
     let err = svc.approve_pairing(&code).await.unwrap_err();
@@ -255,10 +247,7 @@ async fn ap6_empty_code_returns_not_found() {
 #[tokio::test]
 async fn rp1_reject_valid_pairing() {
     let (svc, repo, _bc) = setup().await;
-    let code = svc
-        .request_pairing("u1", "telegram", None)
-        .await
-        .unwrap();
+    let code = svc.request_pairing("u1", "telegram", None).await.unwrap();
 
     svc.reject_pairing(&code).await.unwrap();
 
@@ -271,10 +260,7 @@ async fn rp1_reject_valid_pairing() {
 #[tokio::test]
 async fn rp2_rejected_not_in_pending() {
     let (svc, _repo, _bc) = setup().await;
-    let code = svc
-        .request_pairing("u1", "telegram", None)
-        .await
-        .unwrap();
+    let code = svc.request_pairing("u1", "telegram", None).await.unwrap();
     svc.reject_pairing(&code).await.unwrap();
 
     let pending = svc.get_pending_pairings().await.unwrap();
@@ -295,10 +281,7 @@ async fn rp3_reject_nonexistent_code() {
 #[tokio::test]
 async fn rp4_reject_already_approved() {
     let (svc, _repo, _bc) = setup().await;
-    let code = svc
-        .request_pairing("u1", "telegram", None)
-        .await
-        .unwrap();
+    let code = svc.request_pairing("u1", "telegram", None).await.unwrap();
     svc.approve_pairing(&code).await.unwrap();
 
     let err = svc.reject_pairing(&code).await.unwrap_err();
@@ -326,11 +309,7 @@ async fn ec1_expired_codes_cleaned_up() {
     let count = repo.cleanup_expired_pairings(now_ms()).await.unwrap();
     assert_eq!(count, 1);
 
-    let row = repo
-        .get_pairing_by_code("111111")
-        .await
-        .unwrap()
-        .unwrap();
+    let row = repo.get_pairing_by_code("111111").await.unwrap().unwrap();
     assert_eq!(row.status, "expired");
 }
 
@@ -339,10 +318,7 @@ async fn ec1_expired_codes_cleaned_up() {
 #[tokio::test]
 async fn ec2_non_expired_unaffected() {
     let (svc, repo, _bc) = setup().await;
-    let code = svc
-        .request_pairing("u1", "telegram", None)
-        .await
-        .unwrap();
+    let code = svc.request_pairing("u1", "telegram", None).await.unwrap();
 
     let count = repo.cleanup_expired_pairings(now_ms()).await.unwrap();
     assert_eq!(count, 0);

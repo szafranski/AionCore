@@ -254,11 +254,7 @@ fn si_5_http_format_conversion() {
     assert_eq!(result.len(), 1);
 
     match &result[0] {
-        AcpSessionMcpServer::Http {
-            name,
-            url,
-            headers,
-        } => {
+        AcpSessionMcpServer::Http { name, url, headers } => {
             assert_eq!(name, "test-http");
             assert_eq!(url, "https://example.com/mcp");
             assert_eq!(headers.len(), 2);
@@ -385,20 +381,13 @@ fn si_7_builtin_image_gen_injection() {
         session_servers.push(builtin);
     }
 
-    assert_eq!(
-        session_servers.len(),
-        2,
-        "user server + builtin image gen"
-    );
+    assert_eq!(session_servers.len(), 2, "user server + builtin image gen");
 
     // Verify the builtin server
     let builtin = &session_servers[1];
     match builtin {
         AcpSessionMcpServer::Stdio {
-            name,
-            command,
-            env,
-            ..
+            name, command, env, ..
         } => {
             assert_eq!(name, "aionui-image-generation");
             assert_eq!(command, "/usr/local/bin/aionui-img-gen");

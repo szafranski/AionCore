@@ -14,11 +14,10 @@ use git2::Repository;
 use crate::types::{CompareResult, SnapshotInfo, SnapshotMode};
 
 use helpers::{
-    build_info, discard_single_file, init_snapshot_repo, list_branches,
-    open_repo, parse_statuses, read_baseline, reset_single_file,
-    resolve_workspace, stage_all_with_deletions, stage_single_file,
-    temp_repo_path, unstage_all_files, unstage_single_file,
-    WorkspaceState, SNAPSHOT_DIR_PREFIX,
+    SNAPSHOT_DIR_PREFIX, WorkspaceState, build_info, discard_single_file, init_snapshot_repo,
+    list_branches, open_repo, parse_statuses, read_baseline, reset_single_file, resolve_workspace,
+    stage_all_with_deletions, stage_single_file, temp_repo_path, unstage_all_files,
+    unstage_single_file,
 };
 
 // ---------------------------------------------------------------------------
@@ -92,12 +91,7 @@ fn get_state(
     workspaces
         .get(workspace)
         .map(|r| r.clone())
-        .ok_or_else(|| {
-            AppError::BadRequest(format!(
-                "Workspace not initialized: {}",
-                workspace
-            ))
-        })
+        .ok_or_else(|| AppError::BadRequest(format!("Workspace not initialized: {}", workspace)))
 }
 
 // ---------------------------------------------------------------------------
@@ -117,16 +111,13 @@ impl crate::traits::ISnapshotService for SnapshotService {
                 Ok(build_info(st.mode, &repo))
             })
             .await
-            .map_err(|e| {
-                AppError::Internal(format!("Blocking task failed: {}", e))
-            })?;
+            .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?;
         }
 
         let ws_clone = ws.clone();
         let result = tokio::task::spawn_blocking(move || {
             let canonical = resolve_workspace(&ws_clone)?;
-            let canonical_str =
-                canonical.to_string_lossy().to_string();
+            let canonical_str = canonical.to_string_lossy().to_string();
 
             let git_dir = canonical.join(".git");
             let (mode, repo_path) = if git_dir.exists() {
@@ -144,29 +135,21 @@ impl crate::traits::ISnapshotService for SnapshotService {
             };
 
             let repo = Repository::open(&repo_path).map_err(|e| {
-                AppError::Internal(format!(
-                    "Failed to open repo after init: {}",
-                    e
-                ))
+                AppError::Internal(format!("Failed to open repo after init: {}", e))
             })?;
             let info = build_info(mode, &repo);
 
             Ok::<(WorkspaceState, SnapshotInfo), AppError>((state, info))
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })??;
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))??;
 
         let (state, info) = result;
         self.workspaces.insert(ws, state);
         Ok(info)
     }
 
-    async fn get_info(
-        &self,
-        workspace: &str,
-    ) -> Result<SnapshotInfo, AppError> {
+    async fn get_info(&self, workspace: &str) -> Result<SnapshotInfo, AppError> {
         let state = get_state(&self.workspaces, workspace)?;
 
         tokio::task::spawn_blocking(move || {
@@ -174,15 +157,10 @@ impl crate::traits::ISnapshotService for SnapshotService {
             Ok(build_info(state.mode, &repo))
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
-    async fn compare(
-        &self,
-        workspace: &str,
-    ) -> Result<CompareResult, AppError> {
+    async fn compare(&self, workspace: &str) -> Result<CompareResult, AppError> {
         let state = get_state(&self.workspaces, workspace)?;
 
         tokio::task::spawn_blocking(move || {
@@ -190,9 +168,7 @@ impl crate::traits::ISnapshotService for SnapshotService {
             parse_statuses(&repo, &state.workspace_path)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
     async fn get_baseline_content(
@@ -208,16 +184,10 @@ impl crate::traits::ISnapshotService for SnapshotService {
             read_baseline(&repo, &rel)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
-    async fn stage_file(
-        &self,
-        workspace: &str,
-        file_path: &str,
-    ) -> Result<(), AppError> {
+    async fn stage_file(&self, workspace: &str, file_path: &str) -> Result<(), AppError> {
         let state = get_state(&self.workspaces, workspace)?;
         let fp = file_path.to_owned();
 
@@ -226,9 +196,7 @@ impl crate::traits::ISnapshotService for SnapshotService {
             stage_single_file(&repo, &fp)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
     async fn stage_all(&self, workspace: &str) -> Result<(), AppError> {
@@ -239,16 +207,10 @@ impl crate::traits::ISnapshotService for SnapshotService {
             stage_all_with_deletions(&repo)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
-    async fn unstage_file(
-        &self,
-        workspace: &str,
-        file_path: &str,
-    ) -> Result<(), AppError> {
+    async fn unstage_file(&self, workspace: &str, file_path: &str) -> Result<(), AppError> {
         let state = get_state(&self.workspaces, workspace)?;
         let fp = file_path.to_owned();
 
@@ -257,9 +219,7 @@ impl crate::traits::ISnapshotService for SnapshotService {
             unstage_single_file(&repo, &fp)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
     async fn unstage_all(&self, workspace: &str) -> Result<(), AppError> {
@@ -270,9 +230,7 @@ impl crate::traits::ISnapshotService for SnapshotService {
             unstage_all_files(&repo)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
     async fn discard_file(
@@ -286,17 +244,10 @@ impl crate::traits::ISnapshotService for SnapshotService {
 
         tokio::task::spawn_blocking(move || {
             let repo = open_repo(&state)?;
-            discard_single_file(
-                &repo,
-                &state.workspace_path,
-                &fp,
-                operation,
-            )
+            discard_single_file(&repo, &state.workspace_path, &fp, operation)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
     async fn reset_file(
@@ -310,23 +261,13 @@ impl crate::traits::ISnapshotService for SnapshotService {
 
         tokio::task::spawn_blocking(move || {
             let repo = open_repo(&state)?;
-            reset_single_file(
-                &repo,
-                &state.workspace_path,
-                &fp,
-                operation,
-            )
+            reset_single_file(&repo, &state.workspace_path, &fp, operation)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
-    async fn get_branches(
-        &self,
-        workspace: &str,
-    ) -> Result<Vec<String>, AppError> {
+    async fn get_branches(&self, workspace: &str) -> Result<Vec<String>, AppError> {
         let state = get_state(&self.workspaces, workspace)?;
 
         tokio::task::spawn_blocking(move || {
@@ -334,9 +275,7 @@ impl crate::traits::ISnapshotService for SnapshotService {
             list_branches(&repo)
         })
         .await
-        .map_err(|e| {
-            AppError::Internal(format!("Blocking task failed: {}", e))
-        })?
+        .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
     }
 
     async fn dispose(&self, workspace: &str) -> Result<(), AppError> {
@@ -361,12 +300,7 @@ impl crate::traits::ISnapshotService for SnapshotService {
                 Ok(())
             })
             .await
-            .map_err(|e| {
-                AppError::Internal(format!(
-                    "Blocking task failed: {}",
-                    e
-                ))
-            })?
+            .map_err(|e| AppError::Internal(format!("Blocking task failed: {}", e)))?
         } else {
             // git-repo mode: nothing to clean up
             Ok(())

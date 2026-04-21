@@ -3,7 +3,7 @@ use std::sync::Arc;
 use aionui_ai_agent::task_manager::IWorkerTaskManager;
 use aionui_ai_agent::types::{BuildTaskOptions, SendMessageData};
 use aionui_api_types::CreateConversationRequest;
-use aionui_common::{generate_id, AgentType, ProviderWithModel};
+use aionui_common::{AgentType, ProviderWithModel, generate_id};
 use aionui_conversation::ConversationService;
 use aionui_db::IConversationRepository;
 use tracing::{error, info, warn};
@@ -65,9 +65,7 @@ impl JobExecutor {
         self.busy_guard
             .set_processing(&target_conversation_id, true);
 
-        let result = self
-            .execute_inner(job, &target_conversation_id)
-            .await;
+        let result = self.execute_inner(job, &target_conversation_id).await;
 
         self.busy_guard
             .set_processing(&target_conversation_id, false);
@@ -89,9 +87,7 @@ impl JobExecutor {
         self.busy_guard
             .set_processing(&target_conversation_id, true);
 
-        let result = self
-            .execute_inner(job, &target_conversation_id)
-            .await;
+        let result = self.execute_inner(job, &target_conversation_id).await;
 
         self.busy_guard
             .set_processing(&target_conversation_id, false);
@@ -128,26 +124,18 @@ impl JobExecutor {
         ExecutionResult::Retrying { attempt }
     }
 
-    async fn resolve_conversation(
-        &self,
-        job: &CronJob,
-    ) -> Result<String, CronError> {
+    async fn resolve_conversation(&self, job: &CronJob) -> Result<String, CronError> {
         match job.execution_mode {
             ExecutionMode::Existing => {
                 self.verify_conversation_exists(&job.conversation_id)
                     .await?;
                 Ok(job.conversation_id.clone())
             }
-            ExecutionMode::NewConversation => {
-                self.create_new_conversation(job).await
-            }
+            ExecutionMode::NewConversation => self.create_new_conversation(job).await,
         }
     }
 
-    async fn verify_conversation_exists(
-        &self,
-        conversation_id: &str,
-    ) -> Result<(), CronError> {
+    async fn verify_conversation_exists(&self, conversation_id: &str) -> Result<(), CronError> {
         let exists = self
             .conversation_repo
             .get(conversation_id)
@@ -161,10 +149,7 @@ impl JobExecutor {
         Ok(())
     }
 
-    async fn create_new_conversation(
-        &self,
-        job: &CronJob,
-    ) -> Result<String, CronError> {
+    async fn create_new_conversation(&self, job: &CronJob) -> Result<String, CronError> {
         let agent_type = parse_agent_type(&job.agent_type);
         let model = resolve_model(job);
 
@@ -196,11 +181,7 @@ impl JobExecutor {
         Ok(response.id)
     }
 
-    async fn execute_inner(
-        &self,
-        job: &CronJob,
-        conversation_id: &str,
-    ) -> ExecutionResult {
+    async fn execute_inner(&self, job: &CronJob, conversation_id: &str) -> ExecutionResult {
         let agent_type = parse_agent_type(&job.agent_type);
         let model = resolve_model(job);
         let workspace = job
@@ -352,7 +333,7 @@ fn build_prompt(job: &CronJob) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{CronAgentConfig, CronSchedule, CreatedBy};
+    use crate::types::{CreatedBy, CronAgentConfig, CronSchedule};
 
     fn sample_job() -> CronJob {
         CronJob {
@@ -712,16 +693,14 @@ mod tests {
                 &self,
                 _user_id: &str,
                 _cron_job_id: &str,
-            ) -> Result<Vec<aionui_db::models::ConversationRow>, aionui_db::DbError>
-            {
+            ) -> Result<Vec<aionui_db::models::ConversationRow>, aionui_db::DbError> {
                 Ok(vec![])
             }
             async fn list_associated(
                 &self,
                 _user_id: &str,
                 _conversation_id: &str,
-            ) -> Result<Vec<aionui_db::models::ConversationRow>, aionui_db::DbError>
-            {
+            ) -> Result<Vec<aionui_db::models::ConversationRow>, aionui_db::DbError> {
                 Ok(vec![])
             }
             async fn get_messages(
@@ -762,8 +741,7 @@ mod tests {
                 _conv_id: &str,
                 _msg_id: &str,
                 _msg_type: &str,
-            ) -> Result<Option<aionui_db::models::MessageRow>, aionui_db::DbError>
-            {
+            ) -> Result<Option<aionui_db::models::MessageRow>, aionui_db::DbError> {
                 Ok(None)
             }
             async fn search_messages(
@@ -772,8 +750,7 @@ mod tests {
                 _keyword: &str,
                 _page: u32,
                 _page_size: u32,
-            ) -> Result<PaginatedResult<MessageSearchRow>, aionui_db::DbError>
-            {
+            ) -> Result<PaginatedResult<MessageSearchRow>, aionui_db::DbError> {
                 Ok(PaginatedResult {
                     items: vec![],
                     total: 0,
@@ -795,11 +772,6 @@ mod tests {
             stub_broadcaster,
         ));
 
-        JobExecutor::new(
-            Arc::new(StubTaskManager),
-            stub_repo,
-            conv_service,
-            guard,
-        )
+        JobExecutor::new(Arc::new(StubTaskManager), stub_repo, conv_service, guard)
     }
 }

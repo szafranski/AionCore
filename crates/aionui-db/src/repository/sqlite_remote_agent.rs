@@ -32,20 +32,15 @@ impl IRemoteAgentRepository for SqliteRemoteAgentRepository {
     }
 
     async fn find_by_id(&self, id: &str) -> Result<Option<RemoteAgentRow>, DbError> {
-        let row = sqlx::query_as::<_, RemoteAgentRow>(
-            "SELECT * FROM remote_agents WHERE id = ?",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, RemoteAgentRow>("SELECT * FROM remote_agents WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(row)
     }
 
-    async fn create(
-        &self,
-        params: CreateRemoteAgentParams<'_>,
-    ) -> Result<RemoteAgentRow, DbError> {
+    async fn create(&self, params: CreateRemoteAgentParams<'_>) -> Result<RemoteAgentRow, DbError> {
         let id = aionui_common::generate_prefixed_id("ra");
         let now = aionui_common::now_ms();
         let status = "unknown";
@@ -103,9 +98,10 @@ impl IRemoteAgentRepository for SqliteRemoteAgentRepository {
         id: &str,
         params: UpdateRemoteAgentParams<'_>,
     ) -> Result<RemoteAgentRow, DbError> {
-        let existing = self.find_by_id(id).await?.ok_or_else(|| {
-            DbError::NotFound(format!("Remote agent '{id}' not found"))
-        })?;
+        let existing = self
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| DbError::NotFound(format!("Remote agent '{id}' not found")))?;
 
         let merged = merge_update(existing, params);
 
@@ -138,9 +134,7 @@ impl IRemoteAgentRepository for SqliteRemoteAgentRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Remote agent '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Remote agent '{id}' not found")));
         }
 
         Ok(())
@@ -167,9 +161,7 @@ impl IRemoteAgentRepository for SqliteRemoteAgentRepository {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Remote agent '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Remote agent '{id}' not found")));
         }
 
         Ok(())

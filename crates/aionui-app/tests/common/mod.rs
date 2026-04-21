@@ -6,9 +6,7 @@ use http_body_util::BodyExt;
 use tower::ServiceExt;
 use wiremock::MockServer;
 
-use aionui_app::{
-    AppServices, build_module_states, create_router, create_router_with_states,
-};
+use aionui_app::{AppServices, build_module_states, create_router, create_router_with_states};
 use aionui_system::VersionCheckService;
 
 pub async fn build_app() -> (axum::Router, AppServices) {
@@ -109,9 +107,17 @@ pub async fn setup_and_login(
     password: &str,
 ) -> (String, String) {
     let hash = aionui_auth::hash_password(password).unwrap();
-    services.user_repo.create_user(username, &hash).await.unwrap();
+    services
+        .user_repo
+        .create_user(username, &hash)
+        .await
+        .unwrap();
 
-    let resp = app.clone().oneshot(get_request("/api/auth/status")).await.unwrap();
+    let resp = app
+        .clone()
+        .oneshot(get_request("/api/auth/status"))
+        .await
+        .unwrap();
     let csrf = extract_csrf_token(&resp).expect("CSRF cookie should be set");
 
     let body = format!(r#"{{"username":"{username}","password":"{password}"}}"#);

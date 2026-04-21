@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aionui_api_types::{OAuthLoginResponse, OAuthStatusResponse};
-use aionui_common::{now_ms, TimestampMs};
+use aionui_common::{TimestampMs, now_ms};
 use aionui_db::{IOAuthTokenRepository, UpsertOAuthTokenParams};
 use oauth2::basic::BasicClient;
 use oauth2::{
@@ -74,10 +74,7 @@ pub struct McpOAuthService {
 }
 
 impl McpOAuthService {
-    pub fn new(
-        token_repo: Arc<dyn IOAuthTokenRepository>,
-        http_client: reqwest::Client,
-    ) -> Self {
+    pub fn new(token_repo: Arc<dyn IOAuthTokenRepository>, http_client: reqwest::Client) -> Self {
         Self {
             token_repo,
             http_client,
@@ -171,10 +168,7 @@ impl McpOAuthService {
     /// If the stored token is expired and a refresh token is available,
     /// automatically refreshes before returning.
     /// Returns `None` if no token is stored for this URL.
-    pub async fn get_token(
-        &self,
-        server_url: &str,
-    ) -> Result<Option<String>, McpError> {
+    pub async fn get_token(&self, server_url: &str) -> Result<Option<String>, McpError> {
         let row = match self.token_repo.get_by_url(server_url).await? {
             Some(row) => row,
             None => return Ok(None),
@@ -280,10 +274,7 @@ impl McpOAuthService {
     ///
     /// Tries `.well-known/oauth-authorization-server` first,
     /// falls back to `.well-known/openid-configuration`.
-    async fn discover_endpoints(
-        &self,
-        server_url: &str,
-    ) -> Result<OAuthServerMetadata, McpError> {
+    async fn discover_endpoints(&self, server_url: &str) -> Result<OAuthServerMetadata, McpError> {
         let base = server_url.trim_end_matches('/');
 
         let well_known_url = format!("{base}/.well-known/oauth-authorization-server");
@@ -306,10 +297,7 @@ impl McpOAuthService {
     }
 
     /// Fetch and parse OAuth server metadata from a URL.
-    async fn fetch_metadata(
-        &self,
-        url: &str,
-    ) -> Result<OAuthServerMetadata, McpError> {
+    async fn fetch_metadata(&self, url: &str) -> Result<OAuthServerMetadata, McpError> {
         let resp = self
             .http_client
             .get(url)
@@ -330,10 +318,7 @@ impl McpOAuthService {
     }
 
     /// Wait for the OAuth callback redirect on the given listener.
-    async fn wait_for_callback(
-        &self,
-        listener: TcpListener,
-    ) -> Result<String, McpError> {
+    async fn wait_for_callback(&self, listener: TcpListener) -> Result<String, McpError> {
         let (code_tx, code_rx) = tokio::sync::oneshot::channel::<Result<String, McpError>>();
         let pending = self.pending.clone();
 
@@ -404,11 +389,7 @@ impl McpOAuthService {
     }
 
     /// Exchange the authorization code for tokens and persist them.
-    async fn exchange_code(
-        &self,
-        server_url: &str,
-        code: String,
-    ) -> Result<(), McpError> {
+    async fn exchange_code(&self, server_url: &str, code: String) -> Result<(), McpError> {
         let (auth_url_str, token_url_str, redirect_url_str, pkce_verifier) = {
             let mut guard = self.pending.lock().await;
             let pending = guard
@@ -458,8 +439,8 @@ impl McpOAuthService {
         let token_url = TokenUrl::new(metadata.token_endpoint)
             .map_err(|e| McpError::OAuth(format!("Invalid token URL: {e}")))?;
 
-        let client = BasicClient::new(ClientId::new(DEFAULT_CLIENT_ID.to_string()))
-            .set_token_uri(token_url);
+        let client =
+            BasicClient::new(ClientId::new(DEFAULT_CLIENT_ID.to_string())).set_token_uri(token_url);
 
         let http_client = Self::build_no_redirect_client()?;
 
@@ -510,9 +491,7 @@ impl McpOAuthService {
             .upsert(UpsertOAuthTokenParams {
                 server_url,
                 access_token: token_result.access_token().secret(),
-                refresh_token: token_result
-                    .refresh_token()
-                    .map(|t| t.secret().as_str()),
+                refresh_token: token_result.refresh_token().map(|t| t.secret().as_str()),
                 token_type: "bearer",
                 expires_at,
             })
@@ -564,10 +543,8 @@ fn parse_callback_query(request: &str) -> Result<(String, String), McpError> {
         }
     }
 
-    let code =
-        code.ok_or_else(|| McpError::OAuth("Missing 'code' in callback".to_string()))?;
-    let state =
-        state.ok_or_else(|| McpError::OAuth("Missing 'state' in callback".to_string()))?;
+    let code = code.ok_or_else(|| McpError::OAuth("Missing 'code' in callback".to_string()))?;
+    let state = state.ok_or_else(|| McpError::OAuth("Missing 'state' in callback".to_string()))?;
 
     Ok((code, state))
 }
@@ -897,8 +874,7 @@ mod tests {
 
     #[tokio::test]
     async fn logout_idempotent_for_nonexistent() {
-        let svc =
-            McpOAuthService::new(Arc::new(IdempotentDeleteRepo), reqwest::Client::new());
+        let svc = McpOAuthService::new(Arc::new(IdempotentDeleteRepo), reqwest::Client::new());
         svc.logout("https://nonexistent.example.com").await.unwrap();
     }
 

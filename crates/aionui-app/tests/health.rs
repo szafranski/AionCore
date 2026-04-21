@@ -14,7 +14,11 @@ fn build_request(method: &str, uri: &str) -> Request<Body> {
 }
 
 async fn response_json(body: Body) -> serde_json::Value {
-    let bytes = body.collect().await.expect("failed to read body").to_bytes();
+    let bytes = body
+        .collect()
+        .await
+        .expect("failed to read body")
+        .to_bytes();
     serde_json::from_slice(&bytes).expect("failed to parse JSON")
 }
 

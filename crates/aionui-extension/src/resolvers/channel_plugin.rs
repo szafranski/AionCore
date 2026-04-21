@@ -11,12 +11,10 @@ pub fn resolve_channel_plugin(
     extension_name: &str,
     ext_dir: &Path,
 ) -> ResolvedChannelPlugin {
-    let entry_point = plugin.entry_point.as_ref().map(|ep| {
-        ext_dir
-            .join(ep)
-            .to_string_lossy()
-            .into_owned()
-    });
+    let entry_point = plugin
+        .entry_point
+        .as_ref()
+        .map(|ep| ext_dir.join(ep).to_string_lossy().into_owned());
 
     ResolvedChannelPlugin {
         extension_name: extension_name.to_owned(),
@@ -54,13 +52,18 @@ mod tests {
             entry_point: Some("plugins/slack.js".into()),
         };
 
-        let result =
-            resolve_channel_plugin(&plugin, "my-ext", Path::new("/ext/my-ext"));
+        let result = resolve_channel_plugin(&plugin, "my-ext", Path::new("/ext/my-ext"));
 
         assert_eq!(result.extension_name, "my-ext");
         assert_eq!(result.id, "slack-plugin");
         assert_eq!(result.platform.as_deref(), Some("slack"));
-        assert!(result.entry_point.as_ref().unwrap().contains("plugins/slack.js"));
+        assert!(
+            result
+                .entry_point
+                .as_ref()
+                .unwrap()
+                .contains("plugins/slack.js")
+        );
     }
 
     #[test]
@@ -73,15 +76,13 @@ mod tests {
             entry_point: None,
         };
 
-        let result =
-            resolve_channel_plugin(&plugin, "my-ext", Path::new("/ext/my-ext"));
+        let result = resolve_channel_plugin(&plugin, "my-ext", Path::new("/ext/my-ext"));
         assert!(result.entry_point.is_none());
     }
 
     #[test]
     fn test_resolve_channel_plugins_empty() {
-        let result =
-            resolve_channel_plugins(&[], "my-ext", Path::new("/ext/my-ext"));
+        let result = resolve_channel_plugins(&[], "my-ext", Path::new("/ext/my-ext"));
         assert!(result.is_empty());
     }
 }

@@ -19,10 +19,8 @@ mod weixin_tests {
     use aionui_channel::manager::{ChannelManager, PluginFactory};
     use aionui_channel::plugin::ChannelPlugin;
     use aionui_channel::plugins::weixin::WeixinPlugin;
-    use aionui_channel::types::{
-        PluginConfig, PluginCredentials, PluginStatus, PluginType,
-    };
-    use aionui_db::{init_database_memory, IChannelRepository, SqliteChannelRepository};
+    use aionui_channel::types::{PluginConfig, PluginCredentials, PluginStatus, PluginType};
+    use aionui_db::{IChannelRepository, SqliteChannelRepository, init_database_memory};
     use aionui_realtime::EventBroadcaster;
     use std::sync::Arc;
     use tokio::sync::mpsc;
@@ -87,10 +85,7 @@ mod weixin_tests {
         })
     }
 
-    fn make_plugin_config(
-        bot_token: Option<&str>,
-        account_id: Option<&str>,
-    ) -> PluginConfig {
+    fn make_plugin_config(bot_token: Option<&str>, account_id: Option<&str>) -> PluginConfig {
         PluginConfig {
             credentials: PluginCredentials {
                 token: None,
@@ -108,10 +103,7 @@ mod weixin_tests {
         }
     }
 
-    fn make_config_value(
-        bot_token: Option<&str>,
-        account_id: Option<&str>,
-    ) -> serde_json::Value {
+    fn make_config_value(bot_token: Option<&str>, account_id: Option<&str>) -> serde_json::Value {
         let mut creds = serde_json::Map::new();
         if let Some(t) = bot_token {
             creds.insert("botToken".into(), serde_json::Value::String(t.into()));

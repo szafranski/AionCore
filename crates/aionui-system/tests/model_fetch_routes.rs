@@ -40,11 +40,7 @@ fn build_state(db: &aionui_db::Database) -> SystemRouterState {
             SqliteClientPreferenceRepository::new(db.pool().clone()),
         )),
         provider_service: ProviderService::new(provider_repo.clone(), TEST_KEY),
-        model_fetch_service: ModelFetchService::new(
-            provider_repo,
-            TEST_KEY,
-            http_client.clone(),
-        ),
+        model_fetch_service: ModelFetchService::new(provider_repo, TEST_KEY, http_client.clone()),
         protocol_detection_service: ProtocolDetectionService::new(http_client.clone()),
         version_check_service: VersionCheckService::new(http_client, "0.1.0".to_owned()),
     }
@@ -137,10 +133,7 @@ async fn fetch_models_vertex_ai_hardcoded() {
 async fn fetch_models_minimax_hardcoded() {
     let (router, db) = setup().await;
     let id = create_provider(&db, "minimax", "https://unused", "fake-key").await;
-    let req = post_request(
-        &format!("/api/providers/{id}/models"),
-        json!({}),
-    );
+    let req = post_request(&format!("/api/providers/{id}/models"), json!({}));
     let resp = router.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -228,10 +221,7 @@ async fn fetch_models_anthropic_success() {
     let (router, db) = setup().await;
     let id = create_provider(&db, "anthropic", &mock_server.uri(), "sk-ant-test").await;
 
-    let req = post_request(
-        &format!("/api/providers/{id}/models"),
-        json!({}),
-    );
+    let req = post_request(&format!("/api/providers/{id}/models"), json!({}));
     let resp = router.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -253,10 +243,7 @@ async fn fetch_models_anthropic_fallback_on_error() {
     let (router, db) = setup().await;
     let id = create_provider(&db, "anthropic", &mock_server.uri(), "bad-key").await;
 
-    let req = post_request(
-        &format!("/api/providers/{id}/models"),
-        json!({}),
-    );
+    let req = post_request(&format!("/api/providers/{id}/models"), json!({}));
     let resp = router.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -287,10 +274,7 @@ async fn fetch_models_gemini_success() {
     let (router, db) = setup().await;
     let id = create_provider(&db, "gemini", &mock_server.uri(), "gemini-key").await;
 
-    let req = post_request(
-        &format!("/api/providers/{id}/models"),
-        json!({}),
-    );
+    let req = post_request(&format!("/api/providers/{id}/models"), json!({}));
     let resp = router.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -314,10 +298,7 @@ async fn fetch_models_gemini_fallback_on_error() {
     let (router, db) = setup().await;
     let id = create_provider(&db, "gemini", &mock_server.uri(), "bad-key").await;
 
-    let req = post_request(
-        &format!("/api/providers/{id}/models"),
-        json!({}),
-    );
+    let req = post_request(&format!("/api/providers/{id}/models"), json!({}));
     let resp = router.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -346,10 +327,7 @@ async fn fetch_models_new_api_adds_v1() {
     // base_url without /v1
     let id = create_provider(&db, "new-api", &mock_server.uri(), "test-key").await;
 
-    let req = post_request(
-        &format!("/api/providers/{id}/models"),
-        json!({}),
-    );
+    let req = post_request(&format!("/api/providers/{id}/models"), json!({}));
     let resp = router.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -396,7 +374,12 @@ async fn fetch_models_url_auto_fix_success() {
     assert_eq!(models.len(), 1);
     assert_eq!(models[0], "fixed-model");
     // fixedBaseUrl should be present
-    assert!(json["data"]["fixedBaseUrl"].as_str().unwrap().contains("/v1"));
+    assert!(
+        json["data"]["fixedBaseUrl"]
+            .as_str()
+            .unwrap()
+            .contains("/v1")
+    );
 }
 
 #[tokio::test]

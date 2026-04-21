@@ -19,11 +19,9 @@ impl SqliteSettingsRepository {
 #[async_trait::async_trait]
 impl ISettingsRepository for SqliteSettingsRepository {
     async fn get_settings(&self) -> Result<Option<SystemSettings>, DbError> {
-        let row = sqlx::query_as::<_, SystemSettings>(
-            "SELECT * FROM system_settings WHERE id = 1",
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, SystemSettings>("SELECT * FROM system_settings WHERE id = 1")
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(row)
     }

@@ -166,8 +166,7 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].name, "cron.jobRemoved");
 
-        let parsed: CronJobRemovedPayload =
-            serde_json::from_value(events[0].data.clone()).unwrap();
+        let parsed: CronJobRemovedPayload = serde_json::from_value(events[0].data.clone()).unwrap();
         assert_eq!(parsed.job_id, "cron_456");
     }
 
@@ -180,8 +179,7 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].name, "cron.jobExecuted");
 
-        let parsed: CronJobExecutedEvent =
-            serde_json::from_value(events[0].data.clone()).unwrap();
+        let parsed: CronJobExecutedEvent = serde_json::from_value(events[0].data.clone()).unwrap();
         assert_eq!(parsed.job_id, "cron_789");
         assert_eq!(parsed.status, "ok");
         assert!(parsed.error.is_none());
@@ -195,8 +193,7 @@ mod tests {
         let events = bc.events();
         assert_eq!(events.len(), 1);
 
-        let parsed: CronJobExecutedEvent =
-            serde_json::from_value(events[0].data.clone()).unwrap();
+        let parsed: CronJobExecutedEvent = serde_json::from_value(events[0].data.clone()).unwrap();
         assert_eq!(parsed.status, "error");
         assert_eq!(parsed.error.as_deref(), Some("timeout"));
     }
@@ -207,8 +204,7 @@ mod tests {
         emitter.emit_job_executed("cron_789", "skipped", None);
 
         let events = bc.events();
-        let parsed: CronJobExecutedEvent =
-            serde_json::from_value(events[0].data.clone()).unwrap();
+        let parsed: CronJobExecutedEvent = serde_json::from_value(events[0].data.clone()).unwrap();
         assert_eq!(parsed.status, "skipped");
     }
 

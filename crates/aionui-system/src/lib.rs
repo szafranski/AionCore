@@ -11,6 +11,6 @@ pub use client_pref::ClientPrefService;
 pub use model_fetcher::ModelFetchService;
 pub use protocol::ProtocolDetectionService;
 pub use provider::ProviderService;
-pub use routes::{settings_routes, system_routes, SystemRouterState};
+pub use routes::{SystemRouterState, settings_routes, system_routes};
 pub use settings::SettingsService;
 pub use version::VersionCheckService;

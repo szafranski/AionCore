@@ -1,16 +1,15 @@
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
-use axum::Router;
 use tracing::warn;
 
 use aionui_api_types::{
-    ApiResponse, BatchImportMcpServersRequest, CreateMcpServerRequest,
-    DetectedMcpServerResponse, McpConnectionTestResult, McpServerResponse, McpSyncResult,
-    OAuthCheckStatusRequest, OAuthLoginRequest, OAuthLoginResponse, OAuthLogoutRequest,
-    OAuthStatusResponse, RemoveFromAgentsRequest, SyncToAgentsRequest,
-    TestMcpConnectionRequest, UpdateMcpServerRequest,
+    ApiResponse, BatchImportMcpServersRequest, CreateMcpServerRequest, DetectedMcpServerResponse,
+    McpConnectionTestResult, McpServerResponse, McpSyncResult, OAuthCheckStatusRequest,
+    OAuthLoginRequest, OAuthLoginResponse, OAuthLogoutRequest, OAuthStatusResponse,
+    RemoveFromAgentsRequest, SyncToAgentsRequest, TestMcpConnectionRequest, UpdateMcpServerRequest,
 };
 use aionui_common::AppError;
 
@@ -43,10 +42,7 @@ pub struct McpRouterState {
 /// All routes require authentication (applied by the caller).
 pub fn mcp_routes(state: McpRouterState) -> Router {
     Router::new()
-        .route(
-            "/api/mcp/servers",
-            get(list_servers).post(add_server),
-        )
+        .route("/api/mcp/servers", get(list_servers).post(add_server))
         .route("/api/mcp/servers/import", post(batch_import))
         .route(
             "/api/mcp/servers/{id}",
@@ -240,7 +236,10 @@ async fn oauth_check_status(
     body: Result<Json<OAuthCheckStatusRequest>, JsonRejection>,
 ) -> Result<Json<ApiResponse<OAuthStatusResponse>>, AppError> {
     let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
-    let status = state.oauth_service.check_oauth_status(&req.server_url).await?;
+    let status = state
+        .oauth_service
+        .check_oauth_status(&req.server_url)
+        .await?;
     Ok(Json(ApiResponse::ok(status)))
 }
 

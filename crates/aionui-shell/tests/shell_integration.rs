@@ -42,10 +42,7 @@ async fn sh4_show_item_in_folder_not_found() {
 // ---------------------------------------------------------------------------
 #[tokio::test]
 async fn sh6_open_external_command_injection() {
-    let err = service()
-        .open_external("; rm -rf /")
-        .await
-        .unwrap_err();
+    let err = service().open_external("; rm -rf /").await.unwrap_err();
     let msg = err.to_string();
     assert!(
         msg.to_lowercase().contains("invalid") || msg.to_lowercase().contains("url"),
@@ -164,10 +161,7 @@ async fn open_external_ftp_scheme_rejected() {
         .await
         .unwrap_err();
     let msg = err.to_string();
-    assert!(
-        msg.contains("scheme"),
-        "expected scheme error, got: {msg}"
-    );
+    assert!(msg.contains("scheme"), "expected scheme error, got: {msg}");
 }
 
 // ---------------------------------------------------------------------------

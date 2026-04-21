@@ -1,7 +1,7 @@
 use aionui_db::{
-    init_database_memory, models::ConversationRow, models::MessageRow,
-    ConversationFilters, ConversationRowUpdate, IConversationRepository,
-    MessageRowUpdate, SortOrder, SqliteConversationRepository,
+    ConversationFilters, ConversationRowUpdate, IConversationRepository, MessageRowUpdate,
+    SortOrder, SqliteConversationRepository, init_database_memory, models::ConversationRow,
+    models::MessageRow,
 };
 
 const USER_ID: &str = "system_default_user";
@@ -20,9 +20,7 @@ fn make_conversation(suffix: &str) -> ConversationRow {
         name: format!("Conversation {suffix}"),
         r#type: "gemini".to_string(),
         extra: r#"{"workspace":"/home/user/project"}"#.to_string(),
-        model: Some(
-            r#"{"providerId":"prov_1","model":"claude-sonnet-4-20250514"}"#.to_string(),
-        ),
+        model: Some(r#"{"providerId":"prov_1","model":"claude-sonnet-4-20250514"}"#.to_string()),
         status: "pending".to_string(),
         source: Some("aionui".to_string()),
         channel_chat_id: None,

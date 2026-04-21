@@ -170,9 +170,8 @@ pub fn test_custom_agent(
     _env: &HashMap<String, String>,
 ) -> Result<TestCustomAgentResponse, AppError> {
     // Verify the command exists
-    which::which(command).map_err(|_| {
-        AppError::BadRequest(format!("Command '{command}' not found in PATH"))
-    })?;
+    which::which(command)
+        .map_err(|_| AppError::BadRequest(format!("Command '{command}' not found in PATH")))?;
 
     Ok(TestCustomAgentResponse {
         step: "completed".into(),
@@ -242,11 +241,7 @@ mod tests {
 
     #[test]
     fn test_custom_agent_nonexistent_command() {
-        let result = test_custom_agent(
-            "/nonexistent/path/to/agent",
-            &[],
-            &HashMap::new(),
-        );
+        let result = test_custom_agent("/nonexistent/path/to/agent", &[], &HashMap::new());
         assert!(result.is_err());
     }
 }

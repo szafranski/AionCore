@@ -48,13 +48,9 @@ impl VersionCheckService {
         let repo = resolve_repo(req.repo.as_deref());
         let releases = self.fetch_releases(&repo).await?;
 
-        let current = parse_version(&self.current_version)
-            .ok_or_else(|| {
-                AppError::Internal(format!(
-                    "invalid current version: {}",
-                    self.current_version
-                ))
-            })?;
+        let current = parse_version(&self.current_version).ok_or_else(|| {
+            AppError::Internal(format!("invalid current version: {}", self.current_version))
+        })?;
 
         let platform = crate::sysinfo::get_system_info();
         let best = find_best_release(
@@ -365,7 +361,12 @@ mod tests {
         assert!(kw.contains(&"aarch64"));
     }
 
-    fn make_release(tag: &str, draft: bool, prerelease: bool, assets: Vec<GitHubAsset>) -> GitHubRelease {
+    fn make_release(
+        tag: &str,
+        draft: bool,
+        prerelease: bool,
+        assets: Vec<GitHubAsset>,
+    ) -> GitHubRelease {
         GitHubRelease {
             tag_name: tag.to_owned(),
             name: Some(format!("Release {tag}")),
@@ -479,28 +480,24 @@ mod tests {
 
     #[test]
     fn test_find_recommended_asset_linux_x64() {
-        let assets = vec![
-            GitHubReleaseAsset {
-                name: "app-linux-amd64.tar.gz".into(),
-                url: "https://example.com/linux.tar.gz".into(),
-                size: 150,
-                content_type: None,
-            },
-        ];
+        let assets = vec![GitHubReleaseAsset {
+            name: "app-linux-amd64.tar.gz".into(),
+            url: "https://example.com/linux.tar.gz".into(),
+            size: 150,
+            content_type: None,
+        }];
         let rec = find_recommended_asset(&assets, "linux", "x64");
         assert!(rec.is_some());
     }
 
     #[test]
     fn test_find_recommended_asset_no_match() {
-        let assets = vec![
-            GitHubReleaseAsset {
-                name: "app-win-x64.exe".into(),
-                url: "https://example.com/win.exe".into(),
-                size: 100,
-                content_type: None,
-            },
-        ];
+        let assets = vec![GitHubReleaseAsset {
+            name: "app-win-x64.exe".into(),
+            url: "https://example.com/win.exe".into(),
+            size: 100,
+            content_type: None,
+        }];
         let rec = find_recommended_asset(&assets, "darwin", "arm64");
         assert!(rec.is_none());
     }
@@ -519,7 +516,12 @@ mod tests {
         )];
         let best = find_best_release(&releases, &current, false, "darwin", "arm64").unwrap();
         assert!(best.recommended_asset.is_some());
-        assert!(best.recommended_asset.unwrap().name.contains("darwin-arm64"));
+        assert!(
+            best.recommended_asset
+                .unwrap()
+                .name
+                .contains("darwin-arm64")
+        );
     }
 
     #[test]

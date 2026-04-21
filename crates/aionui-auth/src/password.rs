@@ -44,10 +44,7 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool, AuthError> {
 /// Runs bcrypt verification on a blocking thread pool and pads the response
 /// time to at least 50ms. This prevents timing attacks that could distinguish
 /// "user exists + wrong password" from "user doesn't exist".
-pub async fn verify_password_timed(
-    password: &str,
-    hash: &str,
-) -> Result<bool, AuthError> {
+pub async fn verify_password_timed(password: &str, hash: &str) -> Result<bool, AuthError> {
     let start = Instant::now();
     let password = password.to_owned();
     let hash = hash.to_owned();

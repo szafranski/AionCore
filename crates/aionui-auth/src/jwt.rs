@@ -4,7 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use base64::Engine as _;
 use dashmap::DashMap;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -59,11 +59,7 @@ impl JwtService {
     }
 
     /// Sign a new JWT for the given user. The token expires after 24 hours.
-    pub fn sign(
-        &self,
-        user_id: &str,
-        username: &str,
-    ) -> Result<String, AuthError> {
+    pub fn sign(&self, user_id: &str, username: &str) -> Result<String, AuthError> {
         let now = now_secs()?;
         let exp = now + TOKEN_EXPIRY.as_secs();
 
@@ -180,10 +176,7 @@ impl JwtService {
 ///
 /// Priority: environment variable -> database value -> random generation.
 /// Returns `(secret_string, is_newly_generated)`.
-pub fn resolve_jwt_secret(
-    env_secret: Option<&str>,
-    db_secret: Option<&str>,
-) -> (String, bool) {
+pub fn resolve_jwt_secret(env_secret: Option<&str>, db_secret: Option<&str>) -> (String, bool) {
     if let Some(s) = env_secret {
         return (s.to_owned(), false);
     }

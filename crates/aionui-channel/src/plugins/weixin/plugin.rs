@@ -10,9 +10,8 @@ use crate::constants::{WEIXIN_MAX_RETRIES, WEIXIN_RETRY_DELAY};
 use crate::error::ChannelError;
 use crate::plugin::{ChannelPlugin, PluginCallbacks};
 use crate::types::{
-    BotInfo, MessageContentType, PluginConfig, PluginStatus, PluginType,
-    UnifiedAttachment, UnifiedIncomingMessage, UnifiedMessageContent,
-    UnifiedOutgoingMessage, UnifiedUser,
+    BotInfo, MessageContentType, PluginConfig, PluginStatus, PluginType, UnifiedAttachment,
+    UnifiedIncomingMessage, UnifiedMessageContent, UnifiedOutgoingMessage, UnifiedUser,
 };
 
 use super::api::WeixinApi;

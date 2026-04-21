@@ -6,7 +6,7 @@ use cron::Schedule;
 use dashmap::DashMap;
 use tokio::task::JoinHandle;
 
-use aionui_common::{now_ms, TimestampMs};
+use aionui_common::{TimestampMs, now_ms};
 
 use crate::error::CronError;
 use crate::types::{CronJob, CronSchedule};
@@ -16,8 +16,7 @@ use crate::types::{CronJob, CronSchedule};
 // ---------------------------------------------------------------------------
 
 pub fn validate_cron_expression(expr: &str) -> Result<Schedule, CronError> {
-    Schedule::from_str(expr)
-        .map_err(|e| CronError::InvalidCronExpression(format!("{expr}: {e}")))
+    Schedule::from_str(expr).map_err(|e| CronError::InvalidCronExpression(format!("{expr}: {e}")))
 }
 
 pub fn validate_timezone(tz: &str) -> Result<chrono_tz::Tz, CronError> {
@@ -38,24 +37,16 @@ pub fn compute_next_run(schedule: &CronSchedule, now: TimestampMs) -> Option<Tim
             }
             Some(now + *every_ms)
         }
-        CronSchedule::Cron { expr, tz, .. } => {
-            compute_cron_next_run(expr, tz.as_deref(), now)
-        }
+        CronSchedule::Cron { expr, tz, .. } => compute_cron_next_run(expr, tz.as_deref(), now),
     }
 }
 
-fn compute_cron_next_run(
-    expr: &str,
-    tz: Option<&str>,
-    now: TimestampMs,
-) -> Option<TimestampMs> {
+fn compute_cron_next_run(expr: &str, tz: Option<&str>, now: TimestampMs) -> Option<TimestampMs> {
     let schedule = Schedule::from_str(expr).ok()?;
 
     if let Some(tz_str) = tz {
         let tz_parsed: chrono_tz::Tz = tz_str.parse().ok()?;
-        let now_dt = tz_parsed
-            .timestamp_millis_opt(now)
-            .single()?;
+        let now_dt = tz_parsed.timestamp_millis_opt(now).single()?;
         let next = schedule.after(&now_dt).next()?;
         Some(next.timestamp_millis())
     } else {
@@ -125,20 +116,12 @@ impl CronScheduler {
         let callback = Arc::clone(&self.tick_callback);
 
         let handle = match &schedule {
-            CronSchedule::At { .. } => {
-                spawn_at_timer(job_id, next_run_at, callback)
-            }
+            CronSchedule::At { .. } => spawn_at_timer(job_id, next_run_at, callback),
             CronSchedule::Every { every_ms, .. } => {
                 spawn_every_timer(job_id, next_run_at, *every_ms, callback)
             }
             CronSchedule::Cron { expr, tz, .. } => {
-                spawn_cron_timer(
-                    job_id,
-                    next_run_at,
-                    expr.clone(),
-                    tz.clone(),
-                    callback,
-                )
+                spawn_cron_timer(job_id, next_run_at, expr.clone(), tz.clone(), callback)
             }
         };
 
@@ -181,11 +164,7 @@ impl Drop for CronScheduler {
 // Timer spawn helpers
 // ---------------------------------------------------------------------------
 
-fn spawn_at_timer(
-    job_id: String,
-    run_at: TimestampMs,
-    callback: TickCallback,
-) -> JoinHandle<()> {
+fn spawn_at_timer(job_id: String, run_at: TimestampMs, callback: TickCallback) -> JoinHandle<()> {
     tokio::spawn(async move {
         let delay = delay_until(run_at);
         if delay > 0 {
@@ -204,10 +183,7 @@ fn spawn_every_timer(
     tokio::spawn(async move {
         let initial_delay = delay_until(first_run_at);
         if initial_delay > 0 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(
-                initial_delay as u64,
-            ))
-            .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(initial_delay as u64)).await;
         }
         callback(job_id.clone());
 
@@ -231,10 +207,7 @@ fn spawn_cron_timer(
     tokio::spawn(async move {
         let initial_delay = delay_until(first_run_at);
         if initial_delay > 0 {
-            tokio::time::sleep(tokio::time::Duration::from_millis(
-                initial_delay as u64,
-            ))
-            .await;
+            tokio::time::sleep(tokio::time::Duration::from_millis(initial_delay as u64)).await;
         }
         callback(job_id.clone());
 
@@ -246,10 +219,7 @@ fn spawn_cron_timer(
             };
             let delay = delay_until(next_at);
             if delay > 0 {
-                tokio::time::sleep(tokio::time::Duration::from_millis(
-                    delay as u64,
-                ))
-                .await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(delay as u64)).await;
             }
             callback(job_id.clone());
         }
@@ -561,11 +531,7 @@ mod tests {
         };
         scheduler.schedule_job(&job);
 
-        let result = tokio::time::timeout(
-            tokio::time::Duration::from_secs(2),
-            rx,
-        )
-        .await;
+        let result = tokio::time::timeout(tokio::time::Duration::from_secs(2), rx).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap().unwrap(), "cron_at");
     }
@@ -597,11 +563,7 @@ mod tests {
 
     // -- Test helper ----------------------------------------------------------
 
-    fn make_test_job(
-        id: &str,
-        enabled: bool,
-        next_run_at: Option<TimestampMs>,
-    ) -> CronJob {
+    fn make_test_job(id: &str, enabled: bool, next_run_at: Option<TimestampMs>) -> CronJob {
         use crate::types::{CreatedBy, ExecutionMode};
         CronJob {
             id: id.to_owned(),

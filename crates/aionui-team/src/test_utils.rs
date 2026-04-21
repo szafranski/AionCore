@@ -112,11 +112,7 @@ impl ITeamRepository for MockTeamRepo {
         Ok(found)
     }
 
-    async fn update_task(
-        &self,
-        task_id: &str,
-        params: &UpdateTaskParams,
-    ) -> Result<(), DbError> {
+    async fn update_task(&self, task_id: &str, params: &UpdateTaskParams) -> Result<(), DbError> {
         let mut state = self.state.lock().unwrap();
         let task = state
             .tasks
@@ -153,19 +149,14 @@ impl ITeamRepository for MockTeamRepo {
         Ok(tasks)
     }
 
-    async fn append_to_blocks(
-        &self,
-        task_id: &str,
-        blocked_task_id: &str,
-    ) -> Result<(), DbError> {
+    async fn append_to_blocks(&self, task_id: &str, blocked_task_id: &str) -> Result<(), DbError> {
         let mut state = self.state.lock().unwrap();
         let task = state
             .tasks
             .iter_mut()
             .find(|t| t.id == task_id)
             .ok_or_else(|| DbError::NotFound(task_id.to_owned()))?;
-        let mut blocks: Vec<String> =
-            serde_json::from_str(&task.blocks).unwrap_or_default();
+        let mut blocks: Vec<String> = serde_json::from_str(&task.blocks).unwrap_or_default();
         blocks.push(blocked_task_id.to_owned());
         task.blocks = serde_json::to_string(&blocks).unwrap();
         Ok(())

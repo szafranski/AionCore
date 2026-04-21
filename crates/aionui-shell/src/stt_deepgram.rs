@@ -120,14 +120,7 @@ mod tests {
             punctuate: None,
             smart_format: None,
         };
-        let result = transcribe(
-            &Client::new(),
-            &config,
-            vec![0u8; 10],
-            "audio/wav",
-            None,
-        )
-        .await;
+        let result = transcribe(&Client::new(), &config, vec![0u8; 10], "audio/wav", None).await;
         assert!(matches!(result, Err(SttError::DeepgramNotConfigured)));
     }
 
@@ -148,10 +141,7 @@ mod tests {
                 }]
             }
         });
-        assert_eq!(
-            extract_model_name(&body),
-            Some("2-general-nova".to_owned())
-        );
+        assert_eq!(extract_model_name(&body), Some("2-general-nova".to_owned()));
     }
 
     #[test]

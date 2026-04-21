@@ -33,9 +33,7 @@ pub enum OfficeError {
 impl From<OfficeError> for AppError {
     fn from(err: OfficeError) -> Self {
         match err {
-            OfficeError::OfficecliNotFound => {
-                AppError::BadRequest("officecli not found".into())
-            }
+            OfficeError::OfficecliNotFound => AppError::BadRequest("officecli not found".into()),
             OfficeError::InstallFailed(msg) => {
                 AppError::Internal(format!("officecli install failed: {msg}"))
             }
@@ -48,9 +46,7 @@ impl From<OfficeError> for AppError {
             OfficeError::Io(e) => AppError::Internal(format!("IO error: {e}")),
             OfficeError::Snapshot(msg) => AppError::Internal(format!("snapshot error: {msg}")),
             OfficeError::Json(e) => AppError::Internal(format!("JSON error: {e}")),
-            OfficeError::Conversion(msg) => {
-                AppError::Internal(format!("conversion error: {msg}"))
-            }
+            OfficeError::Conversion(msg) => AppError::Internal(format!("conversion error: {msg}")),
             OfficeError::ToolNotFound(tool) => {
                 AppError::BadRequest(format!("{tool} is not installed"))
             }

@@ -1,7 +1,7 @@
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Json, State};
 use axum::routing::post;
-use axum::Router;
 
 use aionui_api_types::{
     ApiResponse, CancelZipRequest, CopyFilesRequest, CopyFilesResponse, CreateTempFileRequest,
@@ -9,16 +9,15 @@ use aionui_api_types::{
     FileWatchRequest, GetFileMetadataRequest, GetFilesByDirRequest, GetImageBase64Request,
     ListWorkspaceFilesRequest, ReadFileBufferRequest, ReadFileRequest, RemoveEntryRequest,
     RenameRequest, RenameResponse, SnapshotBaselineRequest, SnapshotCompareResponse,
-    SnapshotDiscardRequest, SnapshotInfoResponse, SnapshotStageRequest,
-    SnapshotWorkspaceRequest, WorkspaceFlatFileResponse, WorkspaceOfficeWatchRequest,
-    WriteFileRequest, ZipRequest,
+    SnapshotDiscardRequest, SnapshotInfoResponse, SnapshotStageRequest, SnapshotWorkspaceRequest,
+    WorkspaceFlatFileResponse, WorkspaceOfficeWatchRequest, WriteFileRequest, ZipRequest,
 };
 use aionui_common::AppError;
 
 use crate::traits::{FileServiceRef, FileWatchServiceRef, SnapshotServiceRef};
 use crate::types::{
-    CompareResult, CopyResult, DirOrFile, FileChangeInfo, FileMetadata, SnapshotInfo,
-    SnapshotMode, WorkspaceFlatFile, ZipEntry,
+    CompareResult, CopyResult, DirOrFile, FileChangeInfo, FileMetadata, SnapshotInfo, SnapshotMode,
+    WorkspaceFlatFile, ZipEntry,
 };
 
 // ---------------------------------------------------------------------------
@@ -88,7 +87,10 @@ async fn get_files_by_dir(
     body: Result<Json<GetFilesByDirRequest>, JsonRejection>,
 ) -> Result<Json<ApiResponse<Vec<DirOrFileResponse>>>, AppError> {
     let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
-    let items = state.file_service.get_files_by_dir(&req.dir, &req.root).await?;
+    let items = state
+        .file_service
+        .get_files_by_dir(&req.dir, &req.root)
+        .await?;
     let response: Vec<DirOrFileResponse> = items.into_iter().map(to_dir_or_file_response).collect();
     Ok(Json(ApiResponse::ok(response)))
 }
@@ -161,11 +163,7 @@ async fn copy_files(
     let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
     let result = state
         .file_service
-        .copy_files_to_workspace(
-            &req.file_paths,
-            &req.workspace,
-            req.source_root.as_deref(),
-        )
+        .copy_files_to_workspace(&req.file_paths, &req.workspace, req.source_root.as_deref())
         .await?;
     Ok(Json(ApiResponse::ok(to_copy_response(result))))
 }
@@ -383,10 +381,7 @@ async fn snapshot_unstage_all(
     body: Result<Json<SnapshotWorkspaceRequest>, JsonRejection>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
     let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
-    state
-        .snapshot_service
-        .unstage_all(&req.workspace)
-        .await?;
+    state.snapshot_service.unstage_all(&req.workspace).await?;
     Ok(Json(ApiResponse::success()))
 }
 
@@ -419,10 +414,7 @@ async fn snapshot_branches(
     body: Result<Json<SnapshotWorkspaceRequest>, JsonRejection>,
 ) -> Result<Json<ApiResponse<Vec<String>>>, AppError> {
     let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
-    let branches = state
-        .snapshot_service
-        .get_branches(&req.workspace)
-        .await?;
+    let branches = state.snapshot_service.get_branches(&req.workspace).await?;
     Ok(Json(ApiResponse::ok(branches)))
 }
 
@@ -441,7 +433,12 @@ async fn snapshot_dispose(
 
 fn to_dir_or_file_response(d: DirOrFile) -> DirOrFileResponse {
     let children = if d.is_dir {
-        Some(d.children.into_iter().map(to_dir_or_file_response).collect())
+        Some(
+            d.children
+                .into_iter()
+                .map(to_dir_or_file_response)
+                .collect(),
+        )
     } else {
         None
     };
@@ -523,7 +520,11 @@ fn to_file_change_response(c: FileChangeInfo) -> FileChangeInfoResponse {
 fn to_compare_response(r: CompareResult) -> SnapshotCompareResponse {
     SnapshotCompareResponse {
         staged: r.staged.into_iter().map(to_file_change_response).collect(),
-        unstaged: r.unstaged.into_iter().map(to_file_change_response).collect(),
+        unstaged: r
+            .unstaged
+            .into_iter()
+            .map(to_file_change_response)
+            .collect(),
     }
 }
 

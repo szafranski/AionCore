@@ -54,11 +54,7 @@ pub trait IMcpServerRepository: Send + Sync {
 
     /// Updates only the tools JSON for a server.
     /// Returns `DbError::NotFound` if the ID doesn't exist.
-    async fn update_tools(
-        &self,
-        id: &str,
-        tools: Option<&str>,
-    ) -> Result<(), DbError>;
+    async fn update_tools(&self, id: &str, tools: Option<&str>) -> Result<(), DbError>;
 }
 
 /// Parameters for creating a new MCP server.

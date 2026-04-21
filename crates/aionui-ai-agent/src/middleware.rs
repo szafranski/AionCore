@@ -34,9 +34,8 @@ static CRON_LIST_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[CRON_LIST\]").expect("valid cron-list regex"));
 
 /// Regex for `[CRON_DELETE: <id>]`.
-static CRON_DELETE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\[CRON_DELETE:\s*([^\]]+)\]").expect("valid cron-delete regex")
-});
+static CRON_DELETE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[CRON_DELETE:\s*([^\]]+)\]").expect("valid cron-delete regex"));
 
 /// A parsed cron command extracted from agent text.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -404,7 +403,9 @@ mod tests {
     fn has_cron_commands_true() {
         assert!(has_cron_commands("[CRON_LIST]"));
         assert!(has_cron_commands("[CRON_DELETE: x]"));
-        assert!(has_cron_commands("[CRON_CREATE]\nschedule: *\n[/CRON_CREATE]"));
+        assert!(has_cron_commands(
+            "[CRON_CREATE]\nschedule: *\n[/CRON_CREATE]"
+        ));
     }
 
     #[test]

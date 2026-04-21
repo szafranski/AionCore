@@ -1,17 +1,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::Router;
 use axum::body::Body;
-use axum::http::{header, Request, StatusCode};
+use axum::http::{Request, StatusCode, header};
 use axum::middleware;
 use axum::routing::{get, post};
-use axum::Router;
 use tower::ServiceExt;
 
 use aionui_auth::{
-    api_rate_limit_middleware, auth_rate_limit_middleware,
+    CookieConfig, CurrentUser, RateLimiter, api_rate_limit_middleware, auth_rate_limit_middleware,
     authenticated_action_rate_limit_middleware, csrf_middleware, security_headers_middleware,
-    CookieConfig, CurrentUser, RateLimiter,
 };
 
 // ============================================================
@@ -234,10 +233,7 @@ async fn auth_rate_limit_skips_successful_responses() {
 async fn auth_rate_limit_counts_failed_responses() {
     let limiter = Arc::new(RateLimiter::new(2, Duration::from_secs(60)));
     let app = Router::new()
-        .route(
-            "/login",
-            post(|| async { StatusCode::UNAUTHORIZED }),
-        )
+        .route("/login", post(|| async { StatusCode::UNAUTHORIZED }))
         .layer(middleware::from_fn_with_state(
             limiter,
             auth_rate_limit_middleware,
@@ -272,13 +268,15 @@ async fn authenticated_action_limit_uses_user_id_key() {
             limiter.clone(),
             authenticated_action_rate_limit_middleware,
         ))
-        .layer(middleware::from_fn(|mut request: axum::extract::Request, next: axum::middleware::Next| async {
-            request.extensions_mut().insert(CurrentUser {
-                id: "user_42".into(),
-                username: "admin".into(),
-            });
-            Ok::<_, std::convert::Infallible>(next.run(request).await)
-        }));
+        .layer(middleware::from_fn(
+            |mut request: axum::extract::Request, next: axum::middleware::Next| async {
+                request.extensions_mut().insert(CurrentUser {
+                    id: "user_42".into(),
+                    username: "admin".into(),
+                });
+                Ok::<_, std::convert::Infallible>(next.run(request).await)
+            },
+        ));
 
     // First request passes
     let resp = app
@@ -330,14 +328,8 @@ fn t12_3_session_cookie_secure_when_https() {
 #[test]
 fn t13_1_authorization_header_takes_priority() {
     let mut headers = axum::http::HeaderMap::new();
-    headers.insert(
-        header::AUTHORIZATION,
-        "Bearer header_tok".parse().unwrap(),
-    );
-    headers.insert(
-        header::COOKIE,
-        "aionui-session=cookie_tok".parse().unwrap(),
-    );
+    headers.insert(header::AUTHORIZATION, "Bearer header_tok".parse().unwrap());
+    headers.insert(header::COOKIE, "aionui-session=cookie_tok".parse().unwrap());
     assert_eq!(
         aionui_auth::extract_token_from_headers(&headers),
         Some("header_tok".into())

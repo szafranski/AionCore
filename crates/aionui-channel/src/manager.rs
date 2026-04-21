@@ -77,17 +77,12 @@ impl ChannelManager {
     /// Returns the status of all registered plugins from the database.
     ///
     /// Merges DB state with live runtime status for active plugins.
-    pub async fn get_plugin_status(
-        &self,
-    ) -> Result<Vec<PluginStatusResponse>, ChannelError> {
+    pub async fn get_plugin_status(&self) -> Result<Vec<PluginStatusResponse>, ChannelError> {
         let rows = self.repo.get_all_plugins().await?;
         let statuses: Vec<PluginStatusResponse> = rows
             .into_iter()
             .map(|row| {
-                let live_status = self
-                    .plugins
-                    .get(&row.id)
-                    .map(|p| p.status().to_string());
+                let live_status = self.plugins.get(&row.id).map(|p| p.status().to_string());
                 self.row_to_status_response(&row, live_status)
             })
             .collect();
@@ -145,9 +140,7 @@ impl ChannelManager {
 
         // Create and start plugin instance
         let mut plugin = factory(plugin_type).ok_or_else(|| {
-            ChannelError::InvalidPluginType(format!(
-                "No implementation for {plugin_type}"
-            ))
+            ChannelError::InvalidPluginType(format!("No implementation for {plugin_type}"))
         })?;
 
         let callbacks = PluginCallbacks {
@@ -187,10 +180,7 @@ impl ChannelManager {
     /// the active instance.
     ///
     /// Idempotent — disabling an already-disabled plugin is a no-op.
-    pub async fn disable_plugin(
-        &self,
-        plugin_id: &str,
-    ) -> Result<(), ChannelError> {
+    pub async fn disable_plugin(&self, plugin_id: &str) -> Result<(), ChannelError> {
         // Stop running instance if any
         self.stop_plugin(plugin_id).await;
 
@@ -222,9 +212,7 @@ impl ChannelManager {
             .ok_or_else(|| ChannelError::InvalidPluginType(plugin_id.to_owned()))?;
 
         let mut plugin = factory(plugin_type).ok_or_else(|| {
-            ChannelError::InvalidPluginType(format!(
-                "No implementation for {plugin_type}"
-            ))
+            ChannelError::InvalidPluginType(format!("No implementation for {plugin_type}"))
         })?;
 
         // Create throwaway channels for the test
@@ -237,9 +225,7 @@ impl ChannelManager {
 
         plugin.initialize(config, callbacks).await?;
 
-        let bot_username = plugin
-            .bot_info()
-            .and_then(|b| b.username.clone());
+        let bot_username = plugin.bot_info().and_then(|b| b.username.clone());
 
         // Clean up — don't leave a started connection
         debug!(plugin_id = %plugin_id, "plugin credential test successful");
@@ -251,15 +237,9 @@ impl ChannelManager {
     /// Reads all enabled plugins from DB, decrypts their config, and
     /// starts them. Errors on individual plugins are logged but don't
     /// prevent other plugins from starting.
-    pub async fn restore_plugins(
-        &self,
-        factory: &PluginFactory,
-    ) -> Result<(), ChannelError> {
+    pub async fn restore_plugins(&self, factory: &PluginFactory) -> Result<(), ChannelError> {
         let rows = self.repo.get_all_plugins().await?;
-        let enabled: Vec<ChannelPluginRow> = rows
-            .into_iter()
-            .filter(|r| r.enabled)
-            .collect();
+        let enabled: Vec<ChannelPluginRow> = rows.into_iter().filter(|r| r.enabled).collect();
 
         if enabled.is_empty() {
             debug!("no enabled plugins to restore");
@@ -375,9 +355,7 @@ impl ChannelManager {
         let config: PluginConfig = serde_json::from_str(&config_json)?;
 
         let mut plugin = factory(plugin_type).ok_or_else(|| {
-            ChannelError::InvalidPluginType(format!(
-                "No implementation for {plugin_type}"
-            ))
+            ChannelError::InvalidPluginType(format!("No implementation for {plugin_type}"))
         })?;
 
         let callbacks = PluginCallbacks {
@@ -437,10 +415,7 @@ impl ChannelManager {
             }
         };
 
-        let live_status = self
-            .plugins
-            .get(plugin_id)
-            .map(|p| p.status().to_string());
+        let live_status = self.plugins.get(plugin_id).map(|p| p.status().to_string());
         let status_response = self.row_to_status_response(&row, live_status);
 
         let payload = PluginStatusChangedPayload {
@@ -555,10 +530,7 @@ mod tests {
             Ok(self.plugins.lock().unwrap().clone())
         }
 
-        async fn get_plugin(
-            &self,
-            id: &str,
-        ) -> Result<Option<ChannelPluginRow>, DbError> {
+        async fn get_plugin(&self, id: &str) -> Result<Option<ChannelPluginRow>, DbError> {
             let plugins = self.plugins.lock().unwrap();
             Ok(plugins.iter().find(|p| p.id == id).cloned())
         }
@@ -633,15 +605,10 @@ mod tests {
         }
 
         // -- Session CRUD (unused stubs) --
-        async fn get_all_sessions(
-            &self,
-        ) -> Result<Vec<AssistantSessionRow>, DbError> {
+        async fn get_all_sessions(&self) -> Result<Vec<AssistantSessionRow>, DbError> {
             Ok(vec![])
         }
-        async fn get_session(
-            &self,
-            _id: &str,
-        ) -> Result<Option<AssistantSessionRow>, DbError> {
+        async fn get_session(&self, _id: &str) -> Result<Option<AssistantSessionRow>, DbError> {
             Ok(None)
         }
         async fn get_or_create_session(
@@ -659,31 +626,16 @@ mod tests {
         ) -> Result<(), DbError> {
             Ok(())
         }
-        async fn update_session_conversation(
-            &self,
-            _id: &str,
-            _cid: &str,
-        ) -> Result<(), DbError> {
+        async fn update_session_conversation(&self, _id: &str, _cid: &str) -> Result<(), DbError> {
             Ok(())
         }
-        async fn update_session_agent_type(
-            &self,
-            _id: &str,
-            _at: &str,
-        ) -> Result<(), DbError> {
+        async fn update_session_agent_type(&self, _id: &str, _at: &str) -> Result<(), DbError> {
             Ok(())
         }
-        async fn delete_sessions_by_user(
-            &self,
-            _uid: &str,
-        ) -> Result<(), DbError> {
+        async fn delete_sessions_by_user(&self, _uid: &str) -> Result<(), DbError> {
             Ok(())
         }
-        async fn delete_session_by_user_chat(
-            &self,
-            _uid: &str,
-            _cid: &str,
-        ) -> Result<(), DbError> {
+        async fn delete_session_by_user_chat(&self, _uid: &str, _cid: &str) -> Result<(), DbError> {
             Ok(())
         }
 
@@ -691,9 +643,7 @@ mod tests {
         async fn create_pairing(&self, _row: &PairingCodeRow) -> Result<(), DbError> {
             Ok(())
         }
-        async fn get_pending_pairings(
-            &self,
-        ) -> Result<Vec<PairingCodeRow>, DbError> {
+        async fn get_pending_pairings(&self) -> Result<Vec<PairingCodeRow>, DbError> {
             Ok(vec![])
         }
         async fn get_pairing_by_code(
@@ -702,17 +652,10 @@ mod tests {
         ) -> Result<Option<PairingCodeRow>, DbError> {
             Ok(None)
         }
-        async fn update_pairing_status(
-            &self,
-            _code: &str,
-            _status: &str,
-        ) -> Result<(), DbError> {
+        async fn update_pairing_status(&self, _code: &str, _status: &str) -> Result<(), DbError> {
             Ok(())
         }
-        async fn cleanup_expired_pairings(
-            &self,
-            _now: TimestampMs,
-        ) -> Result<u64, DbError> {
+        async fn cleanup_expired_pairings(&self, _now: TimestampMs) -> Result<u64, DbError> {
             Ok(0)
         }
     }
@@ -983,10 +926,12 @@ mod tests {
         assert_eq!(plugins[0].id, "telegram");
         assert!(plugins[0].enabled);
         // Config should be encrypted (base64), not plaintext
-        assert_ne!(plugins[0].config, serde_json::to_string(&make_test_config()).unwrap());
+        assert_ne!(
+            plugins[0].config,
+            serde_json::to_string(&make_test_config()).unwrap()
+        );
         // Verify it can be decrypted back
-        let decrypted =
-            decrypt_string(&plugins[0].config, &test_key()).unwrap();
+        let decrypted = decrypt_string(&plugins[0].config, &test_key()).unwrap();
         let parsed: PluginConfig = serde_json::from_str(&decrypted).unwrap();
         assert_eq!(parsed.credentials.token.as_deref(), Some("bot:test123"));
     }
@@ -1429,9 +1374,15 @@ mod tests {
     #[test]
     fn default_plugin_names() {
         let (mgr, _repo, _bc) = make_manager();
-        assert_eq!(mgr.default_plugin_name(PluginType::Telegram), "Telegram Bot");
+        assert_eq!(
+            mgr.default_plugin_name(PluginType::Telegram),
+            "Telegram Bot"
+        );
         assert_eq!(mgr.default_plugin_name(PluginType::Lark), "Lark Bot");
-        assert_eq!(mgr.default_plugin_name(PluginType::Dingtalk), "DingTalk Bot");
+        assert_eq!(
+            mgr.default_plugin_name(PluginType::Dingtalk),
+            "DingTalk Bot"
+        );
         assert_eq!(mgr.default_plugin_name(PluginType::Weixin), "WeChat Bot");
         assert_eq!(mgr.default_plugin_name(PluginType::Slack), "Slack Bot");
         assert_eq!(mgr.default_plugin_name(PluginType::Discord), "Discord Bot");

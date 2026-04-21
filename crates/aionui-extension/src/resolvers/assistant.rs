@@ -76,8 +76,7 @@ mod tests {
             context: None,
         };
 
-        let result =
-            resolve_assistant(&assistant, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_assistant(&assistant, "my-ext", Path::new("/ext/my-ext")).unwrap();
 
         assert_eq!(result.extension_name, "my-ext");
         assert_eq!(result.id, "asst-1");
@@ -118,8 +117,7 @@ mod tests {
         };
 
         let err =
-            resolve_assistant(&assistant, "my-ext", Path::new("/tmp/no_such_ext_dir"))
-                .unwrap_err();
+            resolve_assistant(&assistant, "my-ext", Path::new("/tmp/no_such_ext_dir")).unwrap_err();
         assert!(matches!(err, ExtensionError::FileReferenceNotFound(_)));
     }
 
@@ -165,8 +163,7 @@ mod tests {
             },
         ];
 
-        let result =
-            resolve_assistants(&assistants, "my-ext", Path::new("/tmp/no_such_ext"));
+        let result = resolve_assistants(&assistants, "my-ext", Path::new("/tmp/no_such_ext"));
         // Only the good one should be resolved
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, "good");

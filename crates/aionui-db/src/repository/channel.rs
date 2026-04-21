@@ -1,9 +1,7 @@
 use aionui_common::TimestampMs;
 
 use crate::error::DbError;
-use crate::models::{
-    AssistantSessionRow, AssistantUserRow, ChannelPluginRow, PairingCodeRow,
-};
+use crate::models::{AssistantSessionRow, AssistantUserRow, ChannelPluginRow, PairingCodeRow};
 
 /// Data access abstraction for channel integration tables.
 ///
@@ -93,11 +91,7 @@ pub trait IChannelRepository: Send + Sync {
     ) -> Result<(), DbError>;
 
     /// Updates the `agent_type` of a session.
-    async fn update_session_agent_type(
-        &self,
-        id: &str,
-        agent_type: &str,
-    ) -> Result<(), DbError>;
+    async fn update_session_agent_type(&self, id: &str, agent_type: &str) -> Result<(), DbError>;
 
     /// Deletes all sessions belonging to a user.
     async fn delete_sessions_by_user(&self, user_id: &str) -> Result<(), DbError>;
@@ -122,11 +116,7 @@ pub trait IChannelRepository: Send + Sync {
 
     /// Updates the status of a pairing code.
     /// Returns `DbError::NotFound` if the code doesn't exist.
-    async fn update_pairing_status(
-        &self,
-        code: &str,
-        status: &str,
-    ) -> Result<(), DbError>;
+    async fn update_pairing_status(&self, code: &str, status: &str) -> Result<(), DbError>;
 
     /// Marks all expired-but-still-pending pairing codes as 'expired'.
     /// `now` is the current timestamp in milliseconds.

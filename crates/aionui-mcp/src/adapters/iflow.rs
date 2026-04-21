@@ -7,8 +7,8 @@ use crate::error::McpError;
 use crate::types::McpServerTransport;
 
 use super::cli_helpers::{
-    build_env_args, build_header_args, is_cli_installed, parse_standard_list_output, run_cli,
-    DETECT_TIMEOUT, MUTATE_TIMEOUT,
+    DETECT_TIMEOUT, MUTATE_TIMEOUT, build_env_args, build_header_args, is_cli_installed,
+    parse_standard_list_output, run_cli,
 };
 
 const CLI_NAME: &str = "iflow";

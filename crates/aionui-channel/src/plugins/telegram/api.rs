@@ -4,8 +4,8 @@ use tracing::{debug, warn};
 use crate::error::ChannelError;
 
 use super::types::{
-    AnswerCallbackQueryRequest, EditMessageTextRequest, SendMessageRequest, TgMessage,
-    TgResponse, TgUpdate, TgUser,
+    AnswerCallbackQueryRequest, EditMessageTextRequest, SendMessageRequest, TgMessage, TgResponse,
+    TgUpdate, TgUser,
 };
 
 const TELEGRAM_API_BASE: &str = "https://api.telegram.org";
@@ -75,14 +75,10 @@ impl TelegramApi {
             .query(&params)
             .send()
             .await
-            .map_err(|e| {
-                ChannelError::PlatformApi(format!("getUpdates request failed: {e}"))
-            })?
+            .map_err(|e| ChannelError::PlatformApi(format!("getUpdates request failed: {e}")))?
             .json()
             .await
-            .map_err(|e| {
-                ChannelError::PlatformApi(format!("getUpdates parse failed: {e}"))
-            })?;
+            .map_err(|e| ChannelError::PlatformApi(format!("getUpdates parse failed: {e}")))?;
 
         if !resp.ok {
             let desc = resp.description.unwrap_or_default();
@@ -96,10 +92,7 @@ impl TelegramApi {
     }
 
     /// `sendMessage` — send a text message. Returns the sent message.
-    pub async fn send_message(
-        &self,
-        req: &SendMessageRequest,
-    ) -> Result<TgMessage, ChannelError> {
+    pub async fn send_message(&self, req: &SendMessageRequest) -> Result<TgMessage, ChannelError> {
         let url = format!("{}/sendMessage", self.base_url);
         debug!(chat_id = req.chat_id, "Sending Telegram message");
 

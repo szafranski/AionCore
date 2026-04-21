@@ -58,13 +58,21 @@ fn build_details(permissions: &ExtPermissions) -> Vec<PermissionDetail> {
         build_network_detail(&permissions.network),
         build_shell_detail(permissions.shell),
         build_filesystem_detail(permissions.filesystem),
-        build_bool_detail("clipboard", permissions.clipboard, "Clipboard read/write access"),
+        build_bool_detail(
+            "clipboard",
+            permissions.clipboard,
+            "Clipboard read/write access",
+        ),
         build_bool_detail(
             "activeUser",
             permissions.active_user,
             "Access to current user information",
         ),
-        build_bool_detail("events", permissions.events, "Extension event bus communication"),
+        build_bool_detail(
+            "events",
+            permissions.events,
+            "Extension event bus communication",
+        ),
     ]
 }
 

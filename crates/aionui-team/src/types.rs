@@ -451,10 +451,7 @@ mod tests {
             TaskStatus::parse("in_progress"),
             Some(TaskStatus::InProgress)
         );
-        assert_eq!(
-            TaskStatus::parse("completed"),
-            Some(TaskStatus::Completed)
-        );
+        assert_eq!(TaskStatus::parse("completed"), Some(TaskStatus::Completed));
         assert_eq!(TaskStatus::parse("deleted"), Some(TaskStatus::Deleted));
         assert_eq!(TaskStatus::parse("bad"), None);
     }
@@ -670,7 +667,10 @@ mod tests {
         };
         let json = serde_json::to_value(&msg).unwrap();
         assert!(json.get("type").is_some(), "field must serialize as 'type'");
-        assert!(json.get("msgType").is_none(), "must not serialize as 'msgType'");
+        assert!(
+            json.get("msgType").is_none(),
+            "must not serialize as 'msgType'"
+        );
         assert_eq!(json["type"], "message");
     }
 

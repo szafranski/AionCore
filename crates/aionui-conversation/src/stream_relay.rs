@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use aionui_ai_agent::AgentStreamEvent;
 use aionui_api_types::WebSocketMessage;
-use aionui_common::{generate_id, now_ms, Confirmation, ConversationStatus};
+use aionui_common::{Confirmation, ConversationStatus, generate_id, now_ms};
 use aionui_db::IConversationRepository;
 use aionui_db::models::MessageRow;
 use aionui_realtime::EventBroadcaster;
@@ -70,9 +70,14 @@ impl StreamRelay {
                 }
                 Err(broadcast::error::RecvError::Closed) => {
                     // Channel closed without finish/error — still finalize
-                    self.finalize(&text_buffer, &record_created, &AgentStreamEvent::Finish(
-                        aionui_ai_agent::stream_event::FinishEventData::default(),
-                    )).await;
+                    self.finalize(
+                        &text_buffer,
+                        &record_created,
+                        &AgentStreamEvent::Finish(
+                            aionui_ai_agent::stream_event::FinishEventData::default(),
+                        ),
+                    )
+                    .await;
                     self.send_turn_completed_status("finished");
                     break;
                 }
@@ -91,11 +96,7 @@ impl StreamRelay {
     ///
     /// Sends `confirmation.add` for new confirmations and `confirmation.update`
     /// for confirmations whose ID has already been seen.
-    fn maybe_broadcast_confirmation(
-        &self,
-        event: &AgentStreamEvent,
-        seen: &mut HashSet<String>,
-    ) {
+    fn maybe_broadcast_confirmation(&self, event: &AgentStreamEvent, seen: &mut HashSet<String>) {
         let data = match event {
             AgentStreamEvent::AcpPermission(d) | AgentStreamEvent::CodexPermission(d) => d,
             _ => return,
@@ -168,7 +169,11 @@ impl StreamRelay {
                 status: Some(Some("work".into())),
                 hidden: None,
             };
-            if let Err(e) = self.repo.update_message(&self.assistant_msg_id, &update).await {
+            if let Err(e) = self
+                .repo
+                .update_message(&self.assistant_msg_id, &update)
+                .await
+            {
                 warn!(error = %e, "Failed to update streaming message");
             }
         } else {
@@ -191,12 +196,7 @@ impl StreamRelay {
     }
 
     /// Finalize the assistant message on stream end.
-    async fn finalize(
-        &self,
-        text: &str,
-        record_created: &bool,
-        event: &AgentStreamEvent,
-    ) {
+    async fn finalize(&self, text: &str, record_created: &bool, event: &AgentStreamEvent) {
         let status = match event {
             AgentStreamEvent::Error(_) => "error",
             _ => "finish",
@@ -210,7 +210,11 @@ impl StreamRelay {
                     status: Some(Some(status.to_owned())),
                     hidden: None,
                 };
-                if let Err(e) = self.repo.update_message(&self.assistant_msg_id, &update).await {
+                if let Err(e) = self
+                    .repo
+                    .update_message(&self.assistant_msg_id, &update)
+                    .await
+                {
                     warn!(error = %e, "Failed to finalize streaming message");
                 }
             } else {
@@ -249,7 +253,8 @@ impl StreamRelay {
         }
 
         // Update conversation status — all terminal events resolve to Finished
-        self.update_conversation_status(ConversationStatus::Finished).await;
+        self.update_conversation_status(ConversationStatus::Finished)
+            .await;
     }
 
     /// Send a `turn.completed` WebSocket event.
@@ -292,7 +297,10 @@ impl StreamRelay {
     }
 
     fn is_terminal(&self, event: &AgentStreamEvent) -> bool {
-        matches!(event, AgentStreamEvent::Finish(_) | AgentStreamEvent::Error(_))
+        matches!(
+            event,
+            AgentStreamEvent::Finish(_) | AgentStreamEvent::Error(_)
+        )
     }
 }
 
@@ -348,12 +356,7 @@ mod tests {
         let bus = Arc::new(aionui_realtime::BroadcastEventBus::new(64));
         let (tx, _) = broadcast::channel(64);
 
-        let relay = StreamRelay::new(
-            "conv-1".into(),
-            "asst-1".into(),
-            repo.clone(),
-            bus.clone(),
-        );
+        let relay = StreamRelay::new("conv-1".into(), "asst-1".into(), repo.clone(), bus.clone());
 
         let rx = tx.subscribe();
 
@@ -390,12 +393,7 @@ mod tests {
         let bus = Arc::new(aionui_realtime::BroadcastEventBus::new(64));
         let (tx, _) = broadcast::channel(64);
 
-        let relay = StreamRelay::new(
-            "conv-1".into(),
-            "asst-1".into(),
-            repo.clone(),
-            bus.clone(),
-        );
+        let relay = StreamRelay::new("conv-1".into(), "asst-1".into(), repo.clone(), bus.clone());
 
         let rx = tx.subscribe();
 
@@ -424,12 +422,7 @@ mod tests {
         let bus = Arc::new(aionui_realtime::BroadcastEventBus::new(64));
         let (tx, _) = broadcast::channel(64);
 
-        let relay = StreamRelay::new(
-            "conv-1".into(),
-            "asst-1".into(),
-            repo.clone(),
-            bus.clone(),
-        );
+        let relay = StreamRelay::new("conv-1".into(), "asst-1".into(), repo.clone(), bus.clone());
 
         let rx = tx.subscribe();
 
@@ -455,12 +448,7 @@ mod tests {
         let bus = Arc::new(aionui_realtime::BroadcastEventBus::new(64));
         let (tx, _) = broadcast::channel(64);
 
-        let relay = StreamRelay::new(
-            "conv-1".into(),
-            "asst-1".into(),
-            repo.clone(),
-            bus.clone(),
-        );
+        let relay = StreamRelay::new("conv-1".into(), "asst-1".into(), repo.clone(), bus.clone());
 
         // Subscribe to the bus before relay runs
         let mut ws_rx = bus.subscribe();
@@ -478,9 +466,7 @@ mod tests {
         }
 
         // Should have turn.completed event
-        let turn_event = ws_events
-            .iter()
-            .find(|e| e.name == "turn.completed");
+        let turn_event = ws_events.iter().find(|e| e.name == "turn.completed");
         assert!(turn_event.is_some());
         assert_eq!(turn_event.unwrap().data["conversationId"], "conv-1");
         assert_eq!(turn_event.unwrap().data["status"], "finished");
@@ -503,20 +489,107 @@ mod tests {
 
     #[async_trait::async_trait]
     impl IConversationRepository for NoopRepo {
-        async fn get(&self, _id: &str) -> Result<Option<aionui_db::models::ConversationRow>, DbError> { Ok(None) }
-        async fn create(&self, _row: &aionui_db::models::ConversationRow) -> Result<(), DbError> { Ok(()) }
-        async fn update(&self, _id: &str, _updates: &aionui_db::ConversationRowUpdate) -> Result<(), DbError> { Ok(()) }
-        async fn delete(&self, _id: &str) -> Result<(), DbError> { Ok(()) }
-        async fn list_paginated(&self, _user_id: &str, _filters: &aionui_db::ConversationFilters) -> Result<aionui_common::PaginatedResult<aionui_db::models::ConversationRow>, DbError> { Ok(aionui_common::PaginatedResult { items: vec![], total: 0, has_more: false }) }
-        async fn find_by_source_and_chat(&self, _user_id: &str, _source: &str, _chat_id: &str, _agent_type: &str) -> Result<Option<aionui_db::models::ConversationRow>, DbError> { Ok(None) }
-        async fn list_by_cron_job(&self, _user_id: &str, _cron_job_id: &str) -> Result<Vec<aionui_db::models::ConversationRow>, DbError> { Ok(vec![]) }
-        async fn list_associated(&self, _user_id: &str, _conversation_id: &str) -> Result<Vec<aionui_db::models::ConversationRow>, DbError> { Ok(vec![]) }
-        async fn get_messages(&self, _conv_id: &str, _page: u32, _page_size: u32, _order: aionui_db::SortOrder) -> Result<aionui_common::PaginatedResult<MessageRow>, DbError> { Ok(aionui_common::PaginatedResult { items: vec![], total: 0, has_more: false }) }
-        async fn insert_message(&self, _row: &MessageRow) -> Result<(), DbError> { Ok(()) }
-        async fn update_message(&self, _id: &str, _updates: &aionui_db::MessageRowUpdate) -> Result<(), DbError> { Ok(()) }
-        async fn delete_messages_by_conversation(&self, _conv_id: &str) -> Result<(), DbError> { Ok(()) }
-        async fn get_message_by_msg_id(&self, _conv_id: &str, _msg_id: &str, _msg_type: &str) -> Result<Option<MessageRow>, DbError> { Ok(None) }
-        async fn search_messages(&self, _user_id: &str, _keyword: &str, _page: u32, _page_size: u32) -> Result<aionui_common::PaginatedResult<aionui_db::MessageSearchRow>, DbError> { Ok(aionui_common::PaginatedResult { items: vec![], total: 0, has_more: false }) }
+        async fn get(
+            &self,
+            _id: &str,
+        ) -> Result<Option<aionui_db::models::ConversationRow>, DbError> {
+            Ok(None)
+        }
+        async fn create(&self, _row: &aionui_db::models::ConversationRow) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn update(
+            &self,
+            _id: &str,
+            _updates: &aionui_db::ConversationRowUpdate,
+        ) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn delete(&self, _id: &str) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn list_paginated(
+            &self,
+            _user_id: &str,
+            _filters: &aionui_db::ConversationFilters,
+        ) -> Result<aionui_common::PaginatedResult<aionui_db::models::ConversationRow>, DbError>
+        {
+            Ok(aionui_common::PaginatedResult {
+                items: vec![],
+                total: 0,
+                has_more: false,
+            })
+        }
+        async fn find_by_source_and_chat(
+            &self,
+            _user_id: &str,
+            _source: &str,
+            _chat_id: &str,
+            _agent_type: &str,
+        ) -> Result<Option<aionui_db::models::ConversationRow>, DbError> {
+            Ok(None)
+        }
+        async fn list_by_cron_job(
+            &self,
+            _user_id: &str,
+            _cron_job_id: &str,
+        ) -> Result<Vec<aionui_db::models::ConversationRow>, DbError> {
+            Ok(vec![])
+        }
+        async fn list_associated(
+            &self,
+            _user_id: &str,
+            _conversation_id: &str,
+        ) -> Result<Vec<aionui_db::models::ConversationRow>, DbError> {
+            Ok(vec![])
+        }
+        async fn get_messages(
+            &self,
+            _conv_id: &str,
+            _page: u32,
+            _page_size: u32,
+            _order: aionui_db::SortOrder,
+        ) -> Result<aionui_common::PaginatedResult<MessageRow>, DbError> {
+            Ok(aionui_common::PaginatedResult {
+                items: vec![],
+                total: 0,
+                has_more: false,
+            })
+        }
+        async fn insert_message(&self, _row: &MessageRow) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn update_message(
+            &self,
+            _id: &str,
+            _updates: &aionui_db::MessageRowUpdate,
+        ) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn delete_messages_by_conversation(&self, _conv_id: &str) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn get_message_by_msg_id(
+            &self,
+            _conv_id: &str,
+            _msg_id: &str,
+            _msg_type: &str,
+        ) -> Result<Option<MessageRow>, DbError> {
+            Ok(None)
+        }
+        async fn search_messages(
+            &self,
+            _user_id: &str,
+            _keyword: &str,
+            _page: u32,
+            _page_size: u32,
+        ) -> Result<aionui_common::PaginatedResult<aionui_db::MessageSearchRow>, DbError> {
+            Ok(aionui_common::PaginatedResult {
+                items: vec![],
+                total: 0,
+                has_more: false,
+            })
+        }
     }
 
     /// Recording repo that captures insert/update calls for assertions.
@@ -545,25 +618,111 @@ mod tests {
 
     #[async_trait::async_trait]
     impl IConversationRepository for RecordingRepo {
-        async fn get(&self, _id: &str) -> Result<Option<aionui_db::models::ConversationRow>, DbError> { Ok(None) }
-        async fn create(&self, _row: &aionui_db::models::ConversationRow) -> Result<(), DbError> { Ok(()) }
-        async fn update(&self, _id: &str, _updates: &aionui_db::ConversationRowUpdate) -> Result<(), DbError> { Ok(()) }
-        async fn delete(&self, _id: &str) -> Result<(), DbError> { Ok(()) }
-        async fn list_paginated(&self, _user_id: &str, _filters: &aionui_db::ConversationFilters) -> Result<aionui_common::PaginatedResult<aionui_db::models::ConversationRow>, DbError> { Ok(aionui_common::PaginatedResult { items: vec![], total: 0, has_more: false }) }
-        async fn find_by_source_and_chat(&self, _user_id: &str, _source: &str, _chat_id: &str, _agent_type: &str) -> Result<Option<aionui_db::models::ConversationRow>, DbError> { Ok(None) }
-        async fn list_by_cron_job(&self, _user_id: &str, _cron_job_id: &str) -> Result<Vec<aionui_db::models::ConversationRow>, DbError> { Ok(vec![]) }
-        async fn list_associated(&self, _user_id: &str, _conversation_id: &str) -> Result<Vec<aionui_db::models::ConversationRow>, DbError> { Ok(vec![]) }
-        async fn get_messages(&self, _conv_id: &str, _page: u32, _page_size: u32, _order: aionui_db::SortOrder) -> Result<aionui_common::PaginatedResult<MessageRow>, DbError> { Ok(aionui_common::PaginatedResult { items: vec![], total: 0, has_more: false }) }
+        async fn get(
+            &self,
+            _id: &str,
+        ) -> Result<Option<aionui_db::models::ConversationRow>, DbError> {
+            Ok(None)
+        }
+        async fn create(&self, _row: &aionui_db::models::ConversationRow) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn update(
+            &self,
+            _id: &str,
+            _updates: &aionui_db::ConversationRowUpdate,
+        ) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn delete(&self, _id: &str) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn list_paginated(
+            &self,
+            _user_id: &str,
+            _filters: &aionui_db::ConversationFilters,
+        ) -> Result<aionui_common::PaginatedResult<aionui_db::models::ConversationRow>, DbError>
+        {
+            Ok(aionui_common::PaginatedResult {
+                items: vec![],
+                total: 0,
+                has_more: false,
+            })
+        }
+        async fn find_by_source_and_chat(
+            &self,
+            _user_id: &str,
+            _source: &str,
+            _chat_id: &str,
+            _agent_type: &str,
+        ) -> Result<Option<aionui_db::models::ConversationRow>, DbError> {
+            Ok(None)
+        }
+        async fn list_by_cron_job(
+            &self,
+            _user_id: &str,
+            _cron_job_id: &str,
+        ) -> Result<Vec<aionui_db::models::ConversationRow>, DbError> {
+            Ok(vec![])
+        }
+        async fn list_associated(
+            &self,
+            _user_id: &str,
+            _conversation_id: &str,
+        ) -> Result<Vec<aionui_db::models::ConversationRow>, DbError> {
+            Ok(vec![])
+        }
+        async fn get_messages(
+            &self,
+            _conv_id: &str,
+            _page: u32,
+            _page_size: u32,
+            _order: aionui_db::SortOrder,
+        ) -> Result<aionui_common::PaginatedResult<MessageRow>, DbError> {
+            Ok(aionui_common::PaginatedResult {
+                items: vec![],
+                total: 0,
+                has_more: false,
+            })
+        }
         async fn insert_message(&self, row: &MessageRow) -> Result<(), DbError> {
             self.inserts.lock().unwrap().push(row.clone());
             Ok(())
         }
-        async fn update_message(&self, id: &str, updates: &aionui_db::MessageRowUpdate) -> Result<(), DbError> {
-            self.updates.lock().unwrap().push((id.to_owned(), updates.clone()));
+        async fn update_message(
+            &self,
+            id: &str,
+            updates: &aionui_db::MessageRowUpdate,
+        ) -> Result<(), DbError> {
+            self.updates
+                .lock()
+                .unwrap()
+                .push((id.to_owned(), updates.clone()));
             Ok(())
         }
-        async fn delete_messages_by_conversation(&self, _conv_id: &str) -> Result<(), DbError> { Ok(()) }
-        async fn get_message_by_msg_id(&self, _conv_id: &str, _msg_id: &str, _msg_type: &str) -> Result<Option<MessageRow>, DbError> { Ok(None) }
-        async fn search_messages(&self, _user_id: &str, _keyword: &str, _page: u32, _page_size: u32) -> Result<aionui_common::PaginatedResult<aionui_db::MessageSearchRow>, DbError> { Ok(aionui_common::PaginatedResult { items: vec![], total: 0, has_more: false }) }
+        async fn delete_messages_by_conversation(&self, _conv_id: &str) -> Result<(), DbError> {
+            Ok(())
+        }
+        async fn get_message_by_msg_id(
+            &self,
+            _conv_id: &str,
+            _msg_id: &str,
+            _msg_type: &str,
+        ) -> Result<Option<MessageRow>, DbError> {
+            Ok(None)
+        }
+        async fn search_messages(
+            &self,
+            _user_id: &str,
+            _keyword: &str,
+            _page: u32,
+            _page_size: u32,
+        ) -> Result<aionui_common::PaginatedResult<aionui_db::MessageSearchRow>, DbError> {
+            Ok(aionui_common::PaginatedResult {
+                items: vec![],
+                total: 0,
+                has_more: false,
+            })
+        }
     }
 }

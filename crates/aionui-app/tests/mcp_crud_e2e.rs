@@ -9,8 +9,7 @@ use serde_json::json;
 use tower::ServiceExt;
 
 use common::{
-    body_json, build_app, delete_with_token, get_with_token, json_with_token,
-    setup_and_login,
+    body_json, build_app, delete_with_token, get_with_token, json_with_token, setup_and_login,
 };
 
 // ---------------------------------------------------------------------------
@@ -529,10 +528,7 @@ async fn delete_server() {
     // Verify gone
     let resp = app
         .clone()
-        .oneshot(get_with_token(
-            &format!("/api/mcp/servers/{id}"),
-            &token,
-        ))
+        .oneshot(get_with_token(&format!("/api/mcp/servers/{id}"), &token))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);

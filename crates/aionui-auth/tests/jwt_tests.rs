@@ -2,7 +2,7 @@
 //!
 //! Tests the full lifecycle of JWT operations: sign, verify, blacklist, rotate.
 
-use aionui_auth::{resolve_jwt_secret, AuthError, JwtService};
+use aionui_auth::{AuthError, JwtService, resolve_jwt_secret};
 
 #[test]
 fn full_lifecycle_sign_verify_blacklist() {

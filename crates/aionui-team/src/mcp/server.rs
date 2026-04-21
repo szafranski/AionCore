@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::watch;
 use tracing::{debug, error, warn};
@@ -11,12 +11,12 @@ use crate::scheduler::TeammateManager;
 use crate::types::TeammateRole;
 
 use super::protocol::{
-    read_request, write_response, JsonRpcResponse, INVALID_PARAMS, INVALID_REQUEST,
-    METHOD_NOT_FOUND, PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION,
+    INVALID_PARAMS, INVALID_REQUEST, JsonRpcResponse, METHOD_NOT_FOUND, PROTOCOL_VERSION,
+    SERVER_NAME, SERVER_VERSION, read_request, write_response,
 };
 use super::tools::{
-    all_tool_descriptors, is_whitelisted_backend, RenameAgentInput, SendMessageInput,
-    ShutdownAgentInput, SpawnAgentInput, TaskCreateInput, TaskUpdateInput,
+    RenameAgentInput, SendMessageInput, ShutdownAgentInput, SpawnAgentInput, TaskCreateInput,
+    TaskUpdateInput, all_tool_descriptors, is_whitelisted_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -114,11 +114,7 @@ async fn accept_loop(
 // Connection handler
 // ---------------------------------------------------------------------------
 
-async fn handle_connection(
-    stream: TcpStream,
-    auth_token: String,
-    scheduler: Arc<TeammateManager>,
-) {
+async fn handle_connection(stream: TcpStream, auth_token: String, scheduler: Arc<TeammateManager>) {
     let (mut reader, mut writer) = tokio::io::split(stream);
 
     let mut authenticated = false;
@@ -171,10 +167,7 @@ enum InitResult {
     Response(JsonRpcResponse),
 }
 
-fn handle_initialize(
-    request: &super::protocol::JsonRpcRequest,
-    auth_token: &str,
-) -> InitResult {
+fn handle_initialize(request: &super::protocol::JsonRpcRequest, auth_token: &str) -> InitResult {
     if request.method != "initialize" {
         return InitResult::Response(JsonRpcResponse::error(
             request.id,
@@ -233,9 +226,7 @@ async fn handle_method(
     caller_slot_id: &str,
 ) -> JsonRpcResponse {
     match request.method.as_str() {
-        "notifications/initialized" => {
-            JsonRpcResponse::success(request.id, json!({}))
-        }
+        "notifications/initialized" => JsonRpcResponse::success(request.id, json!({})),
         "tools/list" => handle_tools_list(request.id),
         "tools/call" => handle_tools_call(request, scheduler, caller_slot_id).await,
         _ => JsonRpcResponse::error(
@@ -282,17 +273,21 @@ async fn handle_tools_call(
         }
     };
 
-    let arguments = params
-        .get("arguments")
-        .cloned()
-        .unwrap_or(json!({}));
+    let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
 
     let caller_role = match scheduler.get_agent(caller_slot_id).await {
         Ok(agent) => agent.role,
         Err(_) => TeammateRole::Teammate,
     };
 
-    let result = dispatch_tool(tool_name, &arguments, scheduler, caller_slot_id, caller_role).await;
+    let result = dispatch_tool(
+        tool_name,
+        &arguments,
+        scheduler,
+        caller_slot_id,
+        caller_role,
+    )
+    .await;
 
     match result {
         Ok(content) => JsonRpcResponse::success(
@@ -323,23 +318,13 @@ async fn dispatch_tool(
     caller_role: TeammateRole,
 ) -> Result<String, String> {
     match tool_name {
-        "team_send_message" => {
-            exec_send_message(arguments, scheduler, caller_slot_id).await
-        }
-        "team_spawn_agent" => {
-            exec_spawn_agent(arguments, scheduler, caller_role).await
-        }
-        "team_task_create" => {
-            exec_task_create(arguments, scheduler).await
-        }
-        "team_task_update" => {
-            exec_task_update(arguments, scheduler).await
-        }
+        "team_send_message" => exec_send_message(arguments, scheduler, caller_slot_id).await,
+        "team_spawn_agent" => exec_spawn_agent(arguments, scheduler, caller_role).await,
+        "team_task_create" => exec_task_create(arguments, scheduler).await,
+        "team_task_update" => exec_task_update(arguments, scheduler).await,
         "team_task_list" => exec_task_list(scheduler).await,
         "team_members" => exec_members(scheduler).await,
-        "team_rename_agent" => {
-            exec_rename_agent(arguments, scheduler).await
-        }
+        "team_rename_agent" => exec_rename_agent(arguments, scheduler).await,
         "team_shutdown_agent" => {
             exec_shutdown_agent(arguments, scheduler, caller_slot_id, caller_role).await
         }
@@ -402,10 +387,7 @@ async fn exec_spawn_agent(
     Ok(format!("Agent '{}' spawn requested", input.name))
 }
 
-async fn exec_task_create(
-    args: &Value,
-    scheduler: &TeammateManager,
-) -> Result<String, String> {
+async fn exec_task_create(args: &Value, scheduler: &TeammateManager) -> Result<String, String> {
     let input: TaskCreateInput =
         serde_json::from_value(args.clone()).map_err(|e| format!("Invalid params: {e}"))?;
 
@@ -423,10 +405,7 @@ async fn exec_task_create(
     Ok(format!("Task '{}' created", input.subject))
 }
 
-async fn exec_task_update(
-    args: &Value,
-    scheduler: &TeammateManager,
-) -> Result<String, String> {
+async fn exec_task_update(args: &Value, scheduler: &TeammateManager) -> Result<String, String> {
     let input: TaskUpdateInput =
         serde_json::from_value(args.clone()).map_err(|e| format!("Invalid params: {e}"))?;
 
@@ -482,10 +461,7 @@ async fn exec_members(scheduler: &TeammateManager) -> Result<String, String> {
     serde_json::to_string_pretty(&output).map_err(|e| format!("Serialization error: {e}"))
 }
 
-async fn exec_rename_agent(
-    args: &Value,
-    scheduler: &TeammateManager,
-) -> Result<String, String> {
+async fn exec_rename_agent(args: &Value, scheduler: &TeammateManager) -> Result<String, String> {
     let input: RenameAgentInput =
         serde_json::from_value(args.clone()).map_err(|e| format!("Invalid params: {e}"))?;
 

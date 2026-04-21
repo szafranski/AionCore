@@ -59,7 +59,10 @@ fn stdio_server_full_pipeline() {
     // Verify all fields
     assert_eq!(server.id, "mcp_integration");
     assert_eq!(server.name, "integration-test");
-    assert_eq!(server.description.as_deref(), Some("Integration test server"));
+    assert_eq!(
+        server.description.as_deref(),
+        Some("Integration test server")
+    );
     assert!(server.enabled);
     assert_eq!(server.status, McpServerStatus::Connected);
     assert_eq!(server.last_connected, Some(9999));
@@ -171,7 +174,12 @@ fn transport_db_roundtrip_preserves_all_fields() {
 
 #[test]
 fn invalid_transport_type_is_rejected() {
-    let r = row("grpc", r#"{"endpoint":"localhost:50051"}"#, None, "disconnected");
+    let r = row(
+        "grpc",
+        r#"{"endpoint":"localhost:50051"}"#,
+        None,
+        "disconnected",
+    );
     let err = McpServer::from_row(r).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("unknown transport type"), "got: {msg}");

@@ -11,13 +11,12 @@
 
 use std::sync::Arc;
 
-use aionui_db::{init_database_memory, ITeamRepository, SqliteTeamRepository};
+use aionui_db::{ITeamRepository, SqliteTeamRepository, init_database_memory};
 use aionui_team::{TaskBoard, TaskStatus, TaskUpdate};
 
 async fn setup() -> (TaskBoard, aionui_db::Database) {
     let db = init_database_memory().await.unwrap();
-    let repo = Arc::new(SqliteTeamRepository::new(db.pool().clone()))
-        as Arc<dyn ITeamRepository>;
+    let repo = Arc::new(SqliteTeamRepository::new(db.pool().clone())) as Arc<dyn ITeamRepository>;
     (TaskBoard::new(repo), db)
 }
 
@@ -57,14 +56,8 @@ async fn tk2_create_task_with_single_dependency() {
 #[tokio::test]
 async fn tk3_create_task_with_multiple_dependencies() {
     let (board, _db) = setup().await;
-    let a = board
-        .create_task("t1", "A", None, None, &[])
-        .await
-        .unwrap();
-    let b = board
-        .create_task("t1", "B", None, None, &[])
-        .await
-        .unwrap();
+    let a = board.create_task("t1", "A", None, None, &[]).await.unwrap();
+    let b = board.create_task("t1", "B", None, None, &[]).await.unwrap();
     let c = board
         .create_task("t1", "C", None, None, &[a.id.clone(), b.id.clone()])
         .await
@@ -113,10 +106,7 @@ async fn tu1_update_status_pending_to_in_progress() {
 #[tokio::test]
 async fn tu2_update_status_to_completed_triggers_unblock() {
     let (board, _db) = setup().await;
-    let a = board
-        .create_task("t1", "A", None, None, &[])
-        .await
-        .unwrap();
+    let a = board.create_task("t1", "A", None, None, &[]).await.unwrap();
     let b = board
         .create_task("t1", "B", None, None, std::slice::from_ref(&a.id))
         .await
@@ -195,10 +185,7 @@ async fn tu5_update_nonexistent_task_fails() {
 #[tokio::test]
 async fn cu1_complete_unblocks_single_downstream() {
     let (board, _db) = setup().await;
-    let a = board
-        .create_task("t1", "A", None, None, &[])
-        .await
-        .unwrap();
+    let a = board.create_task("t1", "A", None, None, &[]).await.unwrap();
     let b = board
         .create_task("t1", "B", None, None, std::slice::from_ref(&a.id))
         .await
@@ -224,10 +211,7 @@ async fn cu1_complete_unblocks_single_downstream() {
 #[tokio::test]
 async fn cu2_complete_unblocks_multiple_downstream() {
     let (board, _db) = setup().await;
-    let a = board
-        .create_task("t1", "A", None, None, &[])
-        .await
-        .unwrap();
+    let a = board.create_task("t1", "A", None, None, &[]).await.unwrap();
     let b = board
         .create_task("t1", "B", None, None, std::slice::from_ref(&a.id))
         .await
@@ -259,14 +243,8 @@ async fn cu2_complete_unblocks_multiple_downstream() {
 #[tokio::test]
 async fn cu3_partial_unblock_preserves_other_deps() {
     let (board, _db) = setup().await;
-    let a = board
-        .create_task("t1", "A", None, None, &[])
-        .await
-        .unwrap();
-    let x = board
-        .create_task("t1", "X", None, None, &[])
-        .await
-        .unwrap();
+    let a = board.create_task("t1", "A", None, None, &[]).await.unwrap();
+    let x = board.create_task("t1", "X", None, None, &[]).await.unwrap();
     let b = board
         .create_task("t1", "B", None, None, &[a.id.clone(), x.id.clone()])
         .await
@@ -315,14 +293,8 @@ async fn cu4_complete_no_downstream_is_noop() {
 #[tokio::test]
 async fn tt1_list_all_tasks() {
     let (board, _db) = setup().await;
-    board
-        .create_task("t1", "A", None, None, &[])
-        .await
-        .unwrap();
-    board
-        .create_task("t1", "B", None, None, &[])
-        .await
-        .unwrap();
+    board.create_task("t1", "A", None, None, &[]).await.unwrap();
+    board.create_task("t1", "B", None, None, &[]).await.unwrap();
     let tasks = board.list_tasks("t1").await.unwrap();
     assert_eq!(tasks.len(), 2);
 }
@@ -337,10 +309,7 @@ async fn tt2_list_empty() {
 #[tokio::test]
 async fn tt3_list_includes_dependency_info() {
     let (board, _db) = setup().await;
-    let a = board
-        .create_task("t1", "A", None, None, &[])
-        .await
-        .unwrap();
+    let a = board.create_task("t1", "A", None, None, &[]).await.unwrap();
     let b = board
         .create_task("t1", "B", None, None, std::slice::from_ref(&a.id))
         .await
@@ -357,10 +326,7 @@ async fn tt3_list_includes_dependency_info() {
 #[tokio::test]
 async fn dc4_blocked_by_blocks_bidirectional_consistency() {
     let (board, _db) = setup().await;
-    let a = board
-        .create_task("t1", "A", None, None, &[])
-        .await
-        .unwrap();
+    let a = board.create_task("t1", "A", None, None, &[]).await.unwrap();
     let b = board
         .create_task("t1", "B", None, None, std::slice::from_ref(&a.id))
         .await

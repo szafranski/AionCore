@@ -2,7 +2,7 @@
 //!
 //! These test the public API surface of `aionui_extension::manifest`.
 
-use aionui_extension::{parse_manifest, validate_manifest, ExtensionError, ExtensionManifest};
+use aionui_extension::{ExtensionError, ExtensionManifest, parse_manifest, validate_manifest};
 
 // -- MV-1: valid manifest loads successfully --
 

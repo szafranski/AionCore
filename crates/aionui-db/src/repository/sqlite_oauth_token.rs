@@ -19,20 +19,16 @@ impl SqliteOAuthTokenRepository {
 #[async_trait::async_trait]
 impl IOAuthTokenRepository for SqliteOAuthTokenRepository {
     async fn get_by_url(&self, server_url: &str) -> Result<Option<OAuthTokenRow>, DbError> {
-        let row = sqlx::query_as::<_, OAuthTokenRow>(
-            "SELECT * FROM oauth_tokens WHERE server_url = ?",
-        )
-        .bind(server_url)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row =
+            sqlx::query_as::<_, OAuthTokenRow>("SELECT * FROM oauth_tokens WHERE server_url = ?")
+                .bind(server_url)
+                .fetch_optional(&self.pool)
+                .await?;
 
         Ok(row)
     }
 
-    async fn upsert(
-        &self,
-        params: UpsertOAuthTokenParams<'_>,
-    ) -> Result<OAuthTokenRow, DbError> {
+    async fn upsert(&self, params: UpsertOAuthTokenParams<'_>) -> Result<OAuthTokenRow, DbError> {
         let now = aionui_common::now_ms();
 
         sqlx::query(
@@ -82,11 +78,10 @@ impl IOAuthTokenRepository for SqliteOAuthTokenRepository {
     }
 
     async fn list_authenticated_urls(&self) -> Result<Vec<String>, DbError> {
-        let rows: Vec<(String,)> = sqlx::query_as(
-            "SELECT server_url FROM oauth_tokens ORDER BY created_at ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows: Vec<(String,)> =
+            sqlx::query_as("SELECT server_url FROM oauth_tokens ORDER BY created_at ASC")
+                .fetch_all(&self.pool)
+                .await?;
 
         Ok(rows.into_iter().map(|(url,)| url).collect())
     }
@@ -126,7 +121,10 @@ mod tests {
 
         assert_eq!(token.server_url, "https://mcp.example.com");
         assert_eq!(token.access_token, "enc_access_token_123");
-        assert_eq!(token.refresh_token.as_deref(), Some("enc_refresh_token_456"));
+        assert_eq!(
+            token.refresh_token.as_deref(),
+            Some("enc_refresh_token_456")
+        );
         assert_eq!(token.token_type, "bearer");
         assert_eq!(token.expires_at, Some(1700000000000));
         assert!(token.created_at > 0);
@@ -176,11 +174,12 @@ mod tests {
         repo.upsert(sample_params()).await.unwrap();
 
         repo.delete("https://mcp.example.com").await.unwrap();
-        assert!(repo
-            .get_by_url("https://mcp.example.com")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            repo.get_by_url("https://mcp.example.com")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]

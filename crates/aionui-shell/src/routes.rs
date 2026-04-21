@@ -109,24 +109,16 @@ async fn extract_stt_multipart(mut multipart: Multipart) -> Result<SttMultipartF
                 );
             }
             "fileName" => {
-                file_name = Some(
-                    field
-                        .text()
-                        .await
-                        .map_err(|e| {
-                            AppError::BadRequest(format!("failed to read fileName: {e}"))
-                        })?,
-                );
+                file_name =
+                    Some(field.text().await.map_err(|e| {
+                        AppError::BadRequest(format!("failed to read fileName: {e}"))
+                    })?);
             }
             "mimeType" => {
-                mime_type = Some(
-                    field
-                        .text()
-                        .await
-                        .map_err(|e| {
-                            AppError::BadRequest(format!("failed to read mimeType: {e}"))
-                        })?,
-                );
+                mime_type =
+                    Some(field.text().await.map_err(|e| {
+                        AppError::BadRequest(format!("failed to read mimeType: {e}"))
+                    })?);
             }
             "languageHint" => {
                 let text = field.text().await.map_err(|e| {
@@ -214,7 +206,8 @@ async fn speech_to_text(
 }
 
 fn stt_error_response(err: &SttError) -> (StatusCode, Json<serde_json::Value>) {
-    let status = StatusCode::from_u16(err.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let status =
+        StatusCode::from_u16(err.status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let body = serde_json::json!({
         "success": false,
         "error": err.to_string(),
@@ -276,9 +269,7 @@ mod tests {
             .method("POST")
             .uri("/api/shell/open-file")
             .header("content-type", "application/json")
-            .body(Body::from(
-                r#"{"filePath":"/nonexistent/file.txt"}"#,
-            ))
+            .body(Body::from(r#"{"filePath":"/nonexistent/file.txt"}"#))
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
@@ -366,9 +357,7 @@ mod tests {
             .method("POST")
             .uri("/api/shell/show-item-in-folder")
             .header("content-type", "application/json")
-            .body(Body::from(
-                r#"{"filePath":"/nonexistent/path"}"#,
-            ))
+            .body(Body::from(r#"{"filePath":"/nonexistent/path"}"#))
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);

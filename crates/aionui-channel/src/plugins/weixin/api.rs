@@ -52,14 +52,10 @@ impl WeixinApi {
             .query(&[("bot_type", "3")])
             .send()
             .await
-            .map_err(|e| {
-                ChannelError::PlatformApi(format!("get_bot_qrcode request failed: {e}"))
-            })?
+            .map_err(|e| ChannelError::PlatformApi(format!("get_bot_qrcode request failed: {e}")))?
             .json()
             .await
-            .map_err(|e| {
-                ChannelError::PlatformApi(format!("get_bot_qrcode parse failed: {e}"))
-            })?;
+            .map_err(|e| ChannelError::PlatformApi(format!("get_bot_qrcode parse failed: {e}")))?;
 
         if !resp.is_ok() {
             return Err(ChannelError::PlatformApi(format!(
@@ -68,18 +64,14 @@ impl WeixinApi {
             )));
         }
 
-        resp.data.ok_or_else(|| {
-            ChannelError::PlatformApi("get_bot_qrcode returned no data".into())
-        })
+        resp.data
+            .ok_or_else(|| ChannelError::PlatformApi("get_bot_qrcode returned no data".into()))
     }
 
     /// Check the status of a QR code scan.
     ///
     /// `GET /ilink/bot/get_qrcode_status?qrcode=<ticket>`
-    pub async fn get_qrcode_status(
-        &self,
-        qrcode: &str,
-    ) -> Result<QrCodeStatusData, ChannelError> {
+    pub async fn get_qrcode_status(&self, qrcode: &str) -> Result<QrCodeStatusData, ChannelError> {
         let url = format!("{}/ilink/bot/get_qrcode_status", self.base_url);
 
         let resp: ILinkResponse<QrCodeStatusData> = self
@@ -104,9 +96,8 @@ impl WeixinApi {
             )));
         }
 
-        resp.data.ok_or_else(|| {
-            ChannelError::PlatformApi("get_qrcode_status returned no data".into())
-        })
+        resp.data
+            .ok_or_else(|| ChannelError::PlatformApi("get_qrcode_status returned no data".into()))
     }
 
     // -----------------------------------------------------------------------
@@ -141,14 +132,10 @@ impl WeixinApi {
             .json(&body)
             .send()
             .await
-            .map_err(|e| {
-                ChannelError::PlatformApi(format!("getupdates request failed: {e}"))
-            })?
+            .map_err(|e| ChannelError::PlatformApi(format!("getupdates request failed: {e}")))?
             .json()
             .await
-            .map_err(|e| {
-                ChannelError::PlatformApi(format!("getupdates parse failed: {e}"))
-            })?;
+            .map_err(|e| ChannelError::PlatformApi(format!("getupdates parse failed: {e}")))?;
 
         if !resp.is_ok() {
             let msg = resp.error_message();
@@ -201,9 +188,8 @@ impl WeixinApi {
             )));
         }
 
-        resp.data.ok_or_else(|| {
-            ChannelError::MessageSendFailed("sendmessage returned no data".into())
-        })
+        resp.data
+            .ok_or_else(|| ChannelError::MessageSendFailed("sendmessage returned no data".into()))
     }
 }
 

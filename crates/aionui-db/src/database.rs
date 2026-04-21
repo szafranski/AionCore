@@ -45,9 +45,8 @@ pub async fn init_database(path: &Path) -> Result<Database, DbError> {
     if let Some(parent) = path.parent()
         && !parent.as_os_str().is_empty()
     {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            DbError::Init(format!("Failed to create database directory: {e}"))
-        })?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| DbError::Init(format!("Failed to create database directory: {e}")))?;
     }
 
     match try_init_file(path).await {

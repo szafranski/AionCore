@@ -17,5 +17,5 @@ pub use enums::{
 pub use error::AppError;
 pub use id::{generate_id, generate_prefixed_id};
 pub use pagination::PaginatedResult;
-pub use timestamp::{now_ms, TimestampMs};
+pub use timestamp::{TimestampMs, now_ms};
 pub use types::{Confirmation, ConfirmationOption, ProviderWithModel, UpdateType, VersionInfo};

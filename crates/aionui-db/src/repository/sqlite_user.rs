@@ -19,21 +19,18 @@ impl SqliteUserRepository {
 #[async_trait::async_trait]
 impl IUserRepository for SqliteUserRepository {
     async fn has_users(&self) -> Result<bool, DbError> {
-        let row: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM users WHERE password_hash != ''",
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE password_hash != ''")
+            .fetch_one(&self.pool)
+            .await?;
 
         Ok(row.0 > 0)
     }
 
     async fn get_system_user(&self) -> Result<Option<User>, DbError> {
-        let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE id = 'system_default_user'",
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+        let user =
+            sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = 'system_default_user'")
+                .fetch_optional(&self.pool)
+                .await?;
 
         Ok(user)
     }
@@ -45,11 +42,9 @@ impl IUserRepository for SqliteUserRepository {
         }
 
         // Fallback: user named "admin"
-        let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE username = 'admin'",
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+        let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = 'admin'")
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(user)
     }
@@ -85,11 +80,7 @@ impl IUserRepository for SqliteUserRepository {
         Ok(())
     }
 
-    async fn create_user(
-        &self,
-        username: &str,
-        password_hash: &str,
-    ) -> Result<User, DbError> {
+    async fn create_user(&self, username: &str, password_hash: &str) -> Result<User, DbError> {
         let id = aionui_common::generate_prefixed_id("user");
         let now = aionui_common::now_ms();
 
@@ -125,23 +116,19 @@ impl IUserRepository for SqliteUserRepository {
     }
 
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, DbError> {
-        let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE username = ?",
-        )
-        .bind(username)
-        .fetch_optional(&self.pool)
-        .await?;
+        let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(user)
     }
 
     async fn find_by_id(&self, id: &str) -> Result<Option<User>, DbError> {
-        let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE id = ?",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(user)
     }
@@ -162,20 +149,14 @@ impl IUserRepository for SqliteUserRepository {
         Ok(row.0)
     }
 
-    async fn update_password(
-        &self,
-        user_id: &str,
-        password_hash: &str,
-    ) -> Result<(), DbError> {
+    async fn update_password(&self, user_id: &str, password_hash: &str) -> Result<(), DbError> {
         let now = aionui_common::now_ms();
-        let result = sqlx::query(
-            "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
-        )
-        .bind(password_hash)
-        .bind(now)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await?;
+        let result = sqlx::query("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?")
+            .bind(password_hash)
+            .bind(now)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await?;
 
         if result.rows_affected() == 0 {
             return Err(DbError::NotFound(format!("User '{user_id}' not found")));
@@ -184,26 +165,20 @@ impl IUserRepository for SqliteUserRepository {
         Ok(())
     }
 
-    async fn update_username(
-        &self,
-        user_id: &str,
-        username: &str,
-    ) -> Result<(), DbError> {
+    async fn update_username(&self, user_id: &str, username: &str) -> Result<(), DbError> {
         let now = aionui_common::now_ms();
-        let result = sqlx::query(
-            "UPDATE users SET username = ?, updated_at = ? WHERE id = ?",
-        )
-        .bind(username)
-        .bind(now)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| match &e {
-            sqlx::Error::Database(db_err) if is_unique_violation(db_err.as_ref()) => {
-                DbError::Conflict(format!("Username '{username}' already exists"))
-            }
-            _ => DbError::Query(e),
-        })?;
+        let result = sqlx::query("UPDATE users SET username = ?, updated_at = ? WHERE id = ?")
+            .bind(username)
+            .bind(now)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| match &e {
+                sqlx::Error::Database(db_err) if is_unique_violation(db_err.as_ref()) => {
+                    DbError::Conflict(format!("Username '{username}' already exists"))
+                }
+                _ => DbError::Query(e),
+            })?;
 
         if result.rows_affected() == 0 {
             return Err(DbError::NotFound(format!("User '{user_id}' not found")));
@@ -214,14 +189,12 @@ impl IUserRepository for SqliteUserRepository {
 
     async fn update_last_login(&self, user_id: &str) -> Result<(), DbError> {
         let now = aionui_common::now_ms();
-        let result = sqlx::query(
-            "UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?",
-        )
-        .bind(now)
-        .bind(now)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await?;
+        let result = sqlx::query("UPDATE users SET last_login = ?, updated_at = ? WHERE id = ?")
+            .bind(now)
+            .bind(now)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await?;
 
         if result.rows_affected() == 0 {
             return Err(DbError::NotFound(format!("User '{user_id}' not found")));
@@ -230,20 +203,14 @@ impl IUserRepository for SqliteUserRepository {
         Ok(())
     }
 
-    async fn update_jwt_secret(
-        &self,
-        user_id: &str,
-        jwt_secret: &str,
-    ) -> Result<(), DbError> {
+    async fn update_jwt_secret(&self, user_id: &str, jwt_secret: &str) -> Result<(), DbError> {
         let now = aionui_common::now_ms();
-        let result = sqlx::query(
-            "UPDATE users SET jwt_secret = ?, updated_at = ? WHERE id = ?",
-        )
-        .bind(jwt_secret)
-        .bind(now)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await?;
+        let result = sqlx::query("UPDATE users SET jwt_secret = ?, updated_at = ? WHERE id = ?")
+            .bind(jwt_secret)
+            .bind(now)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await?;
 
         if result.rows_affected() == 0 {
             return Err(DbError::NotFound(format!("User '{user_id}' not found")));
@@ -316,9 +283,7 @@ mod tests {
         fn as_error_mut(&mut self) -> &mut (dyn std::error::Error + Send + Sync + 'static) {
             self
         }
-        fn into_error(
-            self: Box<Self>,
-        ) -> Box<dyn std::error::Error + Send + Sync + 'static> {
+        fn into_error(self: Box<Self>) -> Box<dyn std::error::Error + Send + Sync + 'static> {
             self
         }
     }
@@ -468,10 +433,7 @@ mod tests {
         repo.create_user("jane", "h").await.unwrap();
         let other = repo.create_user("kate", "h").await.unwrap();
 
-        let err = repo
-            .update_username(&other.id, "jane")
-            .await
-            .unwrap_err();
+        let err = repo.update_username(&other.id, "jane").await.unwrap_err();
         assert!(matches!(err, DbError::Conflict(_)));
     }
 

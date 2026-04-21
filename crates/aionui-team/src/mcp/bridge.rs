@@ -41,11 +41,7 @@ mod tests {
 
     #[test]
     fn config_creation() {
-        let config = TeamMcpStdioConfig::new(
-            12345,
-            "tok-abc".into(),
-            "slot-1".into(),
-        );
+        let config = TeamMcpStdioConfig::new(12345, "tok-abc".into(), "slot-1".into());
         assert_eq!(config.port, 12345);
         assert_eq!(config.token, "tok-abc");
         assert_eq!(config.slot_id, "slot-1");
@@ -53,11 +49,7 @@ mod tests {
 
     #[test]
     fn env_map_contains_all_keys() {
-        let config = TeamMcpStdioConfig::new(
-            8080,
-            "secret-token".into(),
-            "agent-slot".into(),
-        );
+        let config = TeamMcpStdioConfig::new(8080, "secret-token".into(), "agent-slot".into());
         let env = config.to_env_map();
         assert_eq!(env.len(), 3);
         assert_eq!(env["TEAM_MCP_PORT"], "8080");
@@ -67,11 +59,7 @@ mod tests {
 
     #[test]
     fn serialization_roundtrip() {
-        let config = TeamMcpStdioConfig::new(
-            9999,
-            "tok".into(),
-            "s1".into(),
-        );
+        let config = TeamMcpStdioConfig::new(9999, "tok".into(), "s1".into());
         let json = serde_json::to_string(&config).unwrap();
         let parsed: TeamMcpStdioConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(config, parsed);
@@ -87,9 +75,6 @@ mod tests {
         let env2 = cfg2.to_env_map();
         assert_eq!(env1["TEAM_MCP_PORT"], env2["TEAM_MCP_PORT"]);
         assert_eq!(env1["TEAM_MCP_TOKEN"], env2["TEAM_MCP_TOKEN"]);
-        assert_ne!(
-            env1["TEAM_AGENT_SLOT_ID"],
-            env2["TEAM_AGENT_SLOT_ID"]
-        );
+        assert_ne!(env1["TEAM_AGENT_SLOT_ID"], env2["TEAM_AGENT_SLOT_ID"]);
     }
 }

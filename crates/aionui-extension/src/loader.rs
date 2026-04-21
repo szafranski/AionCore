@@ -37,10 +37,7 @@ pub fn resolve_scan_paths() -> Vec<ScanPath> {
 ///
 /// Production callers should use [`resolve_scan_paths`] which reads from
 /// environment variables automatically.
-fn resolve_scan_paths_inner(
-    env_extensions_path: Option<&str>,
-    e2e_mode: bool,
-) -> Vec<ScanPath> {
+fn resolve_scan_paths_inner(env_extensions_path: Option<&str>, e2e_mode: bool) -> Vec<ScanPath> {
     let mut paths = Vec::new();
 
     // 1. Environment variable paths (highest priority).
@@ -172,10 +169,7 @@ fn load_single_extension(
         last_activated_at: None,
     };
 
-    let directory = ext_dir
-        .to_str()
-        .unwrap_or_default()
-        .to_owned();
+    let directory = ext_dir.to_str().unwrap_or_default().to_owned();
 
     Ok(LoadedExtension {
         manifest,
@@ -210,9 +204,7 @@ pub fn filter_by_engine_compatibility(
 
     extensions
         .into_iter()
-        .filter(|ext| {
-            is_engine_compatible(ext, &app_ver) && is_api_version_compatible(ext)
-        })
+        .filter(|ext| is_engine_compatible(ext, &app_ver) && is_api_version_compatible(ext))
         .collect()
 }
 
@@ -372,11 +364,7 @@ mod tests {
         // Invalid extension (bad JSON)
         let bad_dir = tmp.path().join("bad-ext");
         fs::create_dir(&bad_dir).unwrap();
-        fs::write(
-            bad_dir.join(EXTENSION_MANIFEST_FILE),
-            b"not valid json",
-        )
-        .unwrap();
+        fs::write(bad_dir.join(EXTENSION_MANIFEST_FILE), b"not valid json").unwrap();
 
         let result = scan_directory(tmp.path(), ExtensionSource::Env);
         assert_eq!(result.len(), 1);
@@ -587,23 +575,35 @@ mod tests {
     #[test]
     fn resolve_scan_paths_includes_env_paths() {
         let paths = resolve_scan_paths_inner(Some("/tmp/test-exts"), false);
-        assert!(paths.iter().any(|sp| sp.path.as_path() == Path::new("/tmp/test-exts")
-            && sp.source == ExtensionSource::Env));
+        assert!(
+            paths
+                .iter()
+                .any(|sp| sp.path.as_path() == Path::new("/tmp/test-exts")
+                    && sp.source == ExtensionSource::Env)
+        );
     }
 
     #[test]
     fn resolve_scan_paths_e2e_mode_only_env() {
         let paths = resolve_scan_paths_inner(Some("/tmp/e2e-exts"), true);
         assert!(paths.iter().all(|sp| sp.source == ExtensionSource::Env));
-        assert!(paths.iter().any(|sp| sp.path.as_path() == Path::new("/tmp/e2e-exts")));
+        assert!(
+            paths
+                .iter()
+                .any(|sp| sp.path.as_path() == Path::new("/tmp/e2e-exts"))
+        );
     }
 
     #[test]
     fn resolve_scan_paths_no_env_includes_platform_dirs() {
         let paths = resolve_scan_paths_inner(None, false);
         // Should have at least one platform dir (home or appdata).
-        assert!(paths.iter().any(|sp| sp.source == ExtensionSource::Local
-            || sp.source == ExtensionSource::Appdata));
+        assert!(
+            paths
+                .iter()
+                .any(|sp| sp.source == ExtensionSource::Local
+                    || sp.source == ExtensionSource::Appdata)
+        );
     }
 
     #[test]

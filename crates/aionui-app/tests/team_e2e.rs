@@ -18,11 +18,7 @@ fn two_agent_body() -> serde_json::Value {
     })
 }
 
-async fn create_team(
-    app: &mut axum::Router,
-    token: &str,
-    csrf: &str,
-) -> serde_json::Value {
+async fn create_team(app: &mut axum::Router, token: &str, csrf: &str) -> serde_json::Value {
     let req = json_with_token("POST", "/api/teams", two_agent_body(), token, csrf);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
@@ -101,7 +97,10 @@ async fn tc4_first_agent_is_lead() {
     let resp = app.oneshot(req).await.unwrap();
     let json = body_json(resp).await;
     assert_eq!(json["data"]["agents"][0]["role"], "lead");
-    assert_eq!(json["data"]["leadAgentId"], json["data"]["agents"][0]["slotId"]);
+    assert_eq!(
+        json["data"]["leadAgentId"],
+        json["data"]["agents"][0]["slotId"]
+    );
 }
 
 // TC-5: Empty agents returns 400
@@ -122,7 +121,8 @@ async fn tc6_missing_name_returns_error() {
     let (mut app, services) = build_app().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
-    let body = json!({ "agents": [{ "name": "L", "role": "lead", "backend": "acp", "model": "c" }] });
+    let body =
+        json!({ "agents": [{ "name": "L", "role": "lead", "backend": "acp", "model": "c" }] });
     let req = json_with_token("POST", "/api/teams", body, &token, &csrf);
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
@@ -349,7 +349,13 @@ async fn aa1_add_agent_to_team() {
         "backend": "acp",
         "model": "claude"
     });
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/agents"), body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/agents"),
+        body,
+        &token,
+        &csrf,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
     let json = body_json(resp).await;
@@ -367,7 +373,13 @@ async fn aa2_add_agent_increases_count() {
     let team_id = data["id"].as_str().unwrap();
 
     let body = json!({ "name": "X", "role": "teammate", "backend": "acp", "model": "claude" });
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/agents"), body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/agents"),
+        body,
+        &token,
+        &csrf,
+    );
     app.clone().oneshot(req).await.unwrap();
 
     let req = get_with_token(&format!("/api/teams/{team_id}"), &token);
@@ -398,7 +410,13 @@ async fn aa5_add_agent_missing_fields() {
     let team_id = data["id"].as_str().unwrap();
 
     let body = json!({ "role": "teammate", "backend": "acp" });
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/agents"), body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/agents"),
+        body,
+        &token,
+        &csrf,
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
@@ -546,7 +564,13 @@ async fn es1_ensure_session() {
     let data = create_team(&mut app, &token, &csrf).await;
     let team_id = data["id"].as_str().unwrap();
 
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/session"), json!({}), &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/session"),
+        json!({}),
+        &token,
+        &csrf,
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -560,11 +584,23 @@ async fn es2_ensure_session_idempotent() {
     let data = create_team(&mut app, &token, &csrf).await;
     let team_id = data["id"].as_str().unwrap();
 
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/session"), json!({}), &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/session"),
+        json!({}),
+        &token,
+        &csrf,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/session"), json!({}), &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/session"),
+        json!({}),
+        &token,
+        &csrf,
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -575,7 +611,13 @@ async fn es3_ensure_session_nonexistent() {
     let (mut app, services) = build_app().await;
     let (token, csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
-    let req = json_with_token("POST", "/api/teams/nonexistent/session", json!({}), &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        "/api/teams/nonexistent/session",
+        json!({}),
+        &token,
+        &csrf,
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
@@ -589,7 +631,13 @@ async fn ss1_stop_session() {
     let data = create_team(&mut app, &token, &csrf).await;
     let team_id = data["id"].as_str().unwrap();
 
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/session"), json!({}), &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/session"),
+        json!({}),
+        &token,
+        &csrf,
+    );
     app.clone().oneshot(req).await.unwrap();
 
     let req = delete_with_token(&format!("/api/teams/{team_id}/session"), &token, &csrf);
@@ -625,7 +673,13 @@ async fn sm1_send_message_with_session() {
     let team_id = data["id"].as_str().unwrap();
 
     // Start session first
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/session"), json!({}), &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/session"),
+        json!({}),
+        &token,
+        &csrf,
+    );
     app.clone().oneshot(req).await.unwrap();
 
     let req = json_with_token(
@@ -687,7 +741,13 @@ async fn sa1_send_message_to_agent() {
     let slot_id = data["agents"][1]["slotId"].as_str().unwrap();
 
     // Start session first
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/session"), json!({}), &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/session"),
+        json!({}),
+        &token,
+        &csrf,
+    );
     app.clone().oneshot(req).await.unwrap();
 
     let req = json_with_token(
@@ -718,7 +778,13 @@ async fn full_team_lifecycle() {
 
     // Add agent
     let body = json!({ "name": "Helper", "role": "teammate", "backend": "acp", "model": "claude" });
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/agents"), body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/agents"),
+        body,
+        &token,
+        &csrf,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
     let added = body_json(resp).await;
@@ -751,7 +817,13 @@ async fn full_team_lifecycle() {
     app.clone().oneshot(req).await.unwrap();
 
     // Ensure session
-    let req = json_with_token("POST", &format!("/api/teams/{team_id}/session"), json!({}), &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        &format!("/api/teams/{team_id}/session"),
+        json!({}),
+        &token,
+        &csrf,
+    );
     app.clone().oneshot(req).await.unwrap();
 
     // Send message

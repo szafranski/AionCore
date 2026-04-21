@@ -87,10 +87,7 @@ impl ExternalPathsManager {
     }
 
     /// Remove a custom external path by its path value.
-    pub async fn remove_custom_external_path(
-        &self,
-        path: &str,
-    ) -> Result<(), ExtensionError> {
+    pub async fn remove_custom_external_path(&self, path: &str) -> Result<(), ExtensionError> {
         let mut paths = self.paths.write().await;
         let before_len = paths.len();
         paths.retain(|p| p.path != path);
@@ -254,12 +251,8 @@ mod tests {
         // First session: add paths
         {
             let mgr = ExternalPathsManager::new(tmp.path()).await;
-            mgr.add_custom_external_path("A", "/path/a")
-                .await
-                .unwrap();
-            mgr.add_custom_external_path("B", "/path/b")
-                .await
-                .unwrap();
+            mgr.add_custom_external_path("A", "/path/a").await.unwrap();
+            mgr.add_custom_external_path("B", "/path/b").await.unwrap();
         }
 
         // Second session: paths should still be there

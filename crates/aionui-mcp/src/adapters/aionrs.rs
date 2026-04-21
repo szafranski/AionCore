@@ -6,7 +6,7 @@ use crate::adapter::{DetectedServer, McpAgentAdapter};
 use crate::error::McpError;
 use crate::types::McpServerTransport;
 
-use super::cli_helpers::{is_cli_installed, run_cli_strict, DETECT_TIMEOUT};
+use super::cli_helpers::{DETECT_TIMEOUT, is_cli_installed, run_cli_strict};
 
 const CLI_NAME: &str = "aionrs";
 
@@ -57,9 +57,9 @@ impl McpAgentAdapter for AionrsAdapter {
             return Ok(Vec::new());
         }
 
-        let content = tokio::fs::read_to_string(path)
-            .await
-            .map_err(|e| McpError::AgentOperationFailed(format!("failed to read {config_path}: {e}")))?;
+        let content = tokio::fs::read_to_string(path).await.map_err(|e| {
+            McpError::AgentOperationFailed(format!("failed to read {config_path}: {e}"))
+        })?;
 
         parse_toml_servers(&content)
     }
@@ -77,47 +77,52 @@ impl McpAgentAdapter for AionrsAdapter {
         let path = std::path::Path::new(&config_path);
 
         let mut doc = if path.exists() {
-            let content = tokio::fs::read_to_string(path)
-                .await
-                .map_err(|e| McpError::AgentOperationFailed(format!("failed to read {config_path}: {e}")))?;
-            content.parse::<toml::Value>()
+            let content = tokio::fs::read_to_string(path).await.map_err(|e| {
+                McpError::AgentOperationFailed(format!("failed to read {config_path}: {e}"))
+            })?;
+            content
+                .parse::<toml::Value>()
                 .map_err(|e| McpError::AgentOperationFailed(format!("failed to parse TOML: {e}")))?
         } else {
             // Ensure parent directory exists
             if let Some(parent) = path.parent() {
-                tokio::fs::create_dir_all(parent)
-                    .await
-                    .map_err(|e| McpError::AgentOperationFailed(format!("failed to create dir: {e}")))?;
+                tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                    McpError::AgentOperationFailed(format!("failed to create dir: {e}"))
+                })?;
             }
             toml::Value::Table(toml::map::Map::new())
         };
 
         // Ensure mcp.servers exists
-        let root = doc.as_table_mut()
+        let root = doc
+            .as_table_mut()
             .ok_or_else(|| McpError::AgentOperationFailed("TOML root is not a table".into()))?;
 
         let mcp = root
             .entry("mcp")
             .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
 
-        let mcp_table = mcp.as_table_mut()
+        let mcp_table = mcp
+            .as_table_mut()
             .ok_or_else(|| McpError::AgentOperationFailed("mcp is not a table".into()))?;
 
         let servers = mcp_table
             .entry("servers")
             .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
 
-        let servers_table = servers.as_table_mut()
+        let servers_table = servers
+            .as_table_mut()
             .ok_or_else(|| McpError::AgentOperationFailed("mcp.servers is not a table".into()))?;
 
         servers_table.insert(name.to_owned(), transport_to_toml(transport));
 
-        let output = toml::to_string_pretty(&doc)
-            .map_err(|e| McpError::AgentOperationFailed(format!("failed to serialize TOML: {e}")))?;
+        let output = toml::to_string_pretty(&doc).map_err(|e| {
+            McpError::AgentOperationFailed(format!("failed to serialize TOML: {e}"))
+        })?;
 
-        tokio::fs::write(path, output)
-            .await
-            .map_err(|e| McpError::AgentOperationFailed(format!("failed to write {config_path}: {e}")))?;
+        tokio::fs::write(path, output).await.map_err(|e| {
+            McpError::AgentOperationFailed(format!("failed to write {config_path}: {e}"))
+        })?;
 
         Ok(())
     }
@@ -134,11 +139,12 @@ impl McpAgentAdapter for AionrsAdapter {
             return Ok(());
         }
 
-        let content = tokio::fs::read_to_string(path)
-            .await
-            .map_err(|e| McpError::AgentOperationFailed(format!("failed to read {config_path}: {e}")))?;
+        let content = tokio::fs::read_to_string(path).await.map_err(|e| {
+            McpError::AgentOperationFailed(format!("failed to read {config_path}: {e}"))
+        })?;
 
-        let mut doc: toml::Value = content.parse()
+        let mut doc: toml::Value = content
+            .parse()
             .map_err(|e| McpError::AgentOperationFailed(format!("failed to parse TOML: {e}")))?;
 
         let removed = doc
@@ -155,12 +161,13 @@ impl McpAgentAdapter for AionrsAdapter {
             return Ok(());
         }
 
-        let output = toml::to_string_pretty(&doc)
-            .map_err(|e| McpError::AgentOperationFailed(format!("failed to serialize TOML: {e}")))?;
+        let output = toml::to_string_pretty(&doc).map_err(|e| {
+            McpError::AgentOperationFailed(format!("failed to serialize TOML: {e}"))
+        })?;
 
-        tokio::fs::write(path, output)
-            .await
-            .map_err(|e| McpError::AgentOperationFailed(format!("failed to write {config_path}: {e}")))?;
+        tokio::fs::write(path, output).await.map_err(|e| {
+            McpError::AgentOperationFailed(format!("failed to write {config_path}: {e}"))
+        })?;
 
         Ok(())
     }
@@ -284,7 +291,11 @@ fn transport_to_toml(transport: &McpServerTransport) -> toml::Value {
             if !args.is_empty() {
                 table.insert(
                     "args".into(),
-                    toml::Value::Array(args.iter().map(|a| toml::Value::String(a.clone())).collect()),
+                    toml::Value::Array(
+                        args.iter()
+                            .map(|a| toml::Value::String(a.clone()))
+                            .collect(),
+                    ),
                 );
             }
             if !env.is_empty() {
@@ -439,7 +450,10 @@ url = "https://example.com/api"
 "#;
         let servers = parse_toml_servers(toml).unwrap();
         assert_eq!(servers.len(), 1);
-        assert!(matches!(servers[0].transport, McpServerTransport::Http { .. }));
+        assert!(matches!(
+            servers[0].transport,
+            McpServerTransport::Http { .. }
+        ));
     }
 
     #[test]
@@ -492,7 +506,10 @@ args = ["srv.js"]
 "#;
         let servers = parse_toml_servers(toml).unwrap();
         assert_eq!(servers.len(), 1);
-        assert!(matches!(servers[0].transport, McpServerTransport::Stdio { .. }));
+        assert!(matches!(
+            servers[0].transport,
+            McpServerTransport::Stdio { .. }
+        ));
     }
 
     // -- transport_to_toml roundtrip ------------------------------------------

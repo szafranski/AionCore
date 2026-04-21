@@ -293,10 +293,7 @@ async fn t2_4_list_source_filter() {
     app.clone().oneshot(req).await.unwrap();
 
     let resp = app
-        .oneshot(get_with_token(
-            "/api/conversations?source=telegram",
-            &token,
-        ))
+        .oneshot(get_with_token("/api/conversations?source=telegram", &token))
         .await
         .unwrap();
     let json = body_json(resp).await;
@@ -380,10 +377,7 @@ async fn t3_1_get_existing() {
     let id = json["data"]["id"].as_str().unwrap().to_owned();
 
     let resp = app
-        .oneshot(get_with_token(
-            &format!("/api/conversations/{id}"),
-            &token,
-        ))
+        .oneshot(get_with_token(&format!("/api/conversations/{id}"), &token))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -398,10 +392,7 @@ async fn t3_2_get_not_found() {
     let (token, _csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let resp = app
-        .oneshot(get_with_token(
-            "/api/conversations/non-existent-id",
-            &token,
-        ))
+        .oneshot(get_with_token("/api/conversations/non-existent-id", &token))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -608,10 +599,7 @@ async fn t5_1_delete_conversation() {
 
     // Verify it's gone
     let resp = app
-        .oneshot(get_with_token(
-            &format!("/api/conversations/{id}"),
-            &token,
-        ))
+        .oneshot(get_with_token(&format!("/api/conversations/{id}"), &token))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
@@ -671,7 +659,13 @@ async fn t6_1_clone_from_source() {
             "extra": { "newKey": "value" }
         }
     });
-    let req = json_with_token("POST", "/api/conversations/clone", clone_body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        "/api/conversations/clone",
+        clone_body,
+        &token,
+        &csrf,
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
 
@@ -697,7 +691,13 @@ async fn t6_2_clone_without_source() {
             "extra": {}
         }
     });
-    let req = json_with_token("POST", "/api/conversations/clone", clone_body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        "/api/conversations/clone",
+        clone_body,
+        &token,
+        &csrf,
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
 
@@ -719,7 +719,13 @@ async fn t6_3_clone_source_not_found() {
             "extra": {}
         }
     });
-    let req = json_with_token("POST", "/api/conversations/clone", clone_body, &token, &csrf);
+    let req = json_with_token(
+        "POST",
+        "/api/conversations/clone",
+        clone_body,
+        &token,
+        &csrf,
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
@@ -798,10 +804,7 @@ async fn t7_1_reset_conversation() {
 
     // Verify status is pending
     let resp = app
-        .oneshot(get_with_token(
-            &format!("/api/conversations/{id}"),
-            &token,
-        ))
+        .oneshot(get_with_token(&format!("/api/conversations/{id}"), &token))
         .await
         .unwrap();
     let json = body_json(resp).await;
@@ -962,7 +965,10 @@ async fn t12_2_large_nested_extra() {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::CREATED);
     let json = body_json(resp).await;
-    assert_eq!(json["data"]["extra"]["nested"]["level1"]["level2"]["level3"]["deep"], true);
+    assert_eq!(
+        json["data"]["extra"]["nested"]["level1"]["level2"]["level3"]["deep"],
+        true
+    );
     assert_eq!(json["data"]["extra"]["array"].as_array().unwrap().len(), 10);
 }
 
@@ -1015,10 +1021,7 @@ async fn full_conversation_lifecycle() {
     // Read
     let resp = app
         .clone()
-        .oneshot(get_with_token(
-            &format!("/api/conversations/{id}"),
-            &token,
-        ))
+        .oneshot(get_with_token(&format!("/api/conversations/{id}"), &token))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -1050,10 +1053,7 @@ async fn full_conversation_lifecycle() {
 
     // Verify gone
     let resp = app
-        .oneshot(get_with_token(
-            &format!("/api/conversations/{id}"),
-            &token,
-        ))
+        .oneshot(get_with_token(&format!("/api/conversations/{id}"), &token))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);

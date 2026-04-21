@@ -58,12 +58,7 @@ pub struct DependencyValidationResult {
 pub fn validate_dependencies(extensions: &[LoadedExtension]) -> DependencyValidationResult {
     let versions: HashMap<&str, &str> = extensions
         .iter()
-        .map(|ext| {
-            (
-                ext.manifest.name.as_str(),
-                ext.manifest.version.as_str(),
-            )
-        })
+        .map(|ext| (ext.manifest.name.as_str(), ext.manifest.version.as_str()))
         .collect();
 
     let mut issues = Vec::new();
@@ -129,9 +124,7 @@ fn version_matches(requirement: &str, actual: &str) -> bool {
         return false;
     };
 
-    let req_str = if requirement
-        .starts_with(|c: char| c.is_ascii_digit())
-    {
+    let req_str = if requirement.starts_with(|c: char| c.is_ascii_digit()) {
         // Bare version → exact match via '=' operator.
         format!("={requirement}")
     } else {
@@ -154,9 +147,7 @@ fn version_matches(requirement: &str, actual: &str) -> bool {
 /// Returns `(load_order, detected_cycles)`.  Cyclic nodes are appended to
 /// `load_order` in alphabetical order so that the caller can still attempt
 /// loading them (API Spec requirement).
-fn compute_topological_order(
-    extensions: &[LoadedExtension],
-) -> (Vec<String>, Vec<Vec<String>>) {
+fn compute_topological_order(extensions: &[LoadedExtension]) -> (Vec<String>, Vec<Vec<String>>) {
     let known: HashSet<&str> = extensions
         .iter()
         .map(|e| e.manifest.name.as_str())
@@ -173,9 +164,7 @@ fn compute_topological_order(
                 adj.entry(dep_name.as_str())
                     .or_default()
                     .push(ext.manifest.name.as_str());
-                *in_degree
-                    .entry(ext.manifest.name.as_str())
-                    .or_insert(0) += 1;
+                *in_degree.entry(ext.manifest.name.as_str()).or_insert(0) += 1;
             }
         }
     }
@@ -222,8 +211,7 @@ fn compute_topological_order(
     };
 
     // Append cyclic nodes alphabetically (best-effort load).
-    let mut remaining_sorted: Vec<String> =
-        remaining.iter().map(|s| s.to_string()).collect();
+    let mut remaining_sorted: Vec<String> = remaining.iter().map(|s| s.to_string()).collect();
     remaining_sorted.sort_unstable();
     order.extend(remaining_sorted);
 
@@ -231,10 +219,7 @@ fn compute_topological_order(
 }
 
 /// Find distinct cycles in the subgraph induced by `involved` nodes.
-fn find_cycles(
-    extensions: &[LoadedExtension],
-    involved: &HashSet<&str>,
-) -> Vec<Vec<String>> {
+fn find_cycles(extensions: &[LoadedExtension], involved: &HashSet<&str>) -> Vec<Vec<String>> {
     // Build adjacency: node → its dependencies (restricted to involved set).
     let mut adj: HashMap<&str, Vec<&str>> = HashMap::new();
     for ext in extensions {
@@ -314,11 +299,7 @@ fn dfs_find_cycles<'a>(
 
 /// Build a minimal [`LoadedExtension`] for testing purposes.
 #[cfg(test)]
-fn make_extension(
-    name: &str,
-    version: &str,
-    deps: &[(&str, &str)],
-) -> LoadedExtension {
+fn make_extension(name: &str, version: &str, deps: &[(&str, &str)]) -> LoadedExtension {
     use std::collections::HashMap;
 
     LoadedExtension {
@@ -496,9 +477,11 @@ mod tests {
     #[test]
     fn sort_ignores_unknown_deps() {
         // ext-a depends on ext-missing (not in list).
-        let exts = vec![
-            make_extension("ext-a", "1.0.0", &[("ext-missing", "^1.0.0")]),
-        ];
+        let exts = vec![make_extension(
+            "ext-a",
+            "1.0.0",
+            &[("ext-missing", "^1.0.0")],
+        )];
         let order = topological_sort(&exts);
         assert_eq!(order, vec!["ext-a"]);
     }
@@ -519,9 +502,11 @@ mod tests {
 
     #[test]
     fn detect_missing_dependency() {
-        let exts = vec![
-            make_extension("ext-a", "1.0.0", &[("ext-missing", "^1.0.0")]),
-        ];
+        let exts = vec![make_extension(
+            "ext-a",
+            "1.0.0",
+            &[("ext-missing", "^1.0.0")],
+        )];
         let result = validate_dependencies(&exts);
         assert!(!result.valid);
         assert_eq!(result.issues.len(), 1);
@@ -673,10 +658,12 @@ mod tests {
         ];
         let result = validate_dependencies(&exts);
         assert!(!result.valid);
-        assert!(result.issues.iter().any(|i| matches!(
-            i,
-            DependencyIssue::VersionMismatch { .. }
-        )));
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|i| matches!(i, DependencyIssue::VersionMismatch { .. }))
+        );
     }
 
     #[test]
@@ -697,10 +684,12 @@ mod tests {
         ];
         let result = validate_dependencies(&exts);
         assert!(!result.valid);
-        assert!(result.issues.iter().any(|i| matches!(
-            i,
-            DependencyIssue::VersionMismatch { .. }
-        )));
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|i| matches!(i, DependencyIssue::VersionMismatch { .. }))
+        );
     }
 
     #[test]

@@ -412,10 +412,7 @@ mod tests {
             }],
             context_limit: None,
             model_protocols: None,
-            model_enabled: Some(HashMap::from([(
-                "claude-sonnet-4-20250514".into(),
-                true,
-            )])),
+            model_enabled: Some(HashMap::from([("claude-sonnet-4-20250514".into(), true)])),
             model_health: None,
             bedrock_config: None,
             created_at: 1712345678000,
@@ -667,10 +664,7 @@ mod tests {
         assert_eq!(json["confidence"], 95);
         assert_eq!(json["suggestion"]["type"], "none");
         assert_eq!(json["suggestion"]["message"], "Detected Anthropic protocol");
-        assert_eq!(
-            json["suggestion"]["i18nKey"],
-            "settings.protocolDetected"
-        );
+        assert_eq!(json["suggestion"]["i18nKey"], "settings.protocolDetected");
     }
 
     #[test]

@@ -31,8 +31,8 @@ impl ClientPrefService {
 
         let mut map = ClientPreferencesResponse::new();
         for row in rows {
-            let value: serde_json::Value = serde_json::from_str(&row.value)
-                .unwrap_or(serde_json::Value::String(row.value));
+            let value: serde_json::Value =
+                serde_json::from_str(&row.value).unwrap_or(serde_json::Value::String(row.value));
             map.insert(row.key, value);
         }
         Ok(map)
@@ -52,9 +52,12 @@ impl ClientPrefService {
             if value.is_null() {
                 deletes.push(key);
             } else {
-                upserts.push((key, serde_json::to_string(&value).map_err(|e| {
-                    AppError::Internal(format!("Failed to serialize value: {e}"))
-                })?));
+                upserts.push((
+                    key,
+                    serde_json::to_string(&value).map_err(|e| {
+                        AppError::Internal(format!("Failed to serialize value: {e}"))
+                    })?,
+                ));
             }
         }
 
@@ -83,7 +86,9 @@ impl ClientPrefService {
 
 fn validate_key(key: &str) -> Result<(), AppError> {
     if key.is_empty() {
-        return Err(AppError::BadRequest("Preference key must not be empty".into()));
+        return Err(AppError::BadRequest(
+            "Preference key must not be empty".into(),
+        ));
     }
     if key.len() > MAX_KEY_LENGTH {
         return Err(AppError::BadRequest(format!(

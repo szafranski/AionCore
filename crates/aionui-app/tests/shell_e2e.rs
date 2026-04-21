@@ -7,7 +7,9 @@ use tower::ServiceExt;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use common::{body_json, build_app, get_request, extract_csrf_token, json_with_token, setup_and_login};
+use common::{
+    body_json, build_app, extract_csrf_token, get_request, json_with_token, setup_and_login,
+};
 
 // ---------------------------------------------------------------------------
 // Helper: build multipart/form-data body
@@ -41,10 +43,8 @@ impl MultipartBuilder {
         self.parts
             .extend_from_slice(format!("--{}\r\n", self.boundary).as_bytes());
         self.parts.extend_from_slice(
-            format!(
-                "Content-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\n"
-            )
-            .as_bytes(),
+            format!("Content-Disposition: form-data; name=\"{name}\"; filename=\"{filename}\"\r\n")
+                .as_bytes(),
         );
         self.parts
             .extend_from_slice(format!("Content-Type: {mime}\r\n\r\n").as_bytes());
@@ -489,10 +489,7 @@ async fn st1_openai_transcription_success() {
     let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/v1/audio/transcriptions"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(json!({ "text": "hello world" })),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "text": "hello world" })))
         .mount(&mock_server)
         .await;
 
@@ -593,10 +590,7 @@ async fn st10_language_hint_passed() {
     let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/v1/audio/transcriptions"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(json!({ "text": "你好世界" })),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "text": "你好世界" })))
         .mount(&mock_server)
         .await;
 

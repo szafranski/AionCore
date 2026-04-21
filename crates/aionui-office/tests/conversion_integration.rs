@@ -46,9 +46,7 @@ fn create_xlsx_with_merges(dir: &TempDir) -> PathBuf {
     let sheet = wb.add_worksheet();
     sheet.set_name("Merged").unwrap();
     let fmt = Format::new();
-    sheet
-        .merge_range(0, 0, 1, 2, "Merged Title", &fmt)
-        .unwrap();
+    sheet.merge_range(0, 0, 1, 2, "Merged Title", &fmt).unwrap();
     sheet.write_string(2, 0, "A").unwrap();
     sheet.write_string(2, 1, "B").unwrap();
     sheet.write_string(2, 2, "C").unwrap();
@@ -160,7 +158,13 @@ async fn dc4_excel_to_json_file_not_found() {
     assert_eq!(resp.to, "excel-json");
     assert!(!resp.result.success);
     assert!(resp.result.data.is_none());
-    assert!(resp.result.error.as_ref().unwrap().contains("file not found"));
+    assert!(
+        resp.result
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("file not found")
+    );
 }
 
 // DC-6: Word → Markdown (pandoc not available)
@@ -174,7 +178,13 @@ async fn dc6_word_to_markdown_file_not_found() {
 
     assert_eq!(resp.to, "markdown");
     assert!(!resp.result.success);
-    assert!(resp.result.error.as_ref().unwrap().contains("file not found"));
+    assert!(
+        resp.result
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("file not found")
+    );
 }
 
 // DC-8: PPT → JSON (officecli not available)
@@ -188,7 +198,13 @@ async fn dc8_ppt_to_json_file_not_found() {
 
     assert_eq!(resp.to, "ppt-json");
     assert!(!resp.result.success);
-    assert!(resp.result.error.as_ref().unwrap().contains("file not found"));
+    assert!(
+        resp.result
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("file not found")
+    );
 }
 
 // DC-8b: PPT → JSON (officecli not installed — configured path invalid and not in PATH)
@@ -267,9 +283,7 @@ async fn convert_always_returns_ok_with_result_wrapper() {
     ];
 
     for target in targets {
-        let resp = svc
-            .convert("/nonexistent/path", target)
-            .await;
+        let resp = svc.convert("/nonexistent/path", target).await;
         assert!(resp.is_ok());
         assert!(!resp.unwrap().result.success);
     }

@@ -128,11 +128,7 @@ impl TeamSession {
         self.scheduler.remove_agent(slot_id).await
     }
 
-    pub async fn rename_agent(
-        &self,
-        slot_id: &str,
-        new_name: &str,
-    ) -> Result<(), TeamError> {
+    pub async fn rename_agent(&self, slot_id: &str, new_name: &str) -> Result<(), TeamError> {
         self.scheduler.rename_agent(slot_id, new_name).await
     }
 
@@ -269,9 +265,7 @@ mod tests {
         let team = make_team();
 
         let session = TeamSession::start(team, repo, broadcaster).await.unwrap();
-        let result = session
-            .send_message_to_agent("nonexistent", "Hello")
-            .await;
+        let result = session.send_message_to_agent("nonexistent", "Hello").await;
         assert!(result.is_err());
         session.stop();
     }

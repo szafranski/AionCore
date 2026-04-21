@@ -22,11 +22,7 @@ pub trait IConversationRepository: Send + Sync {
     async fn create(&self, row: &ConversationRow) -> Result<(), DbError>;
 
     /// Partially updates a conversation. Returns `DbError::NotFound` if ID is missing.
-    async fn update(
-        &self,
-        id: &str,
-        updates: &ConversationRowUpdate,
-    ) -> Result<(), DbError>;
+    async fn update(&self, id: &str, updates: &ConversationRowUpdate) -> Result<(), DbError>;
 
     /// Deletes a conversation (messages cascade via FK).
     /// Returns `DbError::NotFound` if ID is missing.
@@ -80,17 +76,10 @@ pub trait IConversationRepository: Send + Sync {
     async fn insert_message(&self, message: &MessageRow) -> Result<(), DbError>;
 
     /// Partially updates a message. Returns `DbError::NotFound` if ID is missing.
-    async fn update_message(
-        &self,
-        id: &str,
-        updates: &MessageRowUpdate,
-    ) -> Result<(), DbError>;
+    async fn update_message(&self, id: &str, updates: &MessageRowUpdate) -> Result<(), DbError>;
 
     /// Deletes all messages belonging to a conversation.
-    async fn delete_messages_by_conversation(
-        &self,
-        conv_id: &str,
-    ) -> Result<(), DbError>;
+    async fn delete_messages_by_conversation(&self, conv_id: &str) -> Result<(), DbError>;
 
     /// Finds a message by (conversation_id, msg_id, type) triple.
     async fn get_message_by_msg_id(

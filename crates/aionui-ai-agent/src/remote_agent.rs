@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 use aionui_common::{
     AgentKillReason, AgentType, AppError, Confirmation, ConversationStatus, RemoteAgentStatus,
@@ -97,12 +97,10 @@ impl RemoteAgentManager {
     pub async fn connect(self: &Arc<Self>) -> Result<(), AppError> {
         let url = &self.remote_config.url;
 
-        let (ws_stream, _response) = tokio_tungstenite::connect_async(url)
-            .await
-            .map_err(|e| {
-                error!(url = url, error = %e, "Failed to connect to remote agent");
-                AppError::Internal(format!("WebSocket connection failed: {e}"))
-            })?;
+        let (ws_stream, _response) = tokio_tungstenite::connect_async(url).await.map_err(|e| {
+            error!(url = url, error = %e, "Failed to connect to remote agent");
+            AppError::Internal(format!("WebSocket connection failed: {e}"))
+        })?;
 
         info!(
             conversation_id = %self.conversation_id,
@@ -244,9 +242,9 @@ impl RemoteAgentManager {
         })?;
 
         let mut guard = self.ws_sink.lock().await;
-        let sink = guard.as_mut().ok_or_else(|| {
-            AppError::Internal("WebSocket not connected".into())
-        })?;
+        let sink = guard
+            .as_mut()
+            .ok_or_else(|| AppError::Internal("WebSocket not connected".into()))?;
 
         sink.send(Message::Text(text.into())).await.map_err(|e| {
             error!(

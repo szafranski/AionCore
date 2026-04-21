@@ -79,7 +79,10 @@ impl CliAgentProcess {
 
         let mut child: Child = cmd.spawn().map_err(|e| {
             error!(command = %config.command, error = %e, "Failed to spawn CLI process");
-            AppError::Internal(format!("Failed to spawn CLI process '{}': {}", config.command, e))
+            AppError::Internal(format!(
+                "Failed to spawn CLI process '{}': {}",
+                config.command, e
+            ))
         })?;
 
         let pid = child.id().ok_or_else(|| {
@@ -180,9 +183,8 @@ impl CliAgentProcess {
             AppError::Internal("Cannot send: stdin is closed (process exited)".into())
         })?;
 
-        let mut buf = serde_json::to_vec(message).map_err(|e| {
-            AppError::Internal(format!("Failed to serialize message: {e}"))
-        })?;
+        let mut buf = serde_json::to_vec(message)
+            .map_err(|e| AppError::Internal(format!("Failed to serialize message: {e}")))?;
         buf.push(b'\n');
 
         stdin.write_all(&buf).await.map_err(|e| {
@@ -487,7 +489,9 @@ mod tests {
 
         // After kill, process should no longer be running
         // Give a moment for exit status to propagate
-        timeout(Duration::from_secs(5), proc.wait_for_exit()).await.unwrap();
+        timeout(Duration::from_secs(5), proc.wait_for_exit())
+            .await
+            .unwrap();
         assert!(!proc.is_running());
         assert!(proc.exit_status().is_some());
     }
@@ -514,7 +518,10 @@ mod tests {
         // Process that ignores stdin close (trap + infinite loop)
         let config = CliSpawnConfig {
             command: "sh".into(),
-            args: vec!["-c".into(), "trap '' TERM; while true; do sleep 1; done".into()],
+            args: vec![
+                "-c".into(),
+                "trap '' TERM; while true; do sleep 1; done".into(),
+            ],
             env: HashMap::new(),
             cwd: None,
         };
@@ -525,7 +532,9 @@ mod tests {
         let result = proc.kill(Duration::from_millis(100)).await;
         assert!(result.is_ok());
 
-        timeout(Duration::from_secs(5), proc.wait_for_exit()).await.unwrap();
+        timeout(Duration::from_secs(5), proc.wait_for_exit())
+            .await
+            .unwrap();
         assert!(!proc.is_running());
     }
 
@@ -533,7 +542,10 @@ mod tests {
     async fn spawn_with_env_and_cwd() {
         let config = CliSpawnConfig {
             command: "sh".into(),
-            args: vec!["-c".into(), "echo \"{\\\"val\\\":\\\"$MY_TEST_VAR\\\"}\"".into()],
+            args: vec![
+                "-c".into(),
+                "echo \"{\\\"val\\\":\\\"$MY_TEST_VAR\\\"}\"".into(),
+            ],
             env: HashMap::from([("MY_TEST_VAR".into(), "hello_env".into())]),
             cwd: Some("/tmp".into()),
         };

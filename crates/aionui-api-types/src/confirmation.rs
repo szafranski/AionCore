@@ -113,21 +113,19 @@ mod tests {
 
     #[test]
     fn confirmation_list_response_is_vec() {
-        let list: ConfirmationListResponse = vec![
-            Confirmation {
-                id: "c1".into(),
-                call_id: "call-1".into(),
-                title: Some("Test".into()),
-                action: Some("edit_file".into()),
-                description: "Edit main.rs".into(),
-                command_type: None,
-                options: vec![ConfirmationOption {
-                    label: "Allow".into(),
-                    value: json!("allow"),
-                    params: None,
-                }],
-            },
-        ];
+        let list: ConfirmationListResponse = vec![Confirmation {
+            id: "c1".into(),
+            call_id: "call-1".into(),
+            title: Some("Test".into()),
+            action: Some("edit_file".into()),
+            description: "Edit main.rs".into(),
+            command_type: None,
+            options: vec![ConfirmationOption {
+                label: "Allow".into(),
+                value: json!("allow"),
+                params: None,
+            }],
+        }];
         let json = serde_json::to_value(&list).unwrap();
         let arr = json.as_array().unwrap();
         assert_eq!(arr.len(), 1);

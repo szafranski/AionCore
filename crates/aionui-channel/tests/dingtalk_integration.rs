@@ -19,10 +19,8 @@ mod dingtalk_tests {
     use aionui_channel::manager::{ChannelManager, PluginFactory};
     use aionui_channel::plugin::ChannelPlugin;
     use aionui_channel::plugins::dingtalk::DingtalkPlugin;
-    use aionui_channel::types::{
-        PluginConfig, PluginCredentials, PluginStatus, PluginType,
-    };
-    use aionui_db::{init_database_memory, IChannelRepository, SqliteChannelRepository};
+    use aionui_channel::types::{PluginConfig, PluginCredentials, PluginStatus, PluginType};
+    use aionui_db::{IChannelRepository, SqliteChannelRepository, init_database_memory};
     use aionui_realtime::EventBroadcaster;
     use std::sync::Arc;
     use tokio::sync::mpsc;
@@ -86,10 +84,7 @@ mod dingtalk_tests {
         })
     }
 
-    fn make_dingtalk_config(
-        client_id: Option<&str>,
-        client_secret: Option<&str>,
-    ) -> PluginConfig {
+    fn make_dingtalk_config(client_id: Option<&str>, client_secret: Option<&str>) -> PluginConfig {
         PluginConfig {
             credentials: PluginCredentials {
                 token: None,

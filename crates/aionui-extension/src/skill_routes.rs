@@ -1,17 +1,17 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Json, Path as AxumPath, State};
 use axum::routing::{delete, get, post};
-use axum::Router;
 
 use aionui_api_types::{
     AddExternalPathRequest, ApiResponse, ExportSkillRequest, ExternalSkillSourceResponse,
     ImportSkillRequest, ImportSkillResponse, NamedPathResponse, ReadAssistantRuleRequest,
     ReadBuiltinResourceRequest, ReadSkillInfoRequest, ReadSkillInfoResponse,
-    RemoveExternalPathRequest, ScanForSkillsRequest, ScanForSkillsResponse,
-    ScannedSkillResponse, SkillListItemResponse, SkillPathsResponse, WriteAssistantRuleRequest,
+    RemoveExternalPathRequest, ScanForSkillsRequest, ScanForSkillsResponse, ScannedSkillResponse,
+    SkillListItemResponse, SkillPathsResponse, WriteAssistantRuleRequest,
 };
 use aionui_common::AppError;
 
@@ -80,7 +80,9 @@ pub fn skill_routes(state: SkillRouterState) -> Router {
         // External path management
         .route(
             "/api/skills/external-paths",
-            get(get_external_paths).post(add_external_path).delete(remove_external_path),
+            get(get_external_paths)
+                .post(add_external_path)
+                .delete(remove_external_path),
         )
         // Skills market
         .route("/api/skills/market/enable", post(enable_skills_market))
@@ -154,11 +156,9 @@ async fn import_skill_symlink(
     body: Result<Json<ImportSkillRequest>, JsonRejection>,
 ) -> Result<Json<ApiResponse<ImportSkillResponse>>, AppError> {
     let Json(req) = body.map_err(|e| AppError::BadRequest(e.to_string()))?;
-    let name = skill_service::import_skill_with_symlink(
-        &state.skill_paths,
-        Path::new(&req.skill_path),
-    )
-    .await?;
+    let name =
+        skill_service::import_skill_with_symlink(&state.skill_paths, Path::new(&req.skill_path))
+            .await?;
     Ok(Json(ApiResponse::ok(ImportSkillResponse {
         skill_name: name,
     })))
@@ -226,7 +226,10 @@ async fn detect_paths() -> Result<Json<ApiResponse<Vec<NamedPathResponse>>>, App
 async fn detect_external(
     State(state): State<SkillRouterState>,
 ) -> Result<Json<ApiResponse<Vec<ExternalSkillSourceResponse>>>, AppError> {
-    let custom = state.external_paths_manager.get_custom_external_paths().await;
+    let custom = state
+        .external_paths_manager
+        .get_custom_external_paths()
+        .await;
     let sources = skill_service::detect_and_count_external_skills(&custom).await;
     let resp: Vec<ExternalSkillSourceResponse> = sources
         .into_iter()
@@ -368,7 +371,10 @@ async fn delete_assistant_skill(
 async fn get_external_paths(
     State(state): State<SkillRouterState>,
 ) -> Result<Json<ApiResponse<Vec<NamedPathResponse>>>, AppError> {
-    let paths = state.external_paths_manager.get_custom_external_paths().await;
+    let paths = state
+        .external_paths_manager
+        .get_custom_external_paths()
+        .await;
     let resp: Vec<NamedPathResponse> = paths
         .into_iter()
         .map(|p| NamedPathResponse {
@@ -421,10 +427,7 @@ async fn enable_skills_market(
 async fn disable_skills_market(
     State(state): State<SkillRouterState>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-    state
-        .external_paths_manager
-        .disable_skills_market()
-        .await?;
+    state.external_paths_manager.disable_skills_market().await?;
     Ok(Json(ApiResponse::success()))
 }
 

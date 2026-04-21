@@ -1,8 +1,8 @@
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Path, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
-use axum::Router;
 
 use aionui_api_types::{
     ApiResponse, CreateRemoteAgentRequest, HandshakeResponse, RemoteAgentListItem,
@@ -25,10 +25,7 @@ pub struct RemoteAgentRouterState {
 pub fn remote_agent_routes(state: RemoteAgentRouterState) -> Router {
     Router::new()
         .route("/api/remote-agents", get(list).post(create))
-        .route(
-            "/api/remote-agents/test-connection",
-            post(test_connection),
-        )
+        .route("/api/remote-agents/test-connection", post(test_connection))
         .route(
             "/api/remote-agents/{id}",
             get(get_one).put(update).delete(delete_one),

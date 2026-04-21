@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use aionui_api_types::{
-    CreateProviderRequest, ProviderResponse, UpdateProviderRequest,
-};
+use aionui_api_types::{CreateProviderRequest, ProviderResponse, UpdateProviderRequest};
 use aionui_common::{AppError, decrypt_string, encrypt_string};
-use aionui_db::{CreateProviderParams, IProviderRepository, UpdateProviderParams, models::Provider};
+use aionui_db::{
+    CreateProviderParams, IProviderRepository, UpdateProviderParams, models::Provider,
+};
 use serde::de::DeserializeOwned;
 
 /// Business logic for model provider CRUD with API key encryption/masking.
@@ -32,10 +32,7 @@ impl ProviderService {
     }
 
     /// Create a new provider. The API key is encrypted before storage.
-    pub async fn create(
-        &self,
-        req: CreateProviderRequest,
-    ) -> Result<ProviderResponse, AppError> {
+    pub async fn create(&self, req: CreateProviderRequest) -> Result<ProviderResponse, AppError> {
         validate_create_request(&req)?;
 
         let encrypted_key = encrypt_string(&req.api_key, &self.encryption_key)?;
@@ -91,18 +88,10 @@ impl ProviderService {
             enabled: req.enabled,
             capabilities: capabilities_json.as_deref(),
             context_limit: req.context_limit.map(Some),
-            model_protocols: model_protocols_json
-                .as_ref()
-                .map(|s| Some(s.as_str())),
-            model_enabled: model_enabled_json
-                .as_ref()
-                .map(|s| Some(s.as_str())),
-            model_health: model_health_json
-                .as_ref()
-                .map(|s| Some(s.as_str())),
-            bedrock_config: bedrock_json
-                .as_ref()
-                .map(|s| Some(s.as_str())),
+            model_protocols: model_protocols_json.as_ref().map(|s| Some(s.as_str())),
+            model_enabled: model_enabled_json.as_ref().map(|s| Some(s.as_str())),
+            model_health: model_health_json.as_ref().map(|s| Some(s.as_str())),
+            bedrock_config: bedrock_json.as_ref().map(|s| Some(s.as_str())),
         };
 
         let row = self.repo.update(id, params).await?;
@@ -194,18 +183,14 @@ pub(crate) fn deserialize_opt<T: DeserializeOwned>(
 
 fn validate_create_request(req: &CreateProviderRequest) -> Result<(), AppError> {
     if req.platform.trim().is_empty() {
-        return Err(AppError::BadRequest(
-            "platform is required".into(),
-        ));
+        return Err(AppError::BadRequest("platform is required".into()));
     }
     if req.name.trim().is_empty() {
         return Err(AppError::BadRequest("name is required".into()));
     }
     validate_base_url(&req.base_url)?;
     if req.api_key.trim().is_empty() {
-        return Err(AppError::BadRequest(
-            "apiKey is required".into(),
-        ));
+        return Err(AppError::BadRequest("apiKey is required".into()));
     }
     Ok(())
 }
@@ -214,16 +199,12 @@ fn validate_update_request(req: &UpdateProviderRequest) -> Result<(), AppError> 
     if let Some(ref platform) = req.platform
         && platform.trim().is_empty()
     {
-        return Err(AppError::BadRequest(
-            "platform cannot be empty".into(),
-        ));
+        return Err(AppError::BadRequest("platform cannot be empty".into()));
     }
     if let Some(ref name) = req.name
         && name.trim().is_empty()
     {
-        return Err(AppError::BadRequest(
-            "name cannot be empty".into(),
-        ));
+        return Err(AppError::BadRequest("name cannot be empty".into()));
     }
     if let Some(ref url) = req.base_url {
         validate_base_url(url)?;
@@ -233,9 +214,7 @@ fn validate_update_request(req: &UpdateProviderRequest) -> Result<(), AppError> 
 
 fn validate_base_url(url: &str) -> Result<(), AppError> {
     if url.trim().is_empty() {
-        return Err(AppError::BadRequest(
-            "baseUrl is required".into(),
-        ));
+        return Err(AppError::BadRequest("baseUrl is required".into()));
     }
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err(AppError::BadRequest(

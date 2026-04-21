@@ -47,12 +47,10 @@ impl WeixinLoginEvent {
     /// Serialize the event payload as JSON.
     pub fn to_json_data(&self) -> String {
         match self {
-            Self::Qr(ticket) => {
-                serde_json::to_string(&SseQrEvent {
-                    qrcode_data: ticket.clone(),
-                })
-                .unwrap_or_default()
-            }
+            Self::Qr(ticket) => serde_json::to_string(&SseQrEvent {
+                qrcode_data: ticket.clone(),
+            })
+            .unwrap_or_default(),
             Self::Scanned => "{}".into(),
             Self::Done {
                 account_id,
@@ -64,12 +62,10 @@ impl WeixinLoginEvent {
                 base_url: base_url.clone(),
             })
             .unwrap_or_default(),
-            Self::Error(message) => {
-                serde_json::to_string(&SseErrorEvent {
-                    message: message.clone(),
-                })
-                .unwrap_or_default()
-            }
+            Self::Error(message) => serde_json::to_string(&SseErrorEvent {
+                message: message.clone(),
+            })
+            .unwrap_or_default(),
         }
     }
 }
@@ -92,10 +88,7 @@ pub fn weixin_login_stream() -> mpsc::Receiver<WeixinLoginEvent> {
 
 /// Internal login flow that drives the SSE event sequence.
 async fn login_flow(tx: mpsc::Sender<WeixinLoginEvent>) {
-    let client = match Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-    {
+    let client = match Client::builder().timeout(Duration::from_secs(30)).build() {
         Ok(c) => c,
         Err(e) => {
             let _ = tx
@@ -171,13 +164,9 @@ async fn login_flow(tx: mpsc::Sender<WeixinLoginEvent>) {
                         }
                     }
                     "confirmed" => {
-                        let account_id =
-                            status.account_id.unwrap_or_default();
-                        let bot_token =
-                            status.bot_token.unwrap_or_default();
-                        let base_url = status
-                            .base_url
-                            .unwrap_or_else(|| LOGIN_BASE_URL.into());
+                        let account_id = status.account_id.unwrap_or_default();
+                        let bot_token = status.bot_token.unwrap_or_default();
+                        let base_url = status.base_url.unwrap_or_else(|| LOGIN_BASE_URL.into());
 
                         info!(
                             account_id = %account_id,
@@ -194,9 +183,7 @@ async fn login_flow(tx: mpsc::Sender<WeixinLoginEvent>) {
                     }
                     "expired" => {
                         let _ = tx
-                            .send(WeixinLoginEvent::Error(
-                                "QR code expired".into(),
-                            ))
+                            .send(WeixinLoginEvent::Error("QR code expired".into()))
                             .await;
                         return;
                     }
@@ -207,9 +194,7 @@ async fn login_flow(tx: mpsc::Sender<WeixinLoginEvent>) {
             Err(e) => {
                 error!(error = %e, "Failed to poll QR code status");
                 let _ = tx
-                    .send(WeixinLoginEvent::Error(format!(
-                        "Status poll failed: {e}"
-                    )))
+                    .send(WeixinLoginEvent::Error(format!("Status poll failed: {e}")))
                     .await;
                 return;
             }
@@ -238,10 +223,7 @@ mod tests {
             .event_name(),
             "done"
         );
-        assert_eq!(
-            WeixinLoginEvent::Error("err".into()).event_name(),
-            "error"
-        );
+        assert_eq!(WeixinLoginEvent::Error("err".into()).event_name(), "error");
     }
 
     #[test]

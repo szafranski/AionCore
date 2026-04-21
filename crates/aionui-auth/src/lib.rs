@@ -15,7 +15,7 @@ mod validation;
 pub use error::AuthError;
 
 // JWT service
-pub use jwt::{generate_random_secret_string, resolve_jwt_secret, JwtService, TokenPayload};
+pub use jwt::{JwtService, TokenPayload, generate_random_secret_string, resolve_jwt_secret};
 
 // Password service
 pub use password::{
@@ -28,8 +28,8 @@ pub use validation::{validate_password, validate_username};
 
 // Rate limiting
 pub use rate_limit::{
-    api_rate_limit_middleware, auth_rate_limit_middleware,
-    authenticated_action_rate_limit_middleware, RateLimiter,
+    RateLimiter, api_rate_limit_middleware, auth_rate_limit_middleware,
+    authenticated_action_rate_limit_middleware,
 };
 
 // Token / IP extraction
@@ -48,10 +48,10 @@ pub use security::security_headers_middleware;
 pub use csrf::csrf_middleware;
 
 // Auth middleware
-pub use middleware::{auth_middleware, AuthState, CurrentUser};
+pub use middleware::{AuthState, CurrentUser, auth_middleware};
 
 // QR token store
 pub use qr_token::QrTokenStore;
 
 // Routes
-pub use routes::{auth_routes, AuthRouterState};
+pub use routes::{AuthRouterState, auth_routes};

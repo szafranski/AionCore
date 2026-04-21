@@ -171,9 +171,7 @@ pub fn build_skills_index_text(skills: &[SkillIndex]) -> String {
     let mut lines = Vec::with_capacity(skills.len() + 4);
     lines.push("## Available Skills".to_string());
     lines.push(String::new());
-    lines.push(
-        "To load a skill, include `[LOAD_SKILL: skill-name]` in your response.".to_string(),
-    );
+    lines.push("To load a skill, include `[LOAD_SKILL: skill-name]` in your response.".to_string());
     lines.push(String::new());
 
     for skill in skills {
@@ -195,10 +193,7 @@ pub fn detect_skill_load_request(content: &str) -> Vec<String> {
 }
 
 /// Build system instructions text with full skill content (for Gemini).
-pub fn build_system_instructions(
-    base_instructions: &str,
-    skills: &[SkillDefinition],
-) -> String {
+pub fn build_system_instructions(base_instructions: &str, skills: &[SkillDefinition]) -> String {
     if skills.is_empty() {
         return base_instructions.to_string();
     }
@@ -207,10 +202,7 @@ pub fn build_system_instructions(
 
     for skill in skills {
         if let Some(body) = &skill.body {
-            parts.push(format!(
-                "\n## Skill: {}\n\n{}",
-                skill.name, body
-            ));
+            parts.push(format!("\n## Skill: {}\n\n{}", skill.name, body));
         }
     }
 
@@ -329,10 +321,7 @@ async fn parse_skill_frontmatter(path: &Path) -> Option<SkillDefinition> {
 
     // Use directory name as fallback for name
     let final_name = if name.is_empty() {
-        path.parent()?
-            .file_name()?
-            .to_string_lossy()
-            .into_owned()
+        path.parent()?.file_name()?.to_string_lossy().into_owned()
     } else {
         name
     };
@@ -556,8 +545,7 @@ mod tests {
             name: "test".into(),
             description: "Testing".into(),
         }];
-        let result =
-            prepare_first_message_with_skills_index("Hello", &skills, Some("Be concise."));
+        let result = prepare_first_message_with_skills_index("Hello", &skills, Some("Be concise."));
         assert!(result.contains("[Assistant Rules]"));
         assert!(result.contains("Be concise."));
         assert!(result.contains("- **test**: Testing"));

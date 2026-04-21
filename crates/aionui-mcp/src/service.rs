@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use aionui_api_types::{
-    BatchImportMcpServersRequest, CreateMcpServerRequest, McpServerResponse,
-    UpdateMcpServerRequest,
+    BatchImportMcpServersRequest, CreateMcpServerRequest, McpServerResponse, UpdateMcpServerRequest,
 };
 use aionui_db::{CreateMcpServerParams, IMcpServerRepository, UpdateMcpServerParams};
 
@@ -186,16 +185,18 @@ impl McpConfigService {
             .servers
             .iter()
             .zip(params_data.iter())
-            .map(|(server_req, (transport, config_json))| CreateMcpServerParams {
-                name: &server_req.name,
-                description: server_req.description.as_deref(),
-                enabled: false,
-                transport_type: transport.transport_type(),
-                transport_config: config_json.as_str(),
-                tools: None,
-                original_json: server_req.original_json.as_deref(),
-                builtin: server_req.builtin,
-            })
+            .map(
+                |(server_req, (transport, config_json))| CreateMcpServerParams {
+                    name: &server_req.name,
+                    description: server_req.description.as_deref(),
+                    enabled: false,
+                    transport_type: transport.transport_type(),
+                    transport_config: config_json.as_str(),
+                    tools: None,
+                    original_json: server_req.original_json.as_deref(),
+                    builtin: server_req.builtin,
+                },
+            )
             .collect();
 
         let rows = self.repo.batch_upsert(&create_params).await?;
@@ -303,10 +304,7 @@ mod tests {
 
             // Check name conflict
             if let Some(new_name) = params.name {
-                if servers
-                    .iter()
-                    .any(|s| s.name == new_name && s.id != id)
-                {
+                if servers.iter().any(|s| s.name == new_name && s.id != id) {
                     return Err(DbError::Conflict(format!(
                         "MCP server name '{new_name}' already exists"
                     )));
@@ -405,11 +403,7 @@ mod tests {
             Ok(())
         }
 
-        async fn update_tools(
-            &self,
-            id: &str,
-            tools: Option<&str>,
-        ) -> Result<(), DbError> {
+        async fn update_tools(&self, id: &str, tools: Option<&str>) -> Result<(), DbError> {
             let mut servers = self.servers.lock().unwrap();
             let idx = servers
                 .iter()
@@ -503,10 +497,16 @@ mod tests {
     #[tokio::test]
     async fn add_server_upserts_existing() {
         let svc = make_service();
-        let first = svc.add_server(stdio_create_req("upsert-test")).await.unwrap();
+        let first = svc
+            .add_server(stdio_create_req("upsert-test"))
+            .await
+            .unwrap();
 
         // Second add with same name updates existing
-        let updated = svc.add_server(http_create_req("upsert-test")).await.unwrap();
+        let updated = svc
+            .add_server(http_create_req("upsert-test"))
+            .await
+            .unwrap();
         assert_eq!(updated.id, first.id);
         // Transport should be updated to http
         match updated.transport {
@@ -743,8 +743,8 @@ mod tests {
 
         let req = BatchImportMcpServersRequest {
             servers: vec![
-                http_create_req("existing"), // update
-                stdio_create_req("brand-new"),  // create
+                http_create_req("existing"),   // update
+                stdio_create_req("brand-new"), // create
             ],
         };
         let results = svc.batch_import(req).await.unwrap();
@@ -757,9 +757,7 @@ mod tests {
     #[tokio::test]
     async fn batch_import_empty_list() {
         let svc = make_service();
-        let req = BatchImportMcpServersRequest {
-            servers: vec![],
-        };
+        let req = BatchImportMcpServersRequest { servers: vec![] };
         let results = svc.batch_import(req).await.unwrap();
         assert!(results.is_empty());
     }

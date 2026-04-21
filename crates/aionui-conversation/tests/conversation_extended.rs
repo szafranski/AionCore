@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use aionui_api_types::{
-    CloneConversationRequest, CreateConversationRequest, ListMessagesQuery,
-    SearchMessagesQuery, WebSocketMessage,
+    CloneConversationRequest, CreateConversationRequest, ListMessagesQuery, SearchMessagesQuery,
+    WebSocketMessage,
 };
-use aionui_common::{generate_prefixed_id, now_ms, ConversationStatus};
+use aionui_common::{ConversationStatus, generate_prefixed_id, now_ms};
 use aionui_conversation::ConversationService;
 use aionui_db::models::MessageRow;
-use aionui_db::{init_database_memory, IConversationRepository, SqliteConversationRepository};
+use aionui_db::{IConversationRepository, SqliteConversationRepository, init_database_memory};
 use aionui_realtime::EventBroadcaster;
 use serde_json::json;
 use std::sync::Mutex;
@@ -235,10 +235,7 @@ async fn t8_2_pagination() {
         page_size: Some(3),
         order: None,
     };
-    let result = svc
-        .list_messages(USER_ID, &conv.id, query)
-        .await
-        .unwrap();
+    let result = svc.list_messages(USER_ID, &conv.id, query).await.unwrap();
     assert_eq!(result.items.len(), 3);
     assert_eq!(result.total, 10);
     assert!(result.has_more);
@@ -279,10 +276,7 @@ async fn t8_4_asc_order() {
         order: Some("ASC".into()),
         ..Default::default()
     };
-    let result = svc
-        .list_messages(USER_ID, &conv.id, query)
-        .await
-        .unwrap();
+    let result = svc.list_messages(USER_ID, &conv.id, query).await.unwrap();
     assert!(result.items[0].created_at <= result.items[1].created_at);
     assert!(result.items[1].created_at <= result.items[2].created_at);
 }
@@ -412,10 +406,7 @@ async fn t10_1_same_workspace() {
     .unwrap();
     svc.create(USER_ID, req3).await.unwrap();
 
-    let associated = svc
-        .list_associated(USER_ID, &conv1.id)
-        .await
-        .unwrap();
+    let associated = svc.list_associated(USER_ID, &conv1.id).await.unwrap();
     assert_eq!(associated.len(), 1);
     assert_eq!(associated[0].id, conv2.id);
 }
@@ -432,10 +423,7 @@ async fn t10_2_no_associated() {
     .unwrap();
     let conv = svc.create(USER_ID, req).await.unwrap();
 
-    let associated = svc
-        .list_associated(USER_ID, &conv.id)
-        .await
-        .unwrap();
+    let associated = svc.list_associated(USER_ID, &conv.id).await.unwrap();
     assert!(associated.is_empty());
 }
 

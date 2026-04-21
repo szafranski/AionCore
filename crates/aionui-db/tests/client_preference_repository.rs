@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use aionui_db::{
-    init_database_memory, IClientPreferenceRepository, SqliteClientPreferenceRepository,
+    IClientPreferenceRepository, SqliteClientPreferenceRepository, init_database_memory,
 };
 
 async fn repo() -> Arc<dyn IClientPreferenceRepository> {

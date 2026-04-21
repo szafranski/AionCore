@@ -1,11 +1,11 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use aionui_api_types::WebSocketMessage;
+use aionui_office::OfficeError;
 use aionui_office::proxy::{ProxyError, ProxyService};
 use aionui_office::types::DocType;
 use aionui_office::watch_manager::{OfficecliWatchManager, ProcessHandle, ProcessSpawner};
-use aionui_office::OfficeError;
 use aionui_realtime::EventBroadcaster;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
@@ -130,7 +130,10 @@ fn build_http_response(status: u16, headers: &[(&str, &str)], body: &str) -> Str
     for (k, v) in headers {
         resp.push_str(&format!("{k}: {v}\r\n"));
     }
-    if !headers.iter().any(|(k, _)| k.to_lowercase() == "content-length") {
+    if !headers
+        .iter()
+        .any(|(k, _)| k.to_lowercase() == "content-length")
+    {
         resp.push_str(&format!("Content-Length: {}\r\n", body.len()));
     }
     resp.push_str("\r\n");
@@ -160,9 +163,7 @@ async fn setup_proxy(
     (proxy, port, dir)
 }
 
-async fn setup_ssrf_proxy(
-    doc_type: DocType,
-) -> (ProxyService, u16, tempfile::TempDir) {
+async fn setup_ssrf_proxy(doc_type: DocType) -> (ProxyService, u16, tempfile::TempDir) {
     let mgr = Arc::new(OfficecliWatchManager::new(
         Arc::new(TcpOnlySpawner),
         Arc::new(NoopBroadcaster),
@@ -274,10 +275,14 @@ async fn forward_watch_rejects_ppt_session_port() {
 
 #[tokio::test]
 async fn rp1_rp3_proxy_forwards_plain_text() {
-    let response = build_http_response(200, &[("Content-Type", "text/plain")], "Hello from preview");
+    let response =
+        build_http_response(200, &[("Content-Type", "text/plain")], "Hello from preview");
     let (proxy, port, _dir) = setup_proxy(DocType::Ppt, &response).await;
 
-    let result = proxy.forward(port, "/index.html", DocType::Ppt, &[]).await.unwrap();
+    let result = proxy
+        .forward(port, "/index.html", DocType::Ppt, &[])
+        .await
+        .unwrap();
 
     assert_eq!(result.status, 200);
     let body = String::from_utf8(result.body).unwrap();
@@ -298,7 +303,10 @@ async fn rp5_proxy_injects_navigation_guard_in_html() {
 
     assert_eq!(result.status, 200);
     let body = String::from_utf8(result.body).unwrap();
-    assert!(body.contains("<script>"), "should inject navigation guard script");
+    assert!(
+        body.contains("<script>"),
+        "should inject navigation guard script"
+    );
     assert!(
         body.contains(&format!("'/api/office-watch-proxy/{port}'")),
         "guard should reference correct proxy base path"
@@ -315,13 +323,23 @@ async fn rp5_proxy_injects_navigation_guard_in_html() {
 
 #[tokio::test]
 async fn rp5b_proxy_does_not_inject_in_json() {
-    let response = build_http_response(200, &[("Content-Type", "application/json")], r#"{"ok":true}"#);
+    let response = build_http_response(
+        200,
+        &[("Content-Type", "application/json")],
+        r#"{"ok":true}"#,
+    );
     let (proxy, port, _dir) = setup_proxy(DocType::Ppt, &response).await;
 
-    let result = proxy.forward(port, "/api/data", DocType::Ppt, &[]).await.unwrap();
+    let result = proxy
+        .forward(port, "/api/data", DocType::Ppt, &[])
+        .await
+        .unwrap();
 
     let body = String::from_utf8(result.body).unwrap();
-    assert!(!body.contains("<script>"), "should not inject script in JSON responses");
+    assert!(
+        !body.contains("<script>"),
+        "should not inject script in JSON responses"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -345,9 +363,18 @@ async fn rp7_proxy_strips_hop_by_hop_headers() {
     let result = proxy.forward(port, "/", DocType::Word, &[]).await.unwrap();
 
     let header_names: Vec<&str> = result.headers.iter().map(|(k, _)| k.as_str()).collect();
-    assert!(!header_names.contains(&"connection"), "connection header should be stripped");
-    assert!(!header_names.contains(&"keep-alive"), "keep-alive header should be stripped");
-    assert!(header_names.contains(&"x-custom"), "custom header should be preserved");
+    assert!(
+        !header_names.contains(&"connection"),
+        "connection header should be stripped"
+    );
+    assert!(
+        !header_names.contains(&"keep-alive"),
+        "keep-alive header should be stripped"
+    );
+    assert!(
+        header_names.contains(&"x-custom"),
+        "custom header should be preserved"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -394,10 +421,17 @@ async fn proxy_removes_content_length_for_html() {
 
 #[tokio::test]
 async fn proxy_preserves_content_length_for_non_html() {
-    let response = build_http_response(200, &[("Content-Type", "application/json")], r#"{"ok":true}"#);
+    let response = build_http_response(
+        200,
+        &[("Content-Type", "application/json")],
+        r#"{"ok":true}"#,
+    );
     let (proxy, port, _dir) = setup_proxy(DocType::Ppt, &response).await;
 
-    let result = proxy.forward(port, "/api/data", DocType::Ppt, &[]).await.unwrap();
+    let result = proxy
+        .forward(port, "/api/data", DocType::Ppt, &[])
+        .await
+        .unwrap();
 
     let has_cl = result.headers.iter().any(|(k, _)| k == "content-length");
     assert!(has_cl, "content-length should be preserved for non-HTML");
@@ -419,7 +453,10 @@ async fn rp6_proxy_rewrites_location_header() {
     );
     let (proxy, port, _dir) = setup_proxy(DocType::Ppt, &response_template).await;
 
-    let result = proxy.forward(port, "/old", DocType::Ppt, &[]).await.unwrap();
+    let result = proxy
+        .forward(port, "/old", DocType::Ppt, &[])
+        .await
+        .unwrap();
 
     assert_eq!(result.status, 302);
     let location = result
@@ -441,15 +478,15 @@ async fn rp6_proxy_rewrites_location_header() {
 async fn rp6b_proxy_rewrites_root_relative_location() {
     let response_template = build_http_response(
         302,
-        &[
-            ("Content-Type", "text/html"),
-            ("Location", "/redirected"),
-        ],
+        &[("Content-Type", "text/html"), ("Location", "/redirected")],
         "",
     );
     let (proxy, port, _dir) = setup_proxy(DocType::Word, &response_template).await;
 
-    let result = proxy.forward(port, "/old", DocType::Word, &[]).await.unwrap();
+    let result = proxy
+        .forward(port, "/old", DocType::Word, &[])
+        .await
+        .unwrap();
 
     let location = result
         .headers
@@ -471,7 +508,10 @@ async fn proxy_forwards_404_status() {
     let response = build_http_response(404, &[("Content-Type", "text/plain")], "Not Found");
     let (proxy, port, _dir) = setup_proxy(DocType::Word, &response).await;
 
-    let result = proxy.forward(port, "/missing", DocType::Word, &[]).await.unwrap();
+    let result = proxy
+        .forward(port, "/missing", DocType::Word, &[])
+        .await
+        .unwrap();
 
     assert_eq!(result.status, 404);
 }

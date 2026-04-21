@@ -4,10 +4,7 @@ use crate::types::{ExtSettingsTab, ResolvedSettingsTab};
 ///
 /// Position information (relativeTo, placement) is preserved for the
 /// frontend to handle insertion ordering.
-pub fn resolve_settings_tab(
-    tab: &ExtSettingsTab,
-    extension_name: &str,
-) -> ResolvedSettingsTab {
+pub fn resolve_settings_tab(tab: &ExtSettingsTab, extension_name: &str) -> ResolvedSettingsTab {
     ResolvedSettingsTab {
         extension_name: extension_name.to_owned(),
         id: tab.id.clone(),

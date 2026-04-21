@@ -5,10 +5,7 @@ use crate::types::{ExtMcpServer, ResolvedMcpServer};
 /// Resolve a single MCP server contribution.
 ///
 /// MCP server config is passed through as-is (opaque JSON).
-pub fn resolve_mcp_server(
-    server: &ExtMcpServer,
-    extension_name: &str,
-) -> ResolvedMcpServer {
+pub fn resolve_mcp_server(server: &ExtMcpServer, extension_name: &str) -> ResolvedMcpServer {
     ResolvedMcpServer {
         extension_name: extension_name.to_owned(),
         id: server.id.clone(),

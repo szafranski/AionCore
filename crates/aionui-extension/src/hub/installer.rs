@@ -62,10 +62,7 @@ pub struct HubInstaller {
 }
 
 impl HubInstaller {
-    pub fn new(
-        index_manager: HubIndexManager,
-        registry: ExtensionRegistry,
-    ) -> Self {
+    pub fn new(index_manager: HubIndexManager, registry: ExtensionRegistry) -> Self {
         Self {
             index_manager,
             registry,
@@ -129,10 +126,7 @@ impl HubInstaller {
         let ext_dir = target_dir.join(&entry.name);
 
         if !ext_dir.exists() {
-            return HubResult::err(format!(
-                "Extension not installed: {}",
-                ext_dir.display()
-            ));
+            return HubResult::err(format!("Extension not installed: {}", ext_dir.display()));
         }
 
         if let Err(e) = self.verify_installation(&ext_dir) {
@@ -222,10 +216,7 @@ impl HubInstaller {
         // Build a temporary LoadedExtension to test contribution resolution.
         let loaded = LoadedExtension {
             manifest,
-            directory: ext_dir
-                .to_str()
-                .unwrap_or_default()
-                .to_owned(),
+            directory: ext_dir.to_str().unwrap_or_default().to_owned(),
             source: ExtensionSource::Local,
             state: ExtensionState {
                 name: "verification-check".into(),
@@ -254,11 +245,7 @@ impl HubInstaller {
 
 /// Validate an extension name to prevent path traversal attacks.
 fn validate_hub_name(name: &str) -> Result<(), String> {
-    if name.is_empty()
-        || name.contains('/')
-        || name.contains('\\')
-        || name.contains("..")
-    {
+    if name.is_empty() || name.contains('/') || name.contains('\\') || name.contains("..") {
         return Err(format!("Invalid extension name: '{name}'"));
     }
     Ok(())
@@ -330,11 +317,7 @@ mod tests {
     #[test]
     fn verify_installation_invalid_manifest() {
         let tmp = tempfile::TempDir::new().unwrap();
-        std::fs::write(
-            tmp.path().join(EXTENSION_MANIFEST_FILE),
-            b"not valid json",
-        )
-        .unwrap();
+        std::fs::write(tmp.path().join(EXTENSION_MANIFEST_FILE), b"not valid json").unwrap();
 
         let registry = make_test_registry();
         let index_mgr = HubIndexManager::new(tmp.path().to_path_buf(), registry.clone());

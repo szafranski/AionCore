@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use aionui_api_types::WebSocketMessage;
@@ -11,8 +11,7 @@ use tracing::{debug, info, warn};
 
 use crate::broadcaster::EventBroadcaster;
 use crate::types::{
-    ClientInfo, ConnectionId, WebSocketCloseCode, WsOutbound,
-    HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT,
+    ClientInfo, ConnectionId, HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT, WebSocketCloseCode, WsOutbound,
 };
 
 /// Validates whether a JWT token is still valid.
@@ -35,11 +34,7 @@ impl WebSocketManager {
     }
 
     /// Register a new client connection and return its assigned ID.
-    pub fn add_client(
-        &self,
-        token: String,
-        tx: mpsc::Sender<WsOutbound>,
-    ) -> ConnectionId {
+    pub fn add_client(&self, token: String, tx: mpsc::Sender<WsOutbound>) -> ConnectionId {
         let id = ConnectionId(self.next_id.fetch_add(1, Ordering::Relaxed));
         let info = ClientInfo {
             token,
@@ -103,11 +98,7 @@ impl WebSocketManager {
     }
 
     /// Send a message to a specific connection.
-    pub fn send_to(
-        &self,
-        conn_id: ConnectionId,
-        msg: WebSocketMessage<serde_json::Value>,
-    ) {
+    pub fn send_to(&self, conn_id: ConnectionId, msg: WebSocketMessage<serde_json::Value>) {
         let text = match serde_json::to_string(&msg) {
             Ok(t) => t,
             Err(e) => {
@@ -148,10 +139,7 @@ impl WebSocketManager {
     /// 3. Sends a `ping` message with current timestamp
     ///
     /// Returns a `JoinHandle` — abort it to stop the heartbeat loop.
-    pub fn start_heartbeat(
-        &self,
-        token_validator: TokenValidator,
-    ) -> JoinHandle<()> {
+    pub fn start_heartbeat(&self, token_validator: TokenValidator) -> JoinHandle<()> {
         let connections = Arc::clone(&self.connections);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(HEARTBEAT_INTERVAL);
@@ -201,10 +189,8 @@ fn heartbeat_tick(
         // 2. Token expiry
         if !token_validator(&client.token) {
             info!(%conn_id, "token expired, closing connection");
-            let auth_expired = WebSocketMessage::new(
-                "auth-expired",
-                json!({"message": "Token expired"}),
-            );
+            let auth_expired =
+                WebSocketMessage::new("auth-expired", json!({"message": "Token expired"}));
             if let Ok(text) = serde_json::to_string(&auth_expired) {
                 let _ = client.tx.try_send(WsOutbound::Text(text));
             }
@@ -220,11 +206,9 @@ fn heartbeat_tick(
         let duration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default();
-        let timestamp =
-            duration.as_secs() * 1000 + u64::from(duration.subsec_millis());
+        let timestamp = duration.as_secs() * 1000 + u64::from(duration.subsec_millis());
 
-        let ping =
-            WebSocketMessage::new("ping", json!({"timestamp": timestamp}));
+        let ping = WebSocketMessage::new("ping", json!({"timestamp": timestamp}));
         if let Ok(text) = serde_json::to_string(&ping) {
             match client.tx.try_send(WsOutbound::Text(text)) {
                 Ok(()) => {}
@@ -257,8 +241,7 @@ mod tests {
         Arc::new(|_| false)
     }
 
-    fn new_client_tx() -> (mpsc::Sender<WsOutbound>, mpsc::Receiver<WsOutbound>)
-    {
+    fn new_client_tx() -> (mpsc::Sender<WsOutbound>, mpsc::Receiver<WsOutbound>) {
         mpsc::channel(PER_CONNECTION_BUFFER)
     }
 
@@ -300,22 +283,14 @@ mod tests {
         let (tx, _rx) = new_client_tx();
         let id = mgr.add_client("token".into(), tx);
 
-        let before = mgr
-            .connections
-            .get(&id)
-            .map(|c| c.last_ping)
-            .unwrap();
+        let before = mgr.connections.get(&id).map(|c| c.last_ping).unwrap();
 
         // Small busy-wait to ensure time advances
         std::thread::sleep(std::time::Duration::from_millis(5));
 
         mgr.update_last_ping(id);
 
-        let after = mgr
-            .connections
-            .get(&id)
-            .map(|c| c.last_ping)
-            .unwrap();
+        let after = mgr.connections.get(&id).map(|c| c.last_ping).unwrap();
 
         assert!(after > before);
     }
@@ -441,8 +416,7 @@ mod tests {
         let msg = rx.try_recv().unwrap();
         match msg {
             WsOutbound::Text(text) => {
-                let parsed: serde_json::Value =
-                    serde_json::from_str(&text).unwrap();
+                let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
                 assert_eq!(parsed["name"], "ping");
                 assert!(parsed["data"]["timestamp"].is_u64());
             }
@@ -506,8 +480,7 @@ mod tests {
         let msg1 = rx.try_recv().unwrap();
         match msg1 {
             WsOutbound::Text(text) => {
-                let parsed: serde_json::Value =
-                    serde_json::from_str(&text).unwrap();
+                let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
                 assert_eq!(parsed["name"], "auth-expired");
             }
             _ => panic!("expected auth-expired Text"),
@@ -516,10 +489,7 @@ mod tests {
         let msg2 = rx.try_recv().unwrap();
         assert_eq!(
             msg2,
-            WsOutbound::Close(
-                WebSocketCloseCode::PolicyViolation,
-                "token expired".into()
-            )
+            WsOutbound::Close(WebSocketCloseCode::PolicyViolation, "token expired".into())
         );
     }
 
@@ -582,8 +552,7 @@ mod tests {
             },
         );
 
-        let selective_validator: TokenValidator =
-            Arc::new(|_| true);
+        let selective_validator: TokenValidator = Arc::new(|_| true);
         heartbeat_tick(&connections, &selective_validator);
 
         // Only healthy connection remains

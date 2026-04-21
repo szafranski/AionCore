@@ -5,8 +5,8 @@
 use std::sync::Arc;
 
 use aionui_db::{
-    init_database_memory, CreateProviderParams, DbError, IProviderRepository,
-    SqliteProviderRepository, UpdateProviderParams,
+    CreateProviderParams, DbError, IProviderRepository, SqliteProviderRepository,
+    UpdateProviderParams, init_database_memory,
 };
 
 async fn repo() -> Arc<dyn IProviderRepository> {

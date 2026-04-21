@@ -1,6 +1,5 @@
 use aionui_api_types::{
-    DeepgramSpeechToTextConfig, OpenAISpeechToTextConfig, SpeechToTextConfig,
-    SpeechToTextProvider,
+    DeepgramSpeechToTextConfig, OpenAISpeechToTextConfig, SpeechToTextConfig, SpeechToTextProvider,
 };
 use aionui_shell::{SttError, SttService};
 use wiremock::matchers::{header, method, path};
@@ -25,8 +24,7 @@ async fn st1_openai_transcribe_success() {
         .and(path("/v1/audio/transcriptions"))
         .and(header("Authorization", "Bearer sk-test-key"))
         .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({ "text": "hello world" })),
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({ "text": "hello world" })),
         )
         .mount(&mock_server)
         .await;
@@ -239,14 +237,12 @@ async fn st7_openai_upstream_failure() {
 
     Mock::given(method("POST"))
         .and(path("/v1/audio/transcriptions"))
-        .respond_with(
-            ResponseTemplate::new(401).set_body_json(serde_json::json!({
-                "error": {
-                    "message": "Incorrect API key provided",
-                    "type": "invalid_request_error"
-                }
-            })),
-        )
+        .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({
+            "error": {
+                "message": "Incorrect API key provided",
+                "type": "invalid_request_error"
+            }
+        })))
         .mount(&mock_server)
         .await;
 
@@ -331,8 +327,7 @@ async fn st10_openai_language_hint_passed() {
     Mock::given(method("POST"))
         .and(path("/v1/audio/transcriptions"))
         .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({ "text": "你好世界" })),
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({ "text": "你好世界" })),
         )
         .mount(&mock_server)
         .await;
@@ -353,13 +348,7 @@ async fn st10_openai_language_hint_passed() {
     };
 
     let result = stt_service()
-        .transcribe(
-            dummy_audio(),
-            "test.wav",
-            "audio/wav",
-            Some("zh"),
-            &config,
-        )
+        .transcribe(dummy_audio(), "test.wav", "audio/wav", Some("zh"), &config)
         .await
         .unwrap();
 
@@ -405,13 +394,7 @@ async fn st10b_deepgram_language_hint_passed() {
     };
 
     let result = stt_service()
-        .transcribe(
-            dummy_audio(),
-            "test.wav",
-            "audio/wav",
-            Some("zh"),
-            &config,
-        )
+        .transcribe(dummy_audio(), "test.wav", "audio/wav", Some("zh"), &config)
         .await
         .unwrap();
 

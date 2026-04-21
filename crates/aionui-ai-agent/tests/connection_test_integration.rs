@@ -124,8 +124,7 @@ async fn gemini_fake_key_returns_inactive_or_error() {
     match result {
         Ok(data) => {
             assert!(
-                data.subscription_status == "inactive"
-                    || data.subscription_status == "active",
+                data.subscription_status == "inactive" || data.subscription_status == "active",
                 "Unexpected status: {}",
                 data.subscription_status
             );

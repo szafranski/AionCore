@@ -1,7 +1,7 @@
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
-use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
 
 use crate::error::AppError;
 
@@ -53,13 +53,9 @@ pub fn decrypt_string(ciphertext: &str, key: &[u8]) -> Result<String, AppError> 
     let (nonce_bytes, encrypted) = combined.split_at(NONCE_SIZE);
     let nonce = Nonce::from_slice(nonce_bytes);
 
-    let plaintext = cipher
-        .decrypt(nonce, encrypted)
-        .map_err(|_| {
-            AppError::BadRequest(
-                "Decryption failed: invalid key or corrupted data".into(),
-            )
-        })?;
+    let plaintext = cipher.decrypt(nonce, encrypted).map_err(|_| {
+        AppError::BadRequest("Decryption failed: invalid key or corrupted data".into())
+    })?;
 
     String::from_utf8(plaintext)
         .map_err(|e| AppError::Internal(format!("Invalid UTF-8 in decrypted data: {e}")))

@@ -7,7 +7,7 @@ use aionui_realtime::EventBroadcaster;
 use aionui_team::mcp::protocol::{read_frame, write_frame};
 use aionui_team::{Mailbox, TaskBoard, TeamAgent, TeamMcpServer, TeammateManager, TeammateRole};
 use common::MockTeamRepo;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::net::TcpStream;
 
 // ---------------------------------------------------------------------------
@@ -186,10 +186,12 @@ async fn mc2_wrong_token_rejected() {
     });
     send_request(&mut stream, &init_req).await;
     let resp = read_response(&mut stream).await;
-    assert!(resp["error"]["message"]
-        .as_str()
-        .unwrap()
-        .contains("Authentication failed"));
+    assert!(
+        resp["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Authentication failed")
+    );
 
     env.server.stop();
 }
@@ -209,10 +211,12 @@ async fn mc3_no_token_rejected() {
     });
     send_request(&mut stream, &init_req).await;
     let resp = read_response(&mut stream).await;
-    assert!(resp["error"]["message"]
-        .as_str()
-        .unwrap()
-        .contains("Authentication failed"));
+    assert!(
+        resp["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Authentication failed")
+    );
 
     env.server.stop();
 }
@@ -550,7 +554,10 @@ async fn tm1_list_all_members() {
     let members: Vec<Value> = serde_json::from_str(&text).unwrap();
     assert_eq!(members.len(), 2);
 
-    let names: Vec<&str> = members.iter().map(|m| m["name"].as_str().unwrap()).collect();
+    let names: Vec<&str> = members
+        .iter()
+        .map(|m| m["name"].as_str().unwrap())
+        .collect();
     assert!(names.contains(&"Leader"));
     assert!(names.contains(&"Worker"));
 
@@ -678,10 +685,12 @@ async fn non_initialize_first_request_rejected() {
     });
     send_request(&mut stream, &req).await;
     let resp = read_response(&mut stream).await;
-    assert!(resp["error"]["message"]
-        .as_str()
-        .unwrap()
-        .contains("initialize"));
+    assert!(
+        resp["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("initialize")
+    );
 
     env.server.stop();
 }
@@ -718,10 +727,7 @@ async fn sb1_bridge_config_generation() {
     );
 
     let env_map = config.to_env_map();
-    assert_eq!(
-        env_map["TEAM_MCP_PORT"],
-        env.server.port().to_string()
-    );
+    assert_eq!(env_map["TEAM_MCP_PORT"], env.server.port().to_string());
     assert_eq!(env_map["TEAM_MCP_TOKEN"], "test-token-123");
     assert_eq!(env_map["TEAM_AGENT_SLOT_ID"], "lead-1");
 
@@ -735,8 +741,7 @@ async fn sb3_different_agents_get_different_slot_ids() {
     let token = env.server.auth_token().to_string();
 
     let cfg_lead = aionui_team::TeamMcpStdioConfig::new(port, token.clone(), "lead-1".into());
-    let cfg_worker =
-        aionui_team::TeamMcpStdioConfig::new(port, token, "worker-1".into());
+    let cfg_worker = aionui_team::TeamMcpStdioConfig::new(port, token, "worker-1".into());
 
     assert_eq!(
         cfg_lead.to_env_map()["TEAM_MCP_PORT"],

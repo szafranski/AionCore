@@ -56,10 +56,7 @@ impl GeminiRotatingClient {
     }
 
     /// OpenAI-compatible chat completion, converted to/from Gemini format.
-    pub async fn create_chat_completion(
-        &self,
-        request: &Value,
-    ) -> Result<Value, ApiClientError> {
+    pub async fn create_chat_completion(&self, request: &Value) -> Result<Value, ApiClientError> {
         let gemini_request = openai_to_gemini_request(request);
         let model = request
             .get("model")
@@ -93,10 +90,7 @@ fn openai_to_gemini_request(openai: &Value) -> Value {
 
     if let Some(messages) = openai.get("messages").and_then(|v| v.as_array()) {
         for msg in messages {
-            let role = msg
-                .get("role")
-                .and_then(|v| v.as_str())
-                .unwrap_or("user");
+            let role = msg.get("role").and_then(|v| v.as_str()).unwrap_or("user");
 
             // Skip system messages — handled via systemInstruction below
             if role == "system" {
@@ -335,7 +329,9 @@ mod tests {
 
     #[test]
     fn image_generation_prompt_detected() {
-        assert!(is_image_generation_prompt("Please generate an image of a cat"));
+        assert!(is_image_generation_prompt(
+            "Please generate an image of a cat"
+        ));
         assert!(is_image_generation_prompt("Create a picture of sunset"));
         assert!(is_image_generation_prompt("Draw me a photo"));
     }
@@ -378,11 +374,18 @@ mod tests {
         });
 
         let gemini = openai_to_gemini_request(&openai);
-        assert_eq!(gemini["systemInstruction"]["parts"][0]["text"], "You are helpful");
+        assert_eq!(
+            gemini["systemInstruction"]["parts"][0]["text"],
+            "You are helpful"
+        );
 
         // System message must NOT appear in contents (only in systemInstruction)
         let contents = gemini["contents"].as_array().unwrap();
-        assert_eq!(contents.len(), 1, "system message should not be in contents");
+        assert_eq!(
+            contents.len(),
+            1,
+            "system message should not be in contents"
+        );
         assert_eq!(contents[0]["role"], "user");
         assert_eq!(contents[0]["parts"][0]["text"], "Hi");
     }
@@ -493,7 +496,11 @@ mod tests {
     #[test]
     fn constructs_with_correct_base_url() {
         let km = Arc::new(ApiKeyManager::new("test-key", None));
-        let client = GeminiRotatingClient::new(km, "https://generativelanguage.googleapis.com", None, None);
-        assert_eq!(client.base_url(), "https://generativelanguage.googleapis.com");
+        let client =
+            GeminiRotatingClient::new(km, "https://generativelanguage.googleapis.com", None, None);
+        assert_eq!(
+            client.base_url(),
+            "https://generativelanguage.googleapis.com"
+        );
     }
 }

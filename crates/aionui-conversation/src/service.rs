@@ -9,11 +9,9 @@ use aionui_api_types::{
     WebSocketMessage,
 };
 use aionui_common::{
-    generate_id, now_ms, AppError, ConversationSource, ConversationStatus, PaginatedResult,
+    AppError, ConversationSource, ConversationStatus, PaginatedResult, generate_id, now_ms,
 };
-use aionui_db::{
-    ConversationFilters, ConversationRowUpdate, IConversationRepository, SortOrder,
-};
+use aionui_db::{ConversationFilters, ConversationRowUpdate, IConversationRepository, SortOrder};
 use aionui_realtime::EventBroadcaster;
 use tracing::debug;
 
@@ -79,9 +77,8 @@ impl ConversationService {
             extra: serde_json::to_string(&req.extra)
                 .map_err(|e| AppError::Internal(format!("Failed to serialize extra: {e}")))?,
             model: Some(
-                serde_json::to_string(&req.model).map_err(|e| {
-                    AppError::Internal(format!("Failed to serialize model: {e}"))
-                })?,
+                serde_json::to_string(&req.model)
+                    .map_err(|e| AppError::Internal(format!("Failed to serialize model: {e}")))?,
             ),
             status: enum_to_db(&ConversationStatus::Pending)?,
             source: Some(enum_to_db(&source)?),
@@ -169,11 +166,9 @@ impl ConversationService {
             let mut existing_extra: serde_json::Value =
                 serde_json::from_str(&existing.extra).unwrap_or_else(|_| serde_json::json!({}));
             merge_json(&mut existing_extra, new_extra);
-            Some(
-                serde_json::to_string(&existing_extra).map_err(|e| {
-                    AppError::Internal(format!("Failed to serialize merged extra: {e}"))
-                })?,
-            )
+            Some(serde_json::to_string(&existing_extra).map_err(|e| {
+                AppError::Internal(format!("Failed to serialize merged extra: {e}"))
+            })?)
         } else {
             None
         };
@@ -275,8 +270,7 @@ impl ConversationService {
 
             // Merge source extra with provided extra
             let source_extra: serde_json::Value =
-                serde_json::from_str(&source_row.extra)
-                    .unwrap_or_else(|_| serde_json::json!({}));
+                serde_json::from_str(&source_row.extra).unwrap_or_else(|_| serde_json::json!({}));
             let mut merged = source_extra;
             merge_json(&mut merged, &create_req.extra);
 
@@ -294,11 +288,7 @@ impl ConversationService {
     }
 
     /// Reset a conversation: clear messages and set status back to pending.
-    pub async fn reset(
-        &self,
-        user_id: &str,
-        id: &str,
-    ) -> Result<(), AppError> {
+    pub async fn reset(&self, user_id: &str, id: &str) -> Result<(), AppError> {
         // Verify existence and ownership
         self.repo
             .get(id)
@@ -453,9 +443,7 @@ impl ConversationService {
         let conf = confirmations
             .iter()
             .find(|c| c.call_id == call_id)
-            .ok_or_else(|| {
-                AppError::NotFound(format!("Confirmation {call_id} not found"))
-            })?;
+            .ok_or_else(|| AppError::NotFound(format!("Confirmation {call_id} not found")))?;
         let conf_id = conf.id.clone();
 
         agent.confirm(&req.msg_id, call_id, req.data, req.always_allow)?;
@@ -513,7 +501,9 @@ impl ConversationService {
         task_manager: &Arc<dyn IWorkerTaskManager>,
     ) -> Result<(), AppError> {
         if req.content.trim().is_empty() {
-            return Err(AppError::BadRequest("Message content must not be empty".into()));
+            return Err(AppError::BadRequest(
+                "Message content must not be empty".into(),
+            ));
         }
 
         // Verify conversation exists and belongs to user
@@ -733,14 +723,8 @@ mod tests {
 
     #[test]
     fn enum_to_db_status() {
-        assert_eq!(
-            enum_to_db(&ConversationStatus::Pending).unwrap(),
-            "pending"
-        );
-        assert_eq!(
-            enum_to_db(&ConversationStatus::Running).unwrap(),
-            "running"
-        );
+        assert_eq!(enum_to_db(&ConversationStatus::Pending).unwrap(), "pending");
+        assert_eq!(enum_to_db(&ConversationStatus::Running).unwrap(), "running");
         assert_eq!(
             enum_to_db(&ConversationStatus::Finished).unwrap(),
             "finished"
@@ -749,10 +733,7 @@ mod tests {
 
     #[test]
     fn enum_to_db_source() {
-        assert_eq!(
-            enum_to_db(&ConversationSource::Aionui).unwrap(),
-            "aionui"
-        );
+        assert_eq!(enum_to_db(&ConversationSource::Aionui).unwrap(), "aionui");
         assert_eq!(
             enum_to_db(&ConversationSource::Telegram).unwrap(),
             "telegram"

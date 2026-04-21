@@ -12,7 +12,10 @@ async fn init_creates_users_table() {
         .await
         .unwrap();
 
-    assert!(count.0 >= 1, "users table should exist and have at least the system user");
+    assert!(
+        count.0 >= 1,
+        "users table should exist and have at least the system user"
+    );
 }
 
 // -- T1.2 Pragma configuration --
@@ -51,7 +54,11 @@ async fn pragma_journal_mode_wal_on_file() {
         .await
         .unwrap();
 
-    assert_eq!(row.0.to_lowercase(), "wal", "journal_mode should be WAL for file-backed DB");
+    assert_eq!(
+        row.0.to_lowercase(),
+        "wal",
+        "journal_mode should be WAL for file-backed DB"
+    );
     db.close().await;
 }
 
@@ -90,11 +97,10 @@ async fn idempotent_reinit_preserves_data() {
 async fn migrations_applied() {
     let db = init_database_memory().await.unwrap();
 
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM _sqlx_migrations WHERE success = 1")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM _sqlx_migrations WHERE success = 1")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
 
     assert!(count.0 >= 1, "at least one migration should be applied");
 }
@@ -127,12 +133,11 @@ async fn system_user_has_valid_timestamps() {
     let db = init_database_memory().await.unwrap();
     let after = aionui_common::now_ms();
 
-    let row = sqlx::query(
-        "SELECT created_at, updated_at FROM users WHERE id = 'system_default_user'",
-    )
-    .fetch_one(db.pool())
-    .await
-    .unwrap();
+    let row =
+        sqlx::query("SELECT created_at, updated_at FROM users WHERE id = 'system_default_user'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
 
     let created = row.get::<i64, _>("created_at");
     let updated = row.get::<i64, _>("updated_at");
@@ -197,7 +202,10 @@ async fn username_unique_constraint() {
     .execute(db.pool())
     .await;
 
-    assert!(result.is_err(), "duplicate username should violate unique constraint");
+    assert!(
+        result.is_err(),
+        "duplicate username should violate unique constraint"
+    );
 }
 
 #[tokio::test]
@@ -219,7 +227,10 @@ async fn email_unique_constraint() {
     .execute(db.pool())
     .await;
 
-    assert!(result.is_err(), "duplicate email should violate unique constraint");
+    assert!(
+        result.is_err(),
+        "duplicate email should violate unique constraint"
+    );
 }
 
 // -- Corruption recovery --
@@ -259,6 +270,9 @@ async fn creates_parent_directories() {
     let path = dir.path().join("sub").join("nested").join("test.db");
 
     let db = init_database(&path).await.unwrap();
-    assert!(path.exists(), "database file should be created in nested directory");
+    assert!(
+        path.exists(),
+        "database file should be created in nested directory"
+    );
     db.close().await;
 }

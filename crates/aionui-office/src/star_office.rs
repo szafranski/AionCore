@@ -64,7 +64,10 @@ impl StarOfficeDetector {
         let candidates = build_candidate_urls(preferred_url);
         let timeout = Duration::from_millis(timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS));
 
-        tracing::debug!(count = candidates.len(), "scanning star-office candidate URLs");
+        tracing::debug!(
+            count = candidates.len(),
+            "scanning star-office candidate URLs"
+        );
         let result = self.scan_candidates(&candidates, timeout).await;
 
         let mut cache = self.cache.lock().await;
@@ -316,7 +319,14 @@ mod tests {
 
     #[test]
     fn status_markers_all_present() {
-        let expected = ["idle", "writing", "researching", "executing", "syncing", "error"];
+        let expected = [
+            "idle",
+            "writing",
+            "researching",
+            "executing",
+            "syncing",
+            "error",
+        ];
         assert_eq!(STATUS_MARKERS, expected);
     }
 

@@ -109,9 +109,7 @@ mod tests {
 
         async fn detect_existing(&self) -> Result<Vec<DetectedServer>, McpError> {
             if !self.installed {
-                return Err(McpError::AgentNotInstalled(
-                    format!("{:?}", self.source),
-                ));
+                return Err(McpError::AgentNotInstalled(format!("{:?}", self.source)));
             }
             let servers = self.servers.lock().unwrap();
             Ok(servers.clone())
@@ -123,9 +121,7 @@ mod tests {
             transport: &McpServerTransport,
         ) -> Result<(), McpError> {
             if !self.installed {
-                return Err(McpError::AgentNotInstalled(
-                    format!("{:?}", self.source),
-                ));
+                return Err(McpError::AgentNotInstalled(format!("{:?}", self.source)));
             }
             let mut servers = self.servers.lock().unwrap();
             servers.retain(|s| s.name != name);
@@ -138,9 +134,7 @@ mod tests {
 
         async fn remove_server(&self, name: &str) -> Result<(), McpError> {
             if !self.installed {
-                return Err(McpError::AgentNotInstalled(
-                    format!("{:?}", self.source),
-                ));
+                return Err(McpError::AgentNotInstalled(format!("{:?}", self.source)));
             }
             let mut servers = self.servers.lock().unwrap();
             servers.retain(|s| s.name != name);
@@ -172,7 +166,10 @@ mod tests {
             env: HashMap::new(),
         };
 
-        adapter.install_server("test-mcp", &transport).await.unwrap();
+        adapter
+            .install_server("test-mcp", &transport)
+            .await
+            .unwrap();
 
         let detected = adapter.detect_existing().await.unwrap();
         assert_eq!(detected.len(), 1);
@@ -247,8 +244,7 @@ mod tests {
 
     #[tokio::test]
     async fn trait_is_object_safe() {
-        let adapter: Arc<dyn McpAgentAdapter> =
-            Arc::new(MockAdapter::new(McpSource::Aionui, true));
+        let adapter: Arc<dyn McpAgentAdapter> = Arc::new(MockAdapter::new(McpSource::Aionui, true));
         assert_eq!(adapter.source(), McpSource::Aionui);
         assert!(adapter.is_installed().await.unwrap());
     }

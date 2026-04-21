@@ -52,24 +52,18 @@ async fn build_agent(
 
     match options.agent_type {
         AgentType::Acp => {
-            let config: AcpBuildExtra =
-                serde_json::from_value(options.extra).map_err(|e| {
-                    AppError::BadRequest(format!("Invalid ACP build options: {e}"))
-                })?;
+            let config: AcpBuildExtra = serde_json::from_value(options.extra)
+                .map_err(|e| AppError::BadRequest(format!("Invalid ACP build options: {e}")))?;
             let agent = AcpAgentManager::new(conversation_id, workspace, config).await?;
             Ok(Arc::new(agent))
         }
         AgentType::Gemini => {
-            let config: GeminiBuildExtra =
-                serde_json::from_value(options.extra).map_err(|e| {
-                    AppError::BadRequest(format!("Invalid Gemini build options: {e}"))
-                })?;
+            let config: GeminiBuildExtra = serde_json::from_value(options.extra)
+                .map_err(|e| AppError::BadRequest(format!("Invalid Gemini build options: {e}")))?;
             // Gemini CLI path detected via `which gemini`
             let cli_path = which::which("gemini")
                 .map(|p| p.to_string_lossy().into_owned())
-                .map_err(|_| {
-                    AppError::BadRequest("Gemini CLI not found in PATH".into())
-                })?;
+                .map_err(|_| AppError::BadRequest("Gemini CLI not found in PATH".into()))?;
             let agent = GeminiAgentManager::new(
                 conversation_id,
                 workspace,
@@ -91,18 +85,13 @@ async fn build_agent(
         AgentType::Nanobot => {
             let cli_path = which::which("nanobot")
                 .map(|p| p.to_string_lossy().into_owned())
-                .map_err(|_| {
-                    AppError::BadRequest("Nanobot CLI not found in PATH".into())
-                })?;
-            let agent =
-                NanobotAgentManager::new(conversation_id, workspace, cli_path).await?;
+                .map_err(|_| AppError::BadRequest("Nanobot CLI not found in PATH".into()))?;
+            let agent = NanobotAgentManager::new(conversation_id, workspace, cli_path).await?;
             Ok(Arc::new(agent))
         }
         AgentType::Remote => {
-            let extra: RemoteBuildExtra =
-                serde_json::from_value(options.extra).map_err(|e| {
-                    AppError::BadRequest(format!("Invalid Remote build options: {e}"))
-                })?;
+            let extra: RemoteBuildExtra = serde_json::from_value(options.extra)
+                .map_err(|e| AppError::BadRequest(format!("Invalid Remote build options: {e}")))?;
             let row = deps
                 .remote_agent_repo
                 .find_by_id(&extra.remote_agent_id)
@@ -134,8 +123,7 @@ async fn build_agent(
                 auth_token,
                 allow_insecure: row.allow_insecure,
             };
-            let agent =
-                RemoteAgentManager::new(conversation_id, workspace, config).await?;
+            let agent = RemoteAgentManager::new(conversation_id, workspace, config).await?;
             Ok(Arc::new(agent))
         }
         AgentType::Aionrs => {

@@ -87,10 +87,7 @@ pub fn create_rotating_client(
         }
         _ => {
             // USE_OPENAI or any unrecognized type defaults to OpenAI
-            let km = Arc::new(ApiKeyManager::new(
-                api_key,
-                Some("OPENAI_API_KEY".into()),
-            ));
+            let km = Arc::new(ApiKeyManager::new(api_key, Some("OPENAI_API_KEY".into())));
             LlmClient::OpenAI(OpenAIRotatingClient::new(
                 km,
                 base_url,
@@ -107,31 +104,56 @@ mod tests {
 
     #[test]
     fn factory_creates_openai_by_default() {
-        let client = create_rotating_client("USE_OPENAI", "sk-test", "https://api.openai.com", ClientOptions::default());
+        let client = create_rotating_client(
+            "USE_OPENAI",
+            "sk-test",
+            "https://api.openai.com",
+            ClientOptions::default(),
+        );
         assert!(matches!(client, LlmClient::OpenAI(_)));
     }
 
     #[test]
     fn factory_creates_openai_for_unknown() {
-        let client = create_rotating_client("UNKNOWN", "sk-test", "https://custom.api.com", ClientOptions::default());
+        let client = create_rotating_client(
+            "UNKNOWN",
+            "sk-test",
+            "https://custom.api.com",
+            ClientOptions::default(),
+        );
         assert!(matches!(client, LlmClient::OpenAI(_)));
     }
 
     #[test]
     fn factory_creates_gemini() {
-        let client = create_rotating_client("USE_GEMINI", "key", "https://generativelanguage.googleapis.com", ClientOptions::default());
+        let client = create_rotating_client(
+            "USE_GEMINI",
+            "key",
+            "https://generativelanguage.googleapis.com",
+            ClientOptions::default(),
+        );
         assert!(matches!(client, LlmClient::Gemini(_)));
     }
 
     #[test]
     fn factory_creates_gemini_for_vertex() {
-        let client = create_rotating_client("USE_VERTEX_AI", "key", "https://vertex.googleapis.com", ClientOptions::default());
+        let client = create_rotating_client(
+            "USE_VERTEX_AI",
+            "key",
+            "https://vertex.googleapis.com",
+            ClientOptions::default(),
+        );
         assert!(matches!(client, LlmClient::Gemini(_)));
     }
 
     #[test]
     fn factory_creates_anthropic() {
-        let client = create_rotating_client("USE_ANTHROPIC", "sk-ant-test", "https://api.anthropic.com", ClientOptions::default());
+        let client = create_rotating_client(
+            "USE_ANTHROPIC",
+            "sk-ant-test",
+            "https://api.anthropic.com",
+            ClientOptions::default(),
+        );
         assert!(matches!(client, LlmClient::Anthropic(_)));
     }
 }

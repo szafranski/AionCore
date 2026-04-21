@@ -9,7 +9,7 @@ use std::fs;
 use std::path::Path;
 
 use aionui_extension::{
-    execute_hook, needs_install_hook, resolve_hook_path, HookKind, LifecycleHooks,
+    HookKind, LifecycleHooks, execute_hook, needs_install_hook, resolve_hook_path,
 };
 use tempfile::TempDir;
 
@@ -89,7 +89,10 @@ async fn lh2_version_change_executes_on_install() {
     let hook_path = resolve_hook_path(&hooks, HookKind::OnInstall).unwrap();
     let result = execute_hook(dir.path(), hook_path, HookKind::OnInstall, "test-ext").await;
     assert!(result.is_ok());
-    assert!(marker.exists(), "onInstall marker should be created on upgrade");
+    assert!(
+        marker.exists(),
+        "onInstall marker should be created on upgrade"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -156,13 +159,9 @@ async fn lh4_deactivate_executes_on_deactivate() {
     };
 
     let hook_path = resolve_hook_path(&hooks, HookKind::OnDeactivate).unwrap();
-    let result =
-        execute_hook(dir.path(), hook_path, HookKind::OnDeactivate, "test-ext").await;
+    let result = execute_hook(dir.path(), hook_path, HookKind::OnDeactivate, "test-ext").await;
     assert!(result.is_ok());
-    assert!(
-        marker.exists(),
-        "onDeactivate marker should be created"
-    );
+    assert!(marker.exists(), "onDeactivate marker should be created");
 }
 
 // ---------------------------------------------------------------------------
@@ -187,10 +186,7 @@ async fn lh5_hook_timeout() {
         .output();
 
     let result = tokio::time::timeout(std::time::Duration::from_millis(200), child_future).await;
-    assert!(
-        result.is_err(),
-        "should time out before script completes"
-    );
+    assert!(result.is_err(), "should time out before script completes");
 }
 
 // ---------------------------------------------------------------------------
@@ -207,8 +203,7 @@ async fn lh6_missing_script_graceful() {
     };
 
     let hook_path = resolve_hook_path(&hooks, HookKind::OnActivate).unwrap();
-    let result =
-        execute_hook(dir.path(), hook_path, HookKind::OnActivate, "test-ext").await;
+    let result = execute_hook(dir.path(), hook_path, HookKind::OnActivate, "test-ext").await;
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -281,13 +276,7 @@ async fn hook_working_directory_is_ext_dir() {
     let dir = setup_ext_dir();
     write_script(dir.path(), "check_dir.sh", "pwd > cwd_out.txt");
 
-    let result = execute_hook(
-        dir.path(),
-        "check_dir.sh",
-        HookKind::OnActivate,
-        "cwd-ext",
-    )
-    .await;
+    let result = execute_hook(dir.path(), "check_dir.sh", HookKind::OnActivate, "cwd-ext").await;
     assert!(result.is_ok());
 
     let cwd_file = dir.path().join("cwd_out.txt");

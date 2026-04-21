@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use aionui_api_types::WebSocketMessage;
 use aionui_realtime::{
-    ConnectionId, TokenValidator, WebSocketCloseCode, WebSocketManager,
-    WsOutbound, PER_CONNECTION_BUFFER,
+    ConnectionId, PER_CONNECTION_BUFFER, TokenValidator, WebSocketCloseCode, WebSocketManager,
+    WsOutbound,
 };
 use serde_json::json;
 use tokio::sync::mpsc;
@@ -80,10 +80,7 @@ fn broadcast_all_delivers_identical_content_to_every_client() {
         receivers.push(rx);
     }
 
-    let event = WebSocketMessage::new(
-        "notification",
-        json!({"level": "info", "text": "hello"}),
-    );
+    let event = WebSocketMessage::new("notification", json!({"level": "info", "text": "hello"}));
     mgr.broadcast_all(event);
 
     let mut texts = Vec::new();
@@ -132,8 +129,7 @@ fn broadcast_cleans_up_disconnected_clients_transparently() {
 #[test]
 fn send_to_reaches_only_target_connection() {
     let mgr = WebSocketManager::new();
-    let mut pairs: Vec<(ConnectionId, mpsc::Receiver<WsOutbound>)> =
-        Vec::new();
+    let mut pairs: Vec<(ConnectionId, mpsc::Receiver<WsOutbound>)> = Vec::new();
 
     for i in 0..5 {
         let (tx, rx) = new_client_tx();
@@ -181,8 +177,7 @@ async fn heartbeat_sends_ping_and_keeps_healthy_connections() {
 
     match msg {
         WsOutbound::Text(text) => {
-            let parsed: serde_json::Value =
-                serde_json::from_str(&text).unwrap();
+            let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
             assert_eq!(parsed["name"], "ping");
             assert!(parsed["data"]["timestamp"].is_u64());
         }
@@ -212,8 +207,7 @@ async fn heartbeat_closes_expired_token_with_auth_expired_event() {
 
     match msg1 {
         WsOutbound::Text(text) => {
-            let parsed: serde_json::Value =
-                serde_json::from_str(&text).unwrap();
+            let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
             assert_eq!(parsed["name"], "auth-expired");
             assert!(parsed["data"]["message"].is_string());
         }
@@ -228,10 +222,7 @@ async fn heartbeat_closes_expired_token_with_auth_expired_event() {
 
     assert_eq!(
         msg2,
-        WsOutbound::Close(
-            WebSocketCloseCode::PolicyViolation,
-            "token expired".into()
-        )
+        WsOutbound::Close(WebSocketCloseCode::PolicyViolation, "token expired".into())
     );
 
     // Connection should be removed
@@ -256,8 +247,7 @@ fn concurrent_add_remove_does_not_panic() {
         }));
     }
 
-    let ids: Vec<ConnectionId> =
-        handles.into_iter().map(|h| h.join().unwrap()).collect();
+    let ids: Vec<ConnectionId> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
     assert_eq!(mgr.client_count(), 10);
 
@@ -298,10 +288,7 @@ fn concurrent_broadcast_does_not_panic() {
     for i in 0..10 {
         let mgr = Arc::clone(&mgr);
         handles.push(std::thread::spawn(move || {
-            mgr.broadcast_all(WebSocketMessage::new(
-                format!("event-{i}"),
-                json!(null),
-            ));
+            mgr.broadcast_all(WebSocketMessage::new(format!("event-{i}"), json!(null)));
         }));
     }
 

@@ -6,13 +6,7 @@ const MIN_USERNAME_LENGTH: usize = 3;
 const MAX_USERNAME_LENGTH: usize = 32;
 
 /// Common weak passwords rejected during validation.
-const WEAK_PASSWORDS: &[&str] = &[
-    "password",
-    "12345678",
-    "123456789",
-    "qwertyui",
-    "abcdefgh",
-];
+const WEAK_PASSWORDS: &[&str] = &["password", "12345678", "123456789", "qwertyui", "abcdefgh"];
 
 /// Validate password strength.
 ///
@@ -32,9 +26,7 @@ pub fn validate_password(password: &str) -> Result<(), AuthError> {
     }
     let lower = password.to_lowercase();
     if WEAK_PASSWORDS.contains(&lower.as_str()) {
-        return Err(AuthError::WeakPassword(
-            "Password is too common".into(),
-        ));
+        return Err(AuthError::WeakPassword("Password is too common".into()));
     }
     Ok(())
 }

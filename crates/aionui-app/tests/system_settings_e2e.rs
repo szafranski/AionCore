@@ -6,9 +6,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use tower::ServiceExt;
 
-use common::{
-    body_json, build_app, get_with_token, json_with_token, setup_and_login,
-};
+use common::{body_json, build_app, get_with_token, json_with_token, setup_and_login};
 
 // ===========================================================================
 // Settings CRUD

@@ -12,13 +12,11 @@ use aionui_channel::error::ChannelError;
 use aionui_channel::manager::{ChannelManager, PluginFactory};
 use aionui_channel::plugin::{ChannelPlugin, PluginCallbacks};
 use aionui_channel::types::{
-    BotInfo, OutgoingMessageType, PluginConfig, PluginCredentials, PluginStatus,
-    PluginType, UnifiedOutgoingMessage,
+    BotInfo, OutgoingMessageType, PluginConfig, PluginCredentials, PluginStatus, PluginType,
+    UnifiedOutgoingMessage,
 };
 use aionui_common::decrypt_string;
-use aionui_db::{
-    init_database_memory, IChannelRepository, SqliteChannelRepository,
-};
+use aionui_db::{IChannelRepository, SqliteChannelRepository, init_database_memory};
 use aionui_realtime::EventBroadcaster;
 use tokio::sync::mpsc;
 
@@ -85,9 +83,7 @@ impl ChannelPlugin for MockPlugin {
         if self.should_fail_init {
             self.status = PluginStatus::Error;
             self.last_error = Some("Mock init failure".into());
-            return Err(ChannelError::ConnectionFailed(
-                "Mock init failure".into(),
-            ));
+            return Err(ChannelError::ConnectionFailed("Mock init failure".into()));
         }
         self.status = PluginStatus::Initializing;
         self.bot_info = Some(BotInfo {
@@ -164,13 +160,7 @@ async fn setup() -> (
     let bc = Arc::new(MockBroadcaster::new());
     let (msg_tx, _msg_rx) = mpsc::channel(16);
     let (confirm_tx, _confirm_rx) = mpsc::channel(16);
-    let mgr = ChannelManager::new(
-        repo.clone(),
-        bc.clone(),
-        test_key(),
-        msg_tx,
-        confirm_tx,
-    );
+    let mgr = ChannelManager::new(repo.clone(), bc.clone(), test_key(), msg_tx, confirm_tx);
     // Keep db alive by leaking — test process exits anyway
     std::mem::forget(db);
     (mgr, repo, bc)
@@ -317,7 +307,10 @@ async fn ep2_re_enable_updates_config() {
     let row = repo.get_plugin("telegram").await.unwrap().unwrap();
     let decrypted = decrypt_string(&row.config, &test_key()).unwrap();
     let config: PluginConfig = serde_json::from_str(&decrypted).unwrap();
-    assert_eq!(config.credentials.token.as_deref(), Some("bot:new_token_456"));
+    assert_eq!(
+        config.credentials.token.as_deref(),
+        Some("bot:new_token_456")
+    );
 }
 
 // ── EP-5: Invalid plugin ID ──────────────────────────────────────

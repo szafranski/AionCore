@@ -608,9 +608,7 @@ mod tests {
             schedule_description: Some("every minute".into()),
             payload_message: "do something".into(),
             execution_mode: "existing".into(),
-            agent_config: Some(
-                r#"{"backend":"acp","name":"Claude"}"#.into(),
-            ),
+            agent_config: Some(r#"{"backend":"acp","name":"Claude"}"#.into()),
             conversation_id: "conv_1".into(),
             conversation_title: Some("Test Conv".into()),
             agent_type: "acp".into(),
@@ -815,11 +813,14 @@ mod tests {
         assert_eq!(resp.id, "cron_test1");
         assert_eq!(resp.name, "Test Job");
         assert!(resp.enabled);
-        assert!(matches!(resp.schedule, CronScheduleDto::Every { every_ms: 60000, .. }));
-        assert_eq!(
-            resp.target.execution_mode.as_deref(),
-            Some("existing")
-        );
+        assert!(matches!(
+            resp.schedule,
+            CronScheduleDto::Every {
+                every_ms: 60000,
+                ..
+            }
+        ));
+        assert_eq!(resp.target.execution_mode.as_deref(), Some("existing"));
         assert_eq!(resp.metadata.conversation_id, "conv_1");
         assert_eq!(resp.metadata.agent_type, "acp");
         assert_eq!(resp.metadata.created_by, "user");
@@ -839,7 +840,10 @@ mod tests {
         let resp = cron_job_to_response(&job);
         assert!(matches!(
             resp.schedule,
-            CronScheduleDto::At { at_ms: 1700000000000, .. }
+            CronScheduleDto::At {
+                at_ms: 1700000000000,
+                ..
+            }
         ));
     }
 

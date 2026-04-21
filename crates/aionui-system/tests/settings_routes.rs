@@ -199,10 +199,7 @@ async fn patch_then_get_reflects_changes() {
     // Build a fresh router with the same DB to GET
     let app2 = settings_routes(build_state(&db));
 
-    let resp = app2
-        .oneshot(get_request("/api/settings"))
-        .await
-        .unwrap();
+    let resp = app2.oneshot(get_request("/api/settings")).await.unwrap();
     let json = body_json(resp).await;
     assert_eq!(json["data"]["language"], "ja-JP");
     assert_eq!(json["data"]["saveUploadToWorkspace"], true);
@@ -405,11 +402,7 @@ async fn put_overwrite_existing_value() {
 #[tokio::test]
 async fn put_empty_key_rejected() {
     let (app, _db) = setup().await;
-    let req = json_request(
-        "PUT",
-        "/api/settings/client",
-        serde_json::json!({"": true}),
-    );
+    let req = json_request("PUT", "/api/settings/client", serde_json::json!({"": true}));
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }

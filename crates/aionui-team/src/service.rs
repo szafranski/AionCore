@@ -3,7 +3,7 @@ use std::sync::Arc;
 use aionui_api_types::{
     AddAgentRequest, CreateConversationRequest, CreateTeamRequest, TeamAgentResponse, TeamResponse,
 };
-use aionui_common::{generate_id, now_ms, AgentType, ProviderWithModel};
+use aionui_common::{AgentType, ProviderWithModel, generate_id, now_ms};
 use aionui_conversation::ConversationService;
 use aionui_db::models::TeamRow;
 use aionui_db::{ITeamRepository, UpdateTeamParams};
@@ -76,7 +76,9 @@ impl TeamSessionService {
                 .conversation_service
                 .create(user_id, conv_req)
                 .await
-                .map_err(|e| TeamError::InvalidRequest(format!("failed to create conversation: {e}")))?;
+                .map_err(|e| {
+                    TeamError::InvalidRequest(format!("failed to create conversation: {e}"))
+                })?;
 
             agents.push(TeamAgent {
                 slot_id,
@@ -136,11 +138,7 @@ impl TeamSessionService {
         Ok(team.to_response())
     }
 
-    pub async fn remove_team(
-        &self,
-        user_id: &str,
-        team_id: &str,
-    ) -> Result<(), TeamError> {
+    pub async fn remove_team(&self, user_id: &str, team_id: &str) -> Result<(), TeamError> {
         let row = self
             .repo
             .get_team(team_id)
@@ -165,11 +163,7 @@ impl TeamSessionService {
         Ok(())
     }
 
-    pub async fn rename_team(
-        &self,
-        team_id: &str,
-        name: &str,
-    ) -> Result<(), TeamError> {
+    pub async fn rename_team(&self, team_id: &str, name: &str) -> Result<(), TeamError> {
         self.repo
             .get_team(team_id)
             .await?
@@ -221,7 +215,9 @@ impl TeamSessionService {
             .conversation_service
             .create(user_id, conv_req)
             .await
-            .map_err(|e| TeamError::InvalidRequest(format!("failed to create conversation: {e}")))?;
+            .map_err(|e| {
+                TeamError::InvalidRequest(format!("failed to create conversation: {e}"))
+            })?;
 
         let agent = TeamAgent {
             slot_id,
@@ -351,12 +347,7 @@ impl TeamSessionService {
             .ok_or_else(|| TeamError::TeamNotFound(team_id.into()))?;
         let team = Team::from_row(&row)?;
 
-        let session = TeamSession::start(
-            team,
-            self.repo.clone(),
-            self.broadcaster.clone(),
-        )
-        .await?;
+        let session = TeamSession::start(team, self.repo.clone(), self.broadcaster.clone()).await?;
 
         self.sessions.insert(team_id.to_owned(), session);
         Ok(())
@@ -368,11 +359,7 @@ impl TeamSessionService {
         }
     }
 
-    pub async fn send_message(
-        &self,
-        team_id: &str,
-        content: &str,
-    ) -> Result<(), TeamError> {
+    pub async fn send_message(&self, team_id: &str, content: &str) -> Result<(), TeamError> {
         let session = self
             .sessions
             .get(team_id)

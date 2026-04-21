@@ -1,7 +1,7 @@
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Query, State};
 use axum::routing::{get, post};
-use axum::Router;
 
 use aionui_api_types::{
     ApiResponse, GeminiSubscriptionData, GeminiSubscriptionQuery, TestBedrockConnectionRequest,
@@ -61,9 +61,8 @@ async fn gemini_subscription_status(
     Extension(_user): Extension<CurrentUser>,
     Query(query): Query<GeminiSubscriptionQuery>,
 ) -> Result<Json<ApiResponse<GeminiSubscriptionData>>, AppError> {
-    let api_key = std::env::var("GEMINI_API_KEY").map_err(|_| {
-        AppError::BadRequest("GEMINI_API_KEY environment variable not set".into())
-    })?;
+    let api_key = std::env::var("GEMINI_API_KEY")
+        .map_err(|_| AppError::BadRequest("GEMINI_API_KEY environment variable not set".into()))?;
     let data = state
         .service
         .get_gemini_subscription_status(&api_key, query.proxy.as_deref())

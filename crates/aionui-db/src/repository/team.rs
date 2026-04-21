@@ -39,11 +39,7 @@ pub trait ITeamRepository: Send + Sync {
 
     /// Updates a team by id with the provided fields.
     /// Returns `DbError::NotFound` if absent.
-    async fn update_team(
-        &self,
-        team_id: &str,
-        params: &UpdateTeamParams,
-    ) -> Result<(), DbError>;
+    async fn update_team(&self, team_id: &str, params: &UpdateTeamParams) -> Result<(), DbError>;
 
     /// Deletes a team by id. Returns `DbError::NotFound` if absent.
     async fn delete_team(&self, team_id: &str) -> Result<(), DbError>;
@@ -87,22 +83,14 @@ pub trait ITeamRepository: Send + Sync {
 
     /// Updates a task by id with the provided fields.
     /// Returns `DbError::NotFound` if absent.
-    async fn update_task(
-        &self,
-        task_id: &str,
-        params: &UpdateTaskParams,
-    ) -> Result<(), DbError>;
+    async fn update_task(&self, task_id: &str, params: &UpdateTaskParams) -> Result<(), DbError>;
 
     /// Returns all tasks for a team, ordered by `created_at` ascending.
     async fn list_tasks(&self, team_id: &str) -> Result<Vec<TeamTaskRow>, DbError>;
 
     /// Appends `blocked_task_id` to the `blocks` JSON array of `task_id`.
     /// This is a transactional JSON array append operation.
-    async fn append_to_blocks(
-        &self,
-        task_id: &str,
-        blocked_task_id: &str,
-    ) -> Result<(), DbError>;
+    async fn append_to_blocks(&self, task_id: &str, blocked_task_id: &str) -> Result<(), DbError>;
 
     /// Removes `unblocked_task_id` from the `blocked_by` JSON array of `task_id`.
     /// This is a transactional JSON array removal operation.

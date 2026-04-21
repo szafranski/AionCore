@@ -6,8 +6,8 @@
 use std::sync::Arc;
 
 use aionui_db::{
-    init_database_memory, CreateRemoteAgentParams, DbError, IRemoteAgentRepository,
-    SqliteRemoteAgentRepository, UpdateRemoteAgentParams,
+    CreateRemoteAgentParams, DbError, IRemoteAgentRepository, SqliteRemoteAgentRepository,
+    UpdateRemoteAgentParams, init_database_memory,
 };
 
 async fn repo() -> (Arc<dyn IRemoteAgentRepository>, aionui_db::Database) {

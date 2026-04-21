@@ -6,8 +6,8 @@
 use std::sync::Arc;
 
 use aionui_db::{
-    init_database_memory, DbError, IOAuthTokenRepository, SqliteOAuthTokenRepository,
-    UpsertOAuthTokenParams,
+    DbError, IOAuthTokenRepository, SqliteOAuthTokenRepository, UpsertOAuthTokenParams,
+    init_database_memory,
 };
 
 async fn repo() -> (Arc<dyn IOAuthTokenRepository>, aionui_db::Database) {
@@ -113,11 +113,12 @@ async fn delete_existing_token() {
     r.upsert(sample_params()).await.unwrap();
 
     r.delete("https://mcp.example.com").await.unwrap();
-    assert!(r
-        .get_by_url("https://mcp.example.com")
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        r.get_by_url("https://mcp.example.com")
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 // -- OA-7: Delete idempotency (returns NotFound for nonexistent) --
@@ -189,11 +190,12 @@ async fn full_oauth_lifecycle() {
 
     // Initially no tokens
     assert!(r.list_authenticated_urls().await.unwrap().is_empty());
-    assert!(r
-        .get_by_url("https://mcp.example.com")
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        r.get_by_url("https://mcp.example.com")
+            .await
+            .unwrap()
+            .is_none()
+    );
 
     // Store token
     let token = r.upsert(sample_params()).await.unwrap();

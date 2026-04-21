@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use tokio::sync::{mpsc, Notify};
+use tokio::sync::{Notify, mpsc};
 use tracing::{debug, error, info, warn};
 
 use crate::constants::DEBOUNCE_MS;
@@ -34,10 +34,7 @@ impl ExtensionWatcher {
     ///
     /// Returns `None` if no valid directories are provided or if the watcher
     /// fails to initialise.
-    pub fn start(
-        directories: Vec<PathBuf>,
-        registry: ExtensionRegistry,
-    ) -> Option<Self> {
+    pub fn start(directories: Vec<PathBuf>, registry: ExtensionRegistry) -> Option<Self> {
         if directories.is_empty() {
             debug!("no directories to watch — skipping extension watcher");
             return None;
@@ -62,10 +59,7 @@ impl ExtensionWatcher {
             }
         };
 
-        info!(
-            dirs = directories.len(),
-            "extension watcher started"
-        );
+        info!(dirs = directories.len(), "extension watcher started");
 
         Some(Self {
             _watcher: watcher,
@@ -145,9 +139,7 @@ fn is_relevant_event(event: &Event) -> bool {
     use notify::EventKind;
     matches!(
         event.kind,
-        EventKind::Create(_)
-            | EventKind::Modify(_)
-            | EventKind::Remove(_)
+        EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
     )
 }
 
@@ -202,35 +194,27 @@ mod tests {
 
     #[test]
     fn relevant_event_create() {
-        let event = Event::new(notify::EventKind::Create(
-            notify::event::CreateKind::File,
-        ));
+        let event = Event::new(notify::EventKind::Create(notify::event::CreateKind::File));
         assert!(is_relevant_event(&event));
     }
 
     #[test]
     fn relevant_event_modify() {
-        let event = Event::new(notify::EventKind::Modify(
-            notify::event::ModifyKind::Data(
-                notify::event::DataChange::Content,
-            ),
-        ));
+        let event = Event::new(notify::EventKind::Modify(notify::event::ModifyKind::Data(
+            notify::event::DataChange::Content,
+        )));
         assert!(is_relevant_event(&event));
     }
 
     #[test]
     fn relevant_event_remove() {
-        let event = Event::new(notify::EventKind::Remove(
-            notify::event::RemoveKind::File,
-        ));
+        let event = Event::new(notify::EventKind::Remove(notify::event::RemoveKind::File));
         assert!(is_relevant_event(&event));
     }
 
     #[test]
     fn irrelevant_event_access() {
-        let event = Event::new(notify::EventKind::Access(
-            notify::event::AccessKind::Read,
-        ));
+        let event = Event::new(notify::EventKind::Access(notify::event::AccessKind::Read));
         assert!(!is_relevant_event(&event));
     }
 

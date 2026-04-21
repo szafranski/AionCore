@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use aionui_db::{init_database_memory, ISettingsRepository, SqliteSettingsRepository};
+use aionui_db::{ISettingsRepository, SqliteSettingsRepository, init_database_memory};
 
 async fn repo() -> Arc<dyn ISettingsRepository> {
     let db = init_database_memory().await.unwrap();

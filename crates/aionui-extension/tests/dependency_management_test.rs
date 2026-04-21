@@ -6,8 +6,8 @@
 use std::collections::HashMap;
 
 use aionui_extension::{
-    validate_dependencies, DependencyIssue, ExtensionManifest, ExtensionSource, ExtensionState,
-    LoadedExtension,
+    DependencyIssue, ExtensionManifest, ExtensionSource, ExtensionState, LoadedExtension,
+    validate_dependencies,
 };
 
 // ---------------------------------------------------------------------------
@@ -144,10 +144,12 @@ fn dm5_caret_match_fails() {
     ];
     let result = validate_dependencies(&exts);
     assert!(!result.valid);
-    assert!(result
-        .issues
-        .iter()
-        .any(|i| matches!(i, DependencyIssue::VersionMismatch { .. })));
+    assert!(
+        result
+            .issues
+            .iter()
+            .any(|i| matches!(i, DependencyIssue::VersionMismatch { .. }))
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -177,10 +179,12 @@ fn dm7_tilde_match_fails() {
     ];
     let result = validate_dependencies(&exts);
     assert!(!result.valid);
-    assert!(result
-        .issues
-        .iter()
-        .any(|i| matches!(i, DependencyIssue::VersionMismatch { .. })));
+    assert!(
+        result
+            .issues
+            .iter()
+            .any(|i| matches!(i, DependencyIssue::VersionMismatch { .. }))
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -210,8 +214,7 @@ fn dm8_circular_dependency_detected() {
     // Verify cycle path closes (first == last) and contains all three.
     let cycle = &circulars[0];
     assert_eq!(cycle.first(), cycle.last(), "cycle must close");
-    let cycle_members: std::collections::HashSet<&str> =
-        cycle.iter().map(|s| s.as_str()).collect();
+    let cycle_members: std::collections::HashSet<&str> = cycle.iter().map(|s| s.as_str()).collect();
     assert!(cycle_members.contains("ext-a"));
     assert!(cycle_members.contains("ext-b"));
     assert!(cycle_members.contains("ext-c"));

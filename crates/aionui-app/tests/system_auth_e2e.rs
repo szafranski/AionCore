@@ -31,7 +31,10 @@ async fn auth_required_patch_settings() {
 #[tokio::test]
 async fn auth_required_get_client_prefs() {
     let (app, _) = build_app().await;
-    let resp = app.oneshot(get_request("/api/settings/client")).await.unwrap();
+    let resp = app
+        .oneshot(get_request("/api/settings/client"))
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
@@ -107,7 +110,9 @@ async fn auth_required_detect_protocol() {
         .method("POST")
         .uri("/api/providers/detect-protocol")
         .header("content-type", "application/json")
-        .body(Body::from(r#"{"baseUrl":"https://api.example.com","apiKey":"sk-test"}"#))
+        .body(Body::from(
+            r#"{"baseUrl":"https://api.example.com","apiKey":"sk-test"}"#,
+        ))
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);

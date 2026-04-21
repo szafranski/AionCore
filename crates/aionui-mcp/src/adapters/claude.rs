@@ -6,9 +6,7 @@ use crate::adapter::{DetectedServer, McpAgentAdapter};
 use crate::error::McpError;
 use crate::types::McpServerTransport;
 
-use super::cli_helpers::{
-    is_cli_installed, run_cli, strip_ansi, DETECT_TIMEOUT, MUTATE_TIMEOUT,
-};
+use super::cli_helpers::{DETECT_TIMEOUT, MUTATE_TIMEOUT, is_cli_installed, run_cli, strip_ansi};
 
 const CLI_NAME: &str = "claude";
 
@@ -86,8 +84,12 @@ impl McpAgentAdapter for ClaudeAdapter {
 
         // Try each scope; stop on first success or "not found".
         for scope in REMOVE_SCOPES {
-            let (stdout, _stderr) =
-                run_cli(CLI_NAME, &["mcp", "remove", "-s", scope, name], MUTATE_TIMEOUT).await?;
+            let (stdout, _stderr) = run_cli(
+                CLI_NAME,
+                &["mcp", "remove", "-s", scope, name],
+                MUTATE_TIMEOUT,
+            )
+            .await?;
             let lower = stdout.to_lowercase();
             if lower.contains("removed") || lower.contains("not found") {
                 return Ok(());
@@ -200,28 +202,27 @@ fn parse_claude_list_line(line: &str) -> Option<DetectedServer> {
     }
 
     // Heuristic: if it looks like a URL, treat as HTTP; otherwise stdio.
-    let transport = if command_or_url.starts_with("http://")
-        || command_or_url.starts_with("https://")
-    {
-        // SSE heuristic: URL ending with /sse
-        if command_or_url.ends_with("/sse") {
-            McpServerTransport::Sse {
-                url: command_or_url.to_owned(),
-                headers: HashMap::new(),
+    let transport =
+        if command_or_url.starts_with("http://") || command_or_url.starts_with("https://") {
+            // SSE heuristic: URL ending with /sse
+            if command_or_url.ends_with("/sse") {
+                McpServerTransport::Sse {
+                    url: command_or_url.to_owned(),
+                    headers: HashMap::new(),
+                }
+            } else {
+                McpServerTransport::Http {
+                    url: command_or_url.to_owned(),
+                    headers: HashMap::new(),
+                }
             }
         } else {
-            McpServerTransport::Http {
-                url: command_or_url.to_owned(),
-                headers: HashMap::new(),
+            McpServerTransport::Stdio {
+                command: command_or_url.to_owned(),
+                args: Vec::new(),
+                env: HashMap::new(),
             }
-        }
-    } else {
-        McpServerTransport::Stdio {
-            command: command_or_url.to_owned(),
-            args: Vec::new(),
-            env: HashMap::new(),
-        }
-    };
+        };
 
     Some(DetectedServer {
         name: name.to_owned(),

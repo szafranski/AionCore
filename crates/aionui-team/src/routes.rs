@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Path, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
-use axum::Router;
 
 use aionui_api_types::{
     AddAgentRequest, ApiResponse, CreateTeamRequest, RenameAgentRequest, RenameTeamRequest,
@@ -24,10 +24,7 @@ pub struct TeamRouterState {
 pub fn team_routes(state: TeamRouterState) -> Router {
     Router::new()
         .route("/api/teams", post(create_team).get(list_teams))
-        .route(
-            "/api/teams/{id}",
-            get(get_team).delete(remove_team),
-        )
+        .route("/api/teams/{id}", get(get_team).delete(remove_team))
         .route("/api/teams/{id}/name", axum::routing::patch(rename_team))
         .route("/api/teams/{id}/agents", post(add_agent))
         .route(
@@ -43,7 +40,10 @@ pub fn team_routes(state: TeamRouterState) -> Router {
             "/api/teams/{id}/agents/{slot_id}/messages",
             post(send_message_to_agent),
         )
-        .route("/api/teams/{id}/session", post(ensure_session).delete(stop_session))
+        .route(
+            "/api/teams/{id}/session",
+            post(ensure_session).delete(stop_session),
+        )
         .with_state(state)
 }
 

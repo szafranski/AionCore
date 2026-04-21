@@ -121,8 +121,7 @@ async fn write_jsonrpc_line<T: Serialize>(
     stdin: &mut tokio::process::ChildStdin,
     msg: &T,
 ) -> std::io::Result<()> {
-    let json =
-        serde_json::to_string(msg).map_err(std::io::Error::other)?;
+    let json = serde_json::to_string(msg).map_err(std::io::Error::other)?;
     stdin.write_all(json.as_bytes()).await?;
     stdin.write_all(b"\n").await?;
     stdin.flush().await
@@ -244,8 +243,7 @@ pub(super) async fn wait_for_jsonrpc_response(
 
 /// Resolve a potentially relative endpoint URL against a base URL.
 fn resolve_endpoint_url(base_url: &str, endpoint: &str) -> Result<String, String> {
-    let base =
-        reqwest::Url::parse(base_url).map_err(|e| format!("Invalid base URL: {e}"))?;
+    let base = reqwest::Url::parse(base_url).map_err(|e| format!("Invalid base URL: {e}"))?;
     base.join(endpoint)
         .map(|u| u.to_string())
         .map_err(|e| format!("Invalid endpoint URL: {e}"))
@@ -256,9 +254,7 @@ fn resolve_endpoint_url(base_url: &str, endpoint: &str) -> Result<String, String
 // ---------------------------------------------------------------------------
 
 /// Build an HTTP header map from a string-to-string map.
-pub(super) fn build_http_headers(
-    headers: &HashMap<String, String>,
-) -> reqwest::header::HeaderMap {
+pub(super) fn build_http_headers(headers: &HashMap<String, String>) -> reqwest::header::HeaderMap {
     let mut map = reqwest::header::HeaderMap::new();
     for (k, v) in headers {
         if let (Ok(name), Ok(val)) = (
@@ -394,10 +390,7 @@ pub(super) fn timeout_result(duration: Duration) -> McpConnectionTestResult {
     ))
 }
 
-pub(super) fn spawn_error_result(
-    command: &str,
-    error: &std::io::Error,
-) -> McpConnectionTestResult {
+pub(super) fn spawn_error_result(command: &str, error: &std::io::Error) -> McpConnectionTestResult {
     let msg = match error.kind() {
         std::io::ErrorKind::NotFound => format!("Command not found: {command}"),
         std::io::ErrorKind::PermissionDenied => format!("Permission denied: {command}"),
@@ -407,7 +400,10 @@ pub(super) fn spawn_error_result(
 }
 
 pub(super) fn rpc_error_result(method: &str, err: &JsonRpcError) -> McpConnectionTestResult {
-    error_result(format!("{method} error: {} (code {})", err.message, err.code))
+    error_result(format!(
+        "{method} error: {} (code {})",
+        err.message, err.code
+    ))
 }
 
 pub(super) fn auth_result(headers: &reqwest::header::HeaderMap) -> McpConnectionTestResult {
@@ -459,8 +455,7 @@ mod tests {
     #[test]
     fn parse_sse_event_with_json_data() {
         let mut buf =
-            "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"
-                .to_string();
+            "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n".to_string();
         let event = parse_next_sse_event(&mut buf).unwrap();
         assert_eq!(event.event_type, "message");
         assert!(event.data.contains("jsonrpc"));
@@ -508,8 +503,7 @@ mod tests {
 
     #[test]
     fn resolve_absolute_endpoint() {
-        let result =
-            resolve_endpoint_url("https://example.com/sse", "https://other.com/messages");
+        let result = resolve_endpoint_url("https://example.com/sse", "https://other.com/messages");
         assert_eq!(result.unwrap(), "https://other.com/messages");
     }
 

@@ -101,8 +101,7 @@ impl ProtocolDetectionService {
                 }) => {
                     let suggestion = success_suggestion(*protocol, req.preferred_protocol);
                     let multi_key_result = if req.test_all_keys && keys.len() > 1 {
-                        let effective =
-                            fixed_base_url.as_deref().unwrap_or(&req.base_url);
+                        let effective = fixed_base_url.as_deref().unwrap_or(&req.base_url);
                         Some(
                             self.test_all_keys(&keys, *protocol, effective, timeout)
                                 .await,
@@ -204,9 +203,10 @@ impl ProtocolDetectionService {
 
             match resp {
                 Ok(r) if r.status().is_success() => {
-                    let body: DataResponse = r.json().await.map_err(|e| {
-                        AppError::BadGateway(format!("Parse failed: {e}"))
-                    })?;
+                    let body: DataResponse = r
+                        .json()
+                        .await
+                        .map_err(|e| AppError::BadGateway(format!("Parse failed: {e}")))?;
                     let confidence = if fixed.is_some() { 80 } else { 90 };
                     return Ok(ProbeOutcome::Success {
                         models: body.data.into_iter().map(|m| m.id).collect(),
@@ -294,12 +294,7 @@ impl ProtocolDetectionService {
             let models = body
                 .models
                 .into_iter()
-                .map(|m| {
-                    m.name
-                        .strip_prefix("models/")
-                        .unwrap_or(&m.name)
-                        .to_owned()
-                })
+                .map(|m| m.name.strip_prefix("models/").unwrap_or(&m.name).to_owned())
                 .collect();
             return Ok(ProbeOutcome::Success {
                 models,
@@ -431,7 +426,10 @@ fn build_test_order(
     ];
     let mut order = Vec::with_capacity(3);
 
-    for p in [preferred, url_inferred, key_inferred].into_iter().flatten() {
+    for p in [preferred, url_inferred, key_inferred]
+        .into_iter()
+        .flatten()
+    {
         if p != ProtocolType::Unknown && !order.contains(&p) {
             order.push(p);
         }
@@ -509,10 +507,7 @@ async fn test_single_key(
                 ("anthropic-version", "2023-06-01".to_owned()),
             ],
         ),
-        ProtocolType::Gemini => (
-            format!("{base}/v1beta/models?key={api_key}"),
-            vec![],
-        ),
+        ProtocolType::Gemini => (format!("{base}/v1beta/models?key={api_key}"), vec![]),
         ProtocolType::Unknown => {
             return Err(AppError::Internal("Cannot test unknown protocol".into()));
         }
@@ -531,10 +526,7 @@ async fn test_single_key(
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(AppError::BadGateway(format!(
-            "Status: {}",
-            resp.status()
-        )))
+        Err(AppError::BadGateway(format!("Status: {}", resp.status())))
     }
 }
 
@@ -625,10 +617,7 @@ mod tests {
 
     #[test]
     fn infer_key_gemini() {
-        assert_eq!(
-            infer_from_key("AIzaSyBxxxxxx"),
-            Some(ProtocolType::Gemini)
-        );
+        assert_eq!(infer_from_key("AIzaSyBxxxxxx"), Some(ProtocolType::Gemini));
     }
 
     #[test]
@@ -643,7 +632,11 @@ mod tests {
         let order = build_test_order(None, None, None);
         assert_eq!(
             order,
-            vec![ProtocolType::OpenAI, ProtocolType::Anthropic, ProtocolType::Gemini]
+            vec![
+                ProtocolType::OpenAI,
+                ProtocolType::Anthropic,
+                ProtocolType::Gemini
+            ]
         );
     }
 
@@ -677,7 +670,11 @@ mod tests {
         );
         assert_eq!(
             order,
-            vec![ProtocolType::Gemini, ProtocolType::Anthropic, ProtocolType::OpenAI]
+            vec![
+                ProtocolType::Gemini,
+                ProtocolType::Anthropic,
+                ProtocolType::OpenAI
+            ]
         );
     }
 
@@ -700,7 +697,11 @@ mod tests {
         let order = build_test_order(Some(ProtocolType::Unknown), None, None);
         assert_eq!(
             order,
-            vec![ProtocolType::OpenAI, ProtocolType::Anthropic, ProtocolType::Gemini]
+            vec![
+                ProtocolType::OpenAI,
+                ProtocolType::Anthropic,
+                ProtocolType::Gemini
+            ]
         );
     }
 

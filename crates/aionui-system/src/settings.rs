@@ -53,7 +53,9 @@ impl SettingsService {
         let current = self.get_settings().await?;
 
         let language = req.language.unwrap_or(current.language);
-        let notification_enabled = req.notification_enabled.unwrap_or(current.notification_enabled);
+        let notification_enabled = req
+            .notification_enabled
+            .unwrap_or(current.notification_enabled);
         let cron_notification_enabled = req
             .cron_notification_enabled
             .unwrap_or(current.cron_notification_enabled);
@@ -161,7 +163,10 @@ mod tests {
     #[tokio::test]
     async fn update_empty_request_returns_current() {
         let svc = setup().await;
-        let result = svc.update_settings(UpdateSettingsRequest::default()).await.unwrap();
+        let result = svc
+            .update_settings(UpdateSettingsRequest::default())
+            .await
+            .unwrap();
         assert_eq!(result, SystemSettingsResponse::default());
     }
 

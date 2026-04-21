@@ -180,10 +180,12 @@ async fn t8_1_bedrock_invalid_credentials() {
 
     let json = body_json(resp).await;
     assert_eq!(json["success"], false);
-    assert!(json["error"]
-        .as_str()
-        .unwrap()
-        .contains("Bedrock credentials invalid"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("Bedrock credentials invalid")
+    );
 }
 
 // ── 8.2 Gemini Subscription Status ──────────────────────────────────

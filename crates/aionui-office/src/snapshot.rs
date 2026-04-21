@@ -1,9 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use aionui_api_types::{
-    PreviewHistoryTargetDto, PreviewSnapshotInfoDto, SnapshotContentResponse,
-};
+use aionui_api_types::{PreviewHistoryTargetDto, PreviewSnapshotInfoDto, SnapshotContentResponse};
 use sha1::{Digest, Sha1};
 use tracing::warn;
 
@@ -209,7 +207,11 @@ fn format_label(timestamp_ms: i64) -> String {
     let mut month = 0;
     let mut day = days;
     for (i, &md) in month_days.iter().enumerate() {
-        let md = if i == 1 && is_leap_year(year) { md + 1 } else { md };
+        let md = if i == 1 && is_leap_year(year) {
+            md + 1
+        } else {
+            md
+        };
         if day < md {
             month = i + 1;
             break;

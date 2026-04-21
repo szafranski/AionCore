@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use reqwest::Client;
-use tokio::sync::{mpsc, watch, Mutex};
+use tokio::sync::{Mutex, mpsc, watch};
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 
@@ -18,8 +18,8 @@ use crate::types::{
 
 use super::api::LarkApi;
 use super::types::{
-    build_interactive_card, parse_lark_callback, BotMenuEvent, CardActionEvent, MessageEvent,
-    WsFrame,
+    BotMenuEvent, CardActionEvent, MessageEvent, WsFrame, build_interactive_card,
+    parse_lark_callback,
 };
 
 /// Maximum reconnect attempts before giving up.
@@ -209,10 +209,7 @@ impl ChannelPlugin for LarkPlugin {
             .as_ref()
             .ok_or_else(|| ChannelError::PlatformApi("Plugin not initialized".into()))?;
 
-        let text = truncate_message(
-            message.text.as_deref().unwrap_or(""),
-            LARK_MESSAGE_LIMIT,
-        );
+        let text = truncate_message(message.text.as_deref().unwrap_or(""), LARK_MESSAGE_LIMIT);
 
         let card_content = build_interactive_card(&text, message.buttons.as_deref());
         let data = api.send_card(chat_id, &card_content).await?;
@@ -230,10 +227,7 @@ impl ChannelPlugin for LarkPlugin {
             .as_ref()
             .ok_or_else(|| ChannelError::PlatformApi("Plugin not initialized".into()))?;
 
-        let text = truncate_message(
-            message.text.as_deref().unwrap_or(""),
-            LARK_MESSAGE_LIMIT,
-        );
+        let text = truncate_message(message.text.as_deref().unwrap_or(""), LARK_MESSAGE_LIMIT);
 
         let card_content = build_interactive_card(&text, message.buttons.as_deref());
         api.update_card(message_id, &card_content).await
@@ -552,11 +546,7 @@ async fn handle_card_action(
         }
     }
 
-    let chat_id = evt
-        .open_chat_id
-        .as_deref()
-        .unwrap_or("")
-        .to_string();
+    let chat_id = evt.open_chat_id.as_deref().unwrap_or("").to_string();
 
     let message_id = evt.open_message_id.clone();
 
@@ -692,9 +682,7 @@ fn extract_message_content(
         }
         "file" => {
             let fc = serde_json::from_str::<super::types::FileContent>(content_json);
-            let (file_key, file_name) = fc
-                .map(|f| (f.file_key, f.file_name))
-                .unwrap_or_default();
+            let (file_key, file_name) = fc.map(|f| (f.file_key, f.file_name)).unwrap_or_default();
             let attachments = vec![UnifiedAttachment {
                 file_id: Some(file_key),
                 file_name,
@@ -737,10 +725,7 @@ fn extract_message_content(
 // ---------------------------------------------------------------------------
 
 /// Check if an event ID has been seen recently. If not, mark it as seen.
-async fn is_duplicate(
-    cache: &Arc<Mutex<HashMap<String, Instant>>>,
-    event_id: &str,
-) -> bool {
+async fn is_duplicate(cache: &Arc<Mutex<HashMap<String, Instant>>>, event_id: &str) -> bool {
     let mut map = cache.lock().await;
     if map.contains_key(event_id) {
         return true;
@@ -873,8 +858,7 @@ mod tests {
 
     #[test]
     fn extract_image_content() {
-        let (ct, _, att) =
-            extract_message_content("image", r#"{"image_key":"img_123"}"#, None);
+        let (ct, _, att) = extract_message_content("image", r#"{"image_key":"img_123"}"#, None);
         assert_eq!(ct, MessageContentType::Photo);
         let atts = att.unwrap();
         assert_eq!(atts[0].file_id.as_deref(), Some("img_123"));
@@ -895,8 +879,7 @@ mod tests {
 
     #[test]
     fn extract_audio_content() {
-        let (ct, _, att) =
-            extract_message_content("audio", r#"{"file_key":"audio_123"}"#, None);
+        let (ct, _, att) = extract_message_content("audio", r#"{"file_key":"audio_123"}"#, None);
         assert_eq!(ct, MessageContentType::Audio);
         let atts = att.unwrap();
         assert_eq!(atts[0].file_id.as_deref(), Some("audio_123"));

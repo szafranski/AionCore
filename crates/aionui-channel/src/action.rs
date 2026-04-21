@@ -7,8 +7,8 @@ use crate::error::ChannelError;
 use crate::pairing::PairingService;
 use crate::session::SessionManager;
 use crate::types::{
-    ActionBehavior, ActionButton, ActionCategory, ActionResponse,
-    UnifiedAction, UnifiedIncomingMessage,
+    ActionBehavior, ActionButton, ActionCategory, ActionResponse, UnifiedAction,
+    UnifiedIncomingMessage,
 };
 
 /// Result of processing an incoming message.
@@ -95,12 +95,7 @@ impl ActionExecutor {
         // 3. Text message → session resolution → AI dispatch
         let session = self
             .session_mgr
-            .get_or_create_session(
-                &internal_user_id,
-                chat_id,
-                &self.default_agent_type,
-                None,
-            )
+            .get_or_create_session(&internal_user_id, chat_id, &self.default_agent_type, None)
             .await?;
 
         info!(
@@ -146,15 +141,9 @@ impl ActionExecutor {
         internal_user_id: &str,
     ) -> Result<ActionResponse, ChannelError> {
         match action.category {
-            ActionCategory::Platform => {
-                self.handle_platform_action(action).await
-            }
-            ActionCategory::System => {
-                self.handle_system_action(action, internal_user_id).await
-            }
-            ActionCategory::Chat => {
-                self.handle_chat_action(action).await
-            }
+            ActionCategory::Platform => self.handle_platform_action(action).await,
+            ActionCategory::System => self.handle_system_action(action, internal_user_id).await,
+            ActionCategory::Chat => self.handle_chat_action(action).await,
         }
     }
 
@@ -217,24 +206,22 @@ impl ActionExecutor {
                     })
                 }
             }
-            "pairing.help" => {
-                Ok(ActionResponse {
-                    text: Some(
-                        "To use this bot, you need authorization:\n\
+            "pairing.help" => Ok(ActionResponse {
+                text: Some(
+                    "To use this bot, you need authorization:\n\
                          1. Send any message to get a 6-digit pairing code\n\
                          2. Share this code with the admin\n\
                          3. Admin approves in Settings → Channel\n\
                          4. You're ready to chat!"
-                            .into(),
-                    ),
-                    parse_mode: None,
-                    buttons: None,
-                    keyboard: None,
-                    behavior: ActionBehavior::Send,
-                    toast: None,
-                    edit_message_id: None,
-                })
-            }
+                        .into(),
+                ),
+                parse_mode: None,
+                buttons: None,
+                keyboard: None,
+                behavior: ActionBehavior::Send,
+                toast: None,
+                edit_message_id: None,
+            }),
             other => {
                 warn!(action = %other, "unknown platform action");
                 Ok(build_unknown_action_response(other))
@@ -256,12 +243,7 @@ impl ActionExecutor {
                 let chat_id = &action.context.chat_id;
                 let session = self
                     .session_mgr
-                    .reset_session(
-                        user_id,
-                        chat_id,
-                        &self.default_agent_type,
-                        None,
-                    )
+                    .reset_session(user_id, chat_id, &self.default_agent_type, None)
                     .await?;
 
                 Ok(ActionResponse {
@@ -271,13 +253,11 @@ impl ActionExecutor {
                         &session.id[..8]
                     )),
                     parse_mode: None,
-                    buttons: Some(vec![vec![
-                        ActionButton {
-                            label: "Help".into(),
-                            action: "help.show".into(),
-                            params: None,
-                        },
-                    ]]),
+                    buttons: Some(vec![vec![ActionButton {
+                        label: "Help".into(),
+                        action: "help.show".into(),
+                        params: None,
+                    }]]),
                     keyboard: None,
                     behavior: ActionBehavior::Send,
                     toast: None,
@@ -289,12 +269,7 @@ impl ActionExecutor {
                 let chat_id = &action.context.chat_id;
                 let session = self
                     .session_mgr
-                    .get_or_create_session(
-                        user_id,
-                        chat_id,
-                        &self.default_agent_type,
-                        None,
-                    )
+                    .get_or_create_session(user_id, chat_id, &self.default_agent_type, None)
                     .await?;
 
                 Ok(ActionResponse {
@@ -306,13 +281,11 @@ impl ActionExecutor {
                         session.last_activity,
                     )),
                     parse_mode: None,
-                    buttons: Some(vec![vec![
-                        ActionButton {
-                            label: "New Session".into(),
-                            action: "session.new".into(),
-                            params: None,
-                        },
-                    ]]),
+                    buttons: Some(vec![vec![ActionButton {
+                        label: "New Session".into(),
+                        action: "session.new".into(),
+                        params: None,
+                    }]]),
                     keyboard: None,
                     behavior: ActionBehavior::Send,
                     toast: None,
@@ -320,99 +293,83 @@ impl ActionExecutor {
                 })
             }
             "help.show" => Ok(build_help_response()),
-            "help.features" => {
-                Ok(ActionResponse {
-                    text: Some(
-                        "Features:\n\
+            "help.features" => Ok(ActionResponse {
+                text: Some(
+                    "Features:\n\
                          • AI chat with multiple backends\n\
                          • Tool execution with auto-approval\n\
                          • Session isolation per chat\n\
                          • Agent switching"
-                            .into(),
-                    ),
-                    parse_mode: None,
-                    buttons: None,
-                    keyboard: None,
-                    behavior: ActionBehavior::Send,
-                    toast: None,
-                    edit_message_id: None,
-                })
-            }
-            "help.pairing" => {
-                Ok(ActionResponse {
-                    text: Some(
-                        "Pairing:\n\
+                        .into(),
+                ),
+                parse_mode: None,
+                buttons: None,
+                keyboard: None,
+                behavior: ActionBehavior::Send,
+                toast: None,
+                edit_message_id: None,
+            }),
+            "help.pairing" => Ok(ActionResponse {
+                text: Some(
+                    "Pairing:\n\
                          Send any message → get a 6-digit code → admin approves → you're in!"
-                            .into(),
-                    ),
-                    parse_mode: None,
-                    buttons: None,
-                    keyboard: None,
-                    behavior: ActionBehavior::Send,
-                    toast: None,
-                    edit_message_id: None,
-                })
-            }
-            "help.tips" => {
-                Ok(ActionResponse {
-                    text: Some(
-                        "Tips:\n\
+                        .into(),
+                ),
+                parse_mode: None,
+                buttons: None,
+                keyboard: None,
+                behavior: ActionBehavior::Send,
+                toast: None,
+                edit_message_id: None,
+            }),
+            "help.tips" => Ok(ActionResponse {
+                text: Some(
+                    "Tips:\n\
                          • Start a new session to clear context\n\
                          • Use /help to see available commands\n\
                          • In group chats, @mention the bot"
-                            .into(),
-                    ),
-                    parse_mode: None,
-                    buttons: None,
-                    keyboard: None,
-                    behavior: ActionBehavior::Send,
-                    toast: None,
-                    edit_message_id: None,
-                })
-            }
-            "settings.show" => {
-                Ok(ActionResponse {
-                    text: Some(
-                        "Settings are managed in the desktop app.\n\
+                        .into(),
+                ),
+                parse_mode: None,
+                buttons: None,
+                keyboard: None,
+                behavior: ActionBehavior::Send,
+                toast: None,
+                edit_message_id: None,
+            }),
+            "settings.show" => Ok(ActionResponse {
+                text: Some(
+                    "Settings are managed in the desktop app.\n\
                          Go to Settings → Channel to configure plugins and manage users."
-                            .into(),
-                    ),
-                    parse_mode: None,
-                    buttons: None,
-                    keyboard: None,
-                    behavior: ActionBehavior::Send,
-                    toast: None,
-                    edit_message_id: None,
-                })
-            }
-            "agent.show" => {
-                Ok(ActionResponse {
-                    text: Some("Available agents:".into()),
-                    parse_mode: None,
-                    buttons: Some(vec![
-                        vec![
-                            ActionButton {
-                                label: "Gemini".into(),
-                                action: "agent.select".into(),
-                                params: Some(HashMap::from([
-                                    ("agentType".into(), "gemini".into()),
-                                ])),
-                            },
-                            ActionButton {
-                                label: "ACP".into(),
-                                action: "agent.select".into(),
-                                params: Some(HashMap::from([
-                                    ("agentType".into(), "acp".into()),
-                                ])),
-                            },
-                        ],
-                    ]),
-                    keyboard: None,
-                    behavior: ActionBehavior::Send,
-                    toast: None,
-                    edit_message_id: None,
-                })
-            }
+                        .into(),
+                ),
+                parse_mode: None,
+                buttons: None,
+                keyboard: None,
+                behavior: ActionBehavior::Send,
+                toast: None,
+                edit_message_id: None,
+            }),
+            "agent.show" => Ok(ActionResponse {
+                text: Some("Available agents:".into()),
+                parse_mode: None,
+                buttons: Some(vec![vec![
+                    ActionButton {
+                        label: "Gemini".into(),
+                        action: "agent.select".into(),
+                        params: Some(HashMap::from([("agentType".into(), "gemini".into())])),
+                    },
+                    ActionButton {
+                        label: "ACP".into(),
+                        action: "agent.select".into(),
+                        params: Some(HashMap::from([("agentType".into(), "acp".into())])),
+                    },
+                ]]),
+                keyboard: None,
+                behavior: ActionBehavior::Send,
+                toast: None,
+                edit_message_id: None,
+            }),
             "agent.select" => {
                 let agent_type = action
                     .params
@@ -425,12 +382,7 @@ impl ActionExecutor {
                 let chat_id = &action.context.chat_id;
                 let session = self
                     .session_mgr
-                    .get_or_create_session(
-                        internal_user_id,
-                        chat_id,
-                        agent_type,
-                        None,
-                    )
+                    .get_or_create_session(internal_user_id, chat_id, agent_type, None)
                     .await?;
                 self.session_mgr
                     .update_agent_type(&session.id, agent_type)
@@ -473,17 +425,15 @@ impl ActionExecutor {
                     edit_message_id: None,
                 })
             }
-            "action.copy" => {
-                Ok(ActionResponse {
-                    text: None,
-                    parse_mode: None,
-                    buttons: None,
-                    keyboard: None,
-                    behavior: ActionBehavior::Answer,
-                    toast: Some("Copied to clipboard".into()),
-                    edit_message_id: None,
-                })
-            }
+            "action.copy" => Ok(ActionResponse {
+                text: None,
+                parse_mode: None,
+                buttons: None,
+                keyboard: None,
+                behavior: ActionBehavior::Answer,
+                toast: Some("Copied to clipboard".into()),
+                edit_message_id: None,
+            }),
             "system.confirm" => {
                 let call_id = action
                     .params
@@ -587,13 +537,11 @@ fn build_help_response() -> ActionResponse {
                     params: None,
                 },
             ],
-            vec![
-                ActionButton {
-                    label: "Switch Agent".into(),
-                    action: "agent.show".into(),
-                    params: None,
-                },
-            ],
+            vec![ActionButton {
+                label: "Switch Agent".into(),
+                action: "agent.show".into(),
+                params: None,
+            }],
         ]),
         keyboard: None,
         behavior: ActionBehavior::Send,
@@ -621,7 +569,7 @@ mod tests {
         ActionContext, MessageContentType, PluginType, UnifiedMessageContent, UnifiedUser,
     };
     use aionui_api_types::WebSocketMessage;
-    use aionui_common::{now_ms, TimestampMs};
+    use aionui_common::{TimestampMs, now_ms};
     use aionui_db::models::{
         AssistantSessionRow, AssistantUserRow, ChannelPluginRow, PairingCodeRow,
     };
@@ -702,8 +650,7 @@ mod tests {
             Ok(users
                 .iter()
                 .find(|u| {
-                    u.platform_user_id == platform_user_id
-                        && u.platform_type == platform_type
+                    u.platform_user_id == platform_user_id && u.platform_type == platform_type
                 })
                 .cloned())
         }
@@ -736,9 +683,10 @@ mod tests {
             new_row: &AssistantSessionRow,
         ) -> Result<AssistantSessionRow, DbError> {
             let mut sessions = self.sessions.lock().unwrap();
-            if let Some(existing) = sessions.iter_mut().find(|s| {
-                s.user_id == user_id && s.chat_id.as_deref() == Some(chat_id)
-            }) {
+            if let Some(existing) = sessions
+                .iter_mut()
+                .find(|s| s.user_id == user_id && s.chat_id.as_deref() == Some(chat_id))
+            {
                 existing.last_activity = new_row.last_activity;
                 return Ok(existing.clone());
             }
@@ -779,7 +727,10 @@ mod tests {
             }
         }
         async fn delete_sessions_by_user(&self, user_id: &str) -> Result<(), DbError> {
-            self.sessions.lock().unwrap().retain(|s| s.user_id != user_id);
+            self.sessions
+                .lock()
+                .unwrap()
+                .retain(|s| s.user_id != user_id);
             Ok(())
         }
         async fn delete_session_by_user_chat(
@@ -788,9 +739,7 @@ mod tests {
             chat_id: &str,
         ) -> Result<(), DbError> {
             let mut sessions = self.sessions.lock().unwrap();
-            sessions.retain(|s| {
-                !(s.user_id == user_id && s.chat_id.as_deref() == Some(chat_id))
-            });
+            sessions.retain(|s| !(s.user_id == user_id && s.chat_id.as_deref() == Some(chat_id)));
             Ok(())
         }
 
@@ -800,20 +749,17 @@ mod tests {
         }
         async fn get_pending_pairings(&self) -> Result<Vec<PairingCodeRow>, DbError> {
             let pairings = self.pairings.lock().unwrap();
-            Ok(pairings.iter().filter(|p| p.status == "pending").cloned().collect())
+            Ok(pairings
+                .iter()
+                .filter(|p| p.status == "pending")
+                .cloned()
+                .collect())
         }
-        async fn get_pairing_by_code(
-            &self,
-            code: &str,
-        ) -> Result<Option<PairingCodeRow>, DbError> {
+        async fn get_pairing_by_code(&self, code: &str) -> Result<Option<PairingCodeRow>, DbError> {
             let pairings = self.pairings.lock().unwrap();
             Ok(pairings.iter().find(|p| p.code == code).cloned())
         }
-        async fn update_pairing_status(
-            &self,
-            code: &str,
-            status: &str,
-        ) -> Result<(), DbError> {
+        async fn update_pairing_status(&self, code: &str, status: &str) -> Result<(), DbError> {
             let mut pairings = self.pairings.lock().unwrap();
             if let Some(p) = pairings.iter_mut().find(|p| p.code == code) {
                 p.status = status.to_owned();
@@ -822,10 +768,7 @@ mod tests {
                 Err(DbError::NotFound(code.into()))
             }
         }
-        async fn cleanup_expired_pairings(
-            &self,
-            _now: TimestampMs,
-        ) -> Result<u64, DbError> {
+        async fn cleanup_expired_pairings(&self, _now: TimestampMs) -> Result<u64, DbError> {
             Ok(0)
         }
     }
@@ -1118,10 +1061,7 @@ mod tests {
         let sessions = repo.sessions.lock().unwrap();
         let user_chat_sessions: Vec<_> = sessions
             .iter()
-            .filter(|s| {
-                s.user_id == "user_tg_42"
-                    && s.chat_id.as_deref() == Some("chat_1")
-            })
+            .filter(|s| s.user_id == "user_tg_42" && s.chat_id.as_deref() == Some("chat_1"))
             .collect();
         assert_eq!(user_chat_sessions.len(), 1);
     }
@@ -1225,10 +1165,7 @@ mod tests {
         let sessions = repo.sessions.lock().unwrap();
         let session = sessions
             .iter()
-            .find(|s| {
-                s.user_id == "user_tg_42"
-                    && s.chat_id.as_deref() == Some("chat_1")
-            })
+            .find(|s| s.user_id == "user_tg_42" && s.chat_id.as_deref() == Some("chat_1"))
             .expect("session should exist");
         assert_eq!(session.agent_type, "acp");
     }

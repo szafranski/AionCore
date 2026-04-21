@@ -2,8 +2,8 @@ use sqlx::SqlitePool;
 
 use crate::error::DbError;
 use crate::models::Provider;
-use crate::repository::provider::{CreateProviderParams, UpdateProviderParams};
 use crate::repository::IProviderRepository;
+use crate::repository::provider::{CreateProviderParams, UpdateProviderParams};
 
 /// SQLite-backed implementation of [`IProviderRepository`].
 #[derive(Clone, Debug)]
@@ -20,22 +20,18 @@ impl SqliteProviderRepository {
 #[async_trait::async_trait]
 impl IProviderRepository for SqliteProviderRepository {
     async fn list(&self) -> Result<Vec<Provider>, DbError> {
-        let rows = sqlx::query_as::<_, Provider>(
-            "SELECT * FROM providers ORDER BY created_at ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows = sqlx::query_as::<_, Provider>("SELECT * FROM providers ORDER BY created_at ASC")
+            .fetch_all(&self.pool)
+            .await?;
 
         Ok(rows)
     }
 
     async fn find_by_id(&self, id: &str) -> Result<Option<Provider>, DbError> {
-        let row = sqlx::query_as::<_, Provider>(
-            "SELECT * FROM providers WHERE id = ?",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, Provider>("SELECT * FROM providers WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(row)
     }
@@ -93,9 +89,10 @@ impl IProviderRepository for SqliteProviderRepository {
         id: &str,
         params: UpdateProviderParams<'_>,
     ) -> Result<Provider, DbError> {
-        let existing = self.find_by_id(id).await?.ok_or_else(|| {
-            DbError::NotFound(format!("Provider '{id}' not found"))
-        })?;
+        let existing = self
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| DbError::NotFound(format!("Provider '{id}' not found")))?;
 
         let merged = merge_update(existing, params);
 
@@ -134,9 +131,7 @@ impl IProviderRepository for SqliteProviderRepository {
             .await?;
 
         if result.rows_affected() == 0 {
-            return Err(DbError::NotFound(format!(
-                "Provider '{id}' not found"
-            )));
+            return Err(DbError::NotFound(format!("Provider '{id}' not found")));
         }
 
         Ok(())
@@ -157,7 +152,10 @@ fn merge_update(existing: Provider, params: UpdateProviderParams<'_>) -> Provide
             .to_string(),
         models: params.models.unwrap_or(&existing.models).to_string(),
         enabled: params.enabled.unwrap_or(existing.enabled),
-        capabilities: params.capabilities.unwrap_or(&existing.capabilities).to_string(),
+        capabilities: params
+            .capabilities
+            .unwrap_or(&existing.capabilities)
+            .to_string(),
         context_limit: params.context_limit.unwrap_or(existing.context_limit),
         model_protocols: params
             .model_protocols

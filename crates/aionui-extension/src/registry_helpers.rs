@@ -3,9 +3,9 @@ use std::path::Path;
 
 use tracing::{debug, warn};
 
-use crate::dependency::{validate_dependencies, DependencyValidationResult};
-use crate::lifecycle::{execute_hook, resolve_hook_path, HookKind};
-use crate::loader::{filter_by_engine_compatibility, load_all, ScanPath};
+use crate::dependency::{DependencyValidationResult, validate_dependencies};
+use crate::lifecycle::{HookKind, execute_hook, resolve_hook_path};
+use crate::loader::{ScanPath, filter_by_engine_compatibility, load_all};
 use crate::types::{ExtensionSource, ExtensionState, LoadedExtension};
 
 // ---------------------------------------------------------------------------
@@ -117,9 +117,7 @@ pub(crate) fn merge_persisted_states(
 }
 
 /// Build a state map from the current extensions for persistence.
-pub(crate) fn build_state_map(
-    extensions: &[LoadedExtension],
-) -> HashMap<String, ExtensionState> {
+pub(crate) fn build_state_map(extensions: &[LoadedExtension]) -> HashMap<String, ExtensionState> {
     extensions
         .iter()
         .map(|e| (e.state.name.clone(), e.state.clone()))
@@ -214,11 +212,7 @@ mod tests {
             make_test_ext("ext-a", true),
             make_test_ext("ext-b", true),
         ];
-        let order = vec![
-            "ext-a".to_owned(),
-            "ext-b".to_owned(),
-            "ext-c".to_owned(),
-        ];
+        let order = vec!["ext-a".to_owned(), "ext-b".to_owned(), "ext-c".to_owned()];
         let sorted = sort_by_load_order(exts, &order);
         let names: Vec<&str> = sorted.iter().map(|e| e.manifest.name.as_str()).collect();
         assert_eq!(names, vec!["ext-a", "ext-b", "ext-c"]);
@@ -240,10 +234,7 @@ mod tests {
 
     #[test]
     fn sort_empty_load_order() {
-        let exts = vec![
-            make_test_ext("ext-b", true),
-            make_test_ext("ext-a", true),
-        ];
+        let exts = vec![make_test_ext("ext-b", true), make_test_ext("ext-a", true)];
         let sorted = sort_by_load_order(exts, &[]);
         let names: Vec<&str> = sorted.iter().map(|e| e.manifest.name.as_str()).collect();
         assert_eq!(names, vec!["ext-a", "ext-b"]);
@@ -283,10 +274,7 @@ mod tests {
 
     #[test]
     fn build_state_map_includes_all_extensions() {
-        let exts = vec![
-            make_test_ext("ext-a", true),
-            make_test_ext("ext-b", false),
-        ];
+        let exts = vec![make_test_ext("ext-a", true), make_test_ext("ext-b", false)];
         let map = build_state_map(&exts);
         assert_eq!(map.len(), 2);
         assert!(map["ext-a"].enabled);

@@ -30,15 +30,11 @@ impl From<ShellError> for AppError {
             ShellError::DirectoryNotFound(path) => {
                 AppError::BadRequest(format!("directory not found: {path}"))
             }
-            ShellError::InvalidUrl(msg) => {
-                AppError::BadRequest(format!("invalid URL: {msg}"))
-            }
+            ShellError::InvalidUrl(msg) => AppError::BadRequest(format!("invalid URL: {msg}")),
             ShellError::ToolNotInstalled(tool) => {
                 AppError::BadRequest(format!("tool not installed: {tool}"))
             }
-            ShellError::CommandFailed(msg) => {
-                AppError::Internal(format!("command failed: {msg}"))
-            }
+            ShellError::CommandFailed(msg) => AppError::Internal(format!("command failed: {msg}")),
             ShellError::Io(e) => AppError::Internal(format!("IO error: {e}")),
         }
     }
@@ -75,9 +71,7 @@ impl SttError {
 
     pub fn status_code(&self) -> u16 {
         match self {
-            Self::Disabled
-            | Self::OpenaiNotConfigured
-            | Self::DeepgramNotConfigured => 400,
+            Self::Disabled | Self::OpenaiNotConfigured | Self::DeepgramNotConfigured => 400,
             Self::RequestFailed(_) => 502,
             Self::Unknown(_) => 500,
         }
@@ -194,8 +188,14 @@ mod tests {
     #[test]
     fn stt_error_codes() {
         assert_eq!(SttError::Disabled.error_code(), "STT_DISABLED");
-        assert_eq!(SttError::OpenaiNotConfigured.error_code(), "STT_OPENAI_NOT_CONFIGURED");
-        assert_eq!(SttError::DeepgramNotConfigured.error_code(), "STT_DEEPGRAM_NOT_CONFIGURED");
+        assert_eq!(
+            SttError::OpenaiNotConfigured.error_code(),
+            "STT_OPENAI_NOT_CONFIGURED"
+        );
+        assert_eq!(
+            SttError::DeepgramNotConfigured.error_code(),
+            "STT_DEEPGRAM_NOT_CONFIGURED"
+        );
         assert_eq!(
             SttError::RequestFailed("x".into()).error_code(),
             "STT_REQUEST_FAILED"

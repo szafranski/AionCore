@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::Duration;
 
 use aionui_common::{
@@ -404,9 +404,13 @@ mod tests {
             use_external_gateway: false,
             cli_path: Some("/usr/bin/openclaw".into()),
         };
-        let config = OpenClawAgentManager::build_spawn_config("/usr/bin/openclaw", "/proj", &gateway);
+        let config =
+            OpenClawAgentManager::build_spawn_config("/usr/bin/openclaw", "/proj", &gateway);
         assert_eq!(config.command, "/usr/bin/openclaw");
-        assert_eq!(config.env.get("OPENCLAW_GATEWAY_HOST").unwrap(), "127.0.0.1");
+        assert_eq!(
+            config.env.get("OPENCLAW_GATEWAY_HOST").unwrap(),
+            "127.0.0.1"
+        );
         assert_eq!(config.env.get("OPENCLAW_GATEWAY_PORT").unwrap(), "18789");
         assert!(!config.env.contains_key("OPENCLAW_GATEWAY_TOKEN"));
     }
@@ -421,8 +425,12 @@ mod tests {
             use_external_gateway: true,
             cli_path: Some("/usr/bin/openclaw".into()),
         };
-        let config = OpenClawAgentManager::build_spawn_config("/usr/bin/openclaw", "/proj", &gateway);
-        assert_eq!(config.env.get("OPENCLAW_GATEWAY_HOST").unwrap(), "remote.host");
+        let config =
+            OpenClawAgentManager::build_spawn_config("/usr/bin/openclaw", "/proj", &gateway);
+        assert_eq!(
+            config.env.get("OPENCLAW_GATEWAY_HOST").unwrap(),
+            "remote.host"
+        );
         assert_eq!(config.env.get("OPENCLAW_GATEWAY_PORT").unwrap(), "9999");
         assert_eq!(config.env.get("OPENCLAW_GATEWAY_TOKEN").unwrap(), "secret");
         assert_eq!(config.env.get("OPENCLAW_GATEWAY_PASSWORD").unwrap(), "pass");

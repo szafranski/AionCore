@@ -1,9 +1,9 @@
+use axum::Router;
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Extension, Json, Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::Router;
 
 use aionui_api_types::{
     ApiResponse, DetectStarOfficeRequest, DocumentConversionRequest, GetSnapshotContentRequest,
@@ -229,8 +229,8 @@ async fn office_watch_proxy(
         .forward_watch(port, &path, &request_headers)
         .await?;
 
-    let status = StatusCode::from_u16(proxy_resp.status)
-        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let status =
+        StatusCode::from_u16(proxy_resp.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let mut response = axum::response::Response::builder().status(status);
 
     for (key, value) in &proxy_resp.headers {
@@ -239,9 +239,7 @@ async fn office_watch_proxy(
 
     Ok(response
         .body(axum::body::Body::from(proxy_resp.body))
-        .unwrap_or_else(|_| {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()))
 }
 
 async fn proxy_forward(
@@ -265,8 +263,8 @@ async fn proxy_forward(
         .forward(port, path, doc_type, &request_headers)
         .await?;
 
-    let status = StatusCode::from_u16(proxy_resp.status)
-        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let status =
+        StatusCode::from_u16(proxy_resp.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let mut response = axum::response::Response::builder().status(status);
 
     for (key, value) in &proxy_resp.headers {
@@ -275,9 +273,7 @@ async fn proxy_forward(
 
     Ok(response
         .body(axum::body::Body::from(proxy_resp.body))
-        .unwrap_or_else(|_| {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()))
 }
 
 #[cfg(test)]
@@ -308,7 +304,6 @@ mod tests {
     }
 
     fn build_test_state() -> OfficeRouterState {
-
         struct NoopSpawner;
 
         #[async_trait::async_trait]
@@ -334,11 +329,7 @@ mod tests {
 
         struct NoopBroadcaster;
         impl aionui_realtime::EventBroadcaster for NoopBroadcaster {
-            fn broadcast(
-                &self,
-                _msg: aionui_api_types::WebSocketMessage<serde_json::Value>,
-            ) {
-            }
+            fn broadcast(&self, _msg: aionui_api_types::WebSocketMessage<serde_json::Value>) {}
         }
 
         let spawner = Arc::new(NoopSpawner);

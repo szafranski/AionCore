@@ -64,10 +64,7 @@ impl ModelFetchService {
     }
 
     /// Extract and decrypt provider configuration from DB.
-    async fn load_provider_config(
-        &self,
-        provider_id: &str,
-    ) -> Result<FetchConfig, AppError> {
+    async fn load_provider_config(&self, provider_id: &str) -> Result<FetchConfig, AppError> {
         let row = self
             .repo
             .find_by_id(provider_id)

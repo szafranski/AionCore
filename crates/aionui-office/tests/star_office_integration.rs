@@ -316,13 +316,8 @@ async fn cache_miss_ttl_expires() {
     tokio::time::sleep(std::time::Duration::from_millis(1600)).await;
 
     let port2 = allocate_port();
-    let handle = mock_star_office_server(
-        port2,
-        true,
-        "idle",
-        "<html><body>star office</body></html>",
-    )
-    .await;
+    let handle =
+        mock_star_office_server(port2, true, "idle", "<html><body>star office</body></html>").await;
 
     let url2 = format!("http://localhost:{port2}");
     let result = detector.detect(Some(&url2), false, Some(2000)).await;

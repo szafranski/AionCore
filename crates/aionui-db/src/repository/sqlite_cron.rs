@@ -130,10 +130,7 @@ impl ICronRepository for SqliteCronRepository {
         set_parts.push("updated_at = ?".to_string());
         binds.push(BindValue::I64(now_ms()));
 
-        let sql = format!(
-            "UPDATE cron_jobs SET {} WHERE id = ?",
-            set_parts.join(", ")
-        );
+        let sql = format!("UPDATE cron_jobs SET {} WHERE id = ?", set_parts.join(", "));
 
         let mut query = sqlx::query(&sql);
         for bind in &binds {
@@ -160,20 +157,18 @@ impl ICronRepository for SqliteCronRepository {
     }
 
     async fn get_by_id(&self, id: &str) -> Result<Option<CronJobRow>, DbError> {
-        let row =
-            sqlx::query_as::<_, CronJobRow>("SELECT * FROM cron_jobs WHERE id = ?")
-                .bind(id)
-                .fetch_optional(&self.pool)
-                .await?;
+        let row = sqlx::query_as::<_, CronJobRow>("SELECT * FROM cron_jobs WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
         Ok(row)
     }
 
     async fn list_all(&self) -> Result<Vec<CronJobRow>, DbError> {
-        let rows = sqlx::query_as::<_, CronJobRow>(
-            "SELECT * FROM cron_jobs ORDER BY created_at ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows =
+            sqlx::query_as::<_, CronJobRow>("SELECT * FROM cron_jobs ORDER BY created_at ASC")
+                .fetch_all(&self.pool)
+                .await?;
         Ok(rows)
     }
 
@@ -200,11 +195,10 @@ impl ICronRepository for SqliteCronRepository {
     }
 
     async fn delete_by_conversation(&self, conversation_id: &str) -> Result<u64, DbError> {
-        let result =
-            sqlx::query("DELETE FROM cron_jobs WHERE conversation_id = ?")
-                .bind(conversation_id)
-                .execute(&self.pool)
-                .await?;
+        let result = sqlx::query("DELETE FROM cron_jobs WHERE conversation_id = ?")
+            .bind(conversation_id)
+            .execute(&self.pool)
+            .await?;
         Ok(result.rows_affected())
     }
 }
@@ -531,8 +525,7 @@ mod tests {
     async fn insert_with_agent_config_json() {
         let (repo, _db) = setup().await;
         let mut row = make_row("cron_ac");
-        row.agent_config =
-            Some(r#"{"backend":"openai","name":"GPT","modelId":"gpt-4"}"#.into());
+        row.agent_config = Some(r#"{"backend":"openai","name":"GPT","modelId":"gpt-4"}"#.into());
         repo.insert(&row).await.unwrap();
 
         let found = repo.get_by_id("cron_ac").await.unwrap().unwrap();

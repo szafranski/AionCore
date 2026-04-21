@@ -164,7 +164,13 @@ impl ITeamRepository for FullMockTeamRepo {
         Ok(self.teams.lock().unwrap().clone())
     }
     async fn get_team(&self, id: &str) -> Result<Option<aionui_db::models::TeamRow>, DbError> {
-        Ok(self.teams.lock().unwrap().iter().find(|t| t.id == id).cloned())
+        Ok(self
+            .teams
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|t| t.id == id)
+            .cloned())
     }
     async fn update_team(
         &self,
@@ -241,11 +247,7 @@ impl ITeamRepository for FullMockTeamRepo {
     ) -> Result<Vec<aionui_db::models::TeamTaskRow>, DbError> {
         self.inner.list_tasks(team_id).await
     }
-    async fn append_to_blocks(
-        &self,
-        task_id: &str,
-        blocked_task_id: &str,
-    ) -> Result<(), DbError> {
+    async fn append_to_blocks(&self, task_id: &str, blocked_task_id: &str) -> Result<(), DbError> {
         self.inner.append_to_blocks(task_id, blocked_task_id).await
     }
     async fn remove_from_blocked_by(
@@ -408,7 +410,10 @@ async fn tc3_each_agent_has_conversation_id() {
     for agent in &resp.agents {
         assert!(!agent.conversation_id.is_empty());
     }
-    assert_ne!(resp.agents[0].conversation_id, resp.agents[1].conversation_id);
+    assert_ne!(
+        resp.agents[0].conversation_id,
+        resp.agents[1].conversation_id
+    );
 }
 
 // -- List teams ---------------------------------------------------------------
@@ -635,9 +640,7 @@ async fn ar4_remove_nonexistent_agent() {
         .await
         .unwrap();
 
-    let result = svc
-        .remove_agent("user1", &created.id, "nonexistent")
-        .await;
+    let result = svc.remove_agent("user1", &created.id, "nonexistent").await;
     assert!(result.is_err());
 }
 
@@ -679,9 +682,7 @@ async fn an3_rename_nonexistent_agent() {
         .await
         .unwrap();
 
-    let result = svc
-        .rename_agent(&created.id, "nonexistent", "X")
-        .await;
+    let result = svc.rename_agent(&created.id, "nonexistent", "X").await;
     assert!(result.is_err());
 }
 

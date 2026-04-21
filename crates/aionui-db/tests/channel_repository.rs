@@ -6,12 +6,10 @@
 
 use std::sync::Arc;
 
+use aionui_db::models::{AssistantSessionRow, AssistantUserRow, ChannelPluginRow, PairingCodeRow};
 use aionui_db::{
-    init_database_memory, DbError, IChannelRepository, SqliteChannelRepository,
-    UpdatePluginStatusParams,
-};
-use aionui_db::models::{
-    AssistantSessionRow, AssistantUserRow, ChannelPluginRow, PairingCodeRow,
+    DbError, IChannelRepository, SqliteChannelRepository, UpdatePluginStatusParams,
+    init_database_memory,
 };
 
 async fn repo() -> (Arc<dyn IChannelRepository>, aionui_db::Database) {
@@ -139,20 +137,12 @@ async fn dc1_delete_user_cascades_sessions() {
         .unwrap();
 
     // Create two sessions for the user.
-    repo.get_or_create_session(
-        "u1",
-        "chat-a",
-        &make_session("s1", "u1", "chat-a"),
-    )
-    .await
-    .unwrap();
-    repo.get_or_create_session(
-        "u1",
-        "chat-b",
-        &make_session("s2", "u1", "chat-b"),
-    )
-    .await
-    .unwrap();
+    repo.get_or_create_session("u1", "chat-a", &make_session("s1", "u1", "chat-a"))
+        .await
+        .unwrap();
+    repo.get_or_create_session("u1", "chat-b", &make_session("s2", "u1", "chat-b"))
+        .await
+        .unwrap();
     assert_eq!(repo.get_all_sessions().await.unwrap().len(), 2);
 
     // Delete user → sessions cascade.

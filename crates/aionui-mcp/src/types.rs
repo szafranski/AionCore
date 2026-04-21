@@ -62,16 +62,13 @@ impl McpServerTransport {
 
     /// Parses transport from DB fields (type string + config JSON).
     pub fn from_db(transport_type: &str, config_json: &str) -> Result<Self, McpError> {
-        let value: serde_json::Value =
-            serde_json::from_str(config_json).map_err(McpError::from)?;
+        let value: serde_json::Value = serde_json::from_str(config_json).map_err(McpError::from)?;
 
         match transport_type {
             "stdio" => {
                 let command = value["command"]
                     .as_str()
-                    .ok_or_else(|| {
-                        McpError::InvalidTransport("stdio: missing command".into())
-                    })?
+                    .ok_or_else(|| McpError::InvalidTransport("stdio: missing command".into()))?
                     .to_owned();
                 let args = value["args"]
                     .as_array()
@@ -131,9 +128,7 @@ fn parse_headers_object(value: &serde_json::Value) -> HashMap<String, String> {
 impl From<McpTransport> for McpServerTransport {
     fn from(t: McpTransport) -> Self {
         match t {
-            McpTransport::Stdio { command, args, env } => {
-                Self::Stdio { command, args, env }
-            }
+            McpTransport::Stdio { command, args, env } => Self::Stdio { command, args, env },
             McpTransport::Sse { url, headers } => Self::Sse { url, headers },
             McpTransport::Http { url, headers } => Self::Http { url, headers },
         }
@@ -213,8 +208,7 @@ pub struct McpServer {
 impl McpServer {
     /// Converts a DB row into a domain model by parsing JSON fields.
     pub fn from_row(row: McpServerRow) -> Result<Self, McpError> {
-        let transport =
-            McpServerTransport::from_db(&row.transport_type, &row.transport_config)?;
+        let transport = McpServerTransport::from_db(&row.transport_type, &row.transport_config)?;
 
         let tools = match row.tools.as_deref() {
             Some(json_str) if !json_str.is_empty() => {

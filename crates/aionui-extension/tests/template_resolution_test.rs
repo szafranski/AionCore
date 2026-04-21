@@ -53,11 +53,7 @@ fn mv8_file_reference_resolved() {
     std::fs::create_dir_all(&dir).unwrap();
     let prompt_dir = dir.join("prompts");
     std::fs::create_dir_all(&prompt_dir).unwrap();
-    std::fs::write(
-        prompt_dir.join("system.md"),
-        "You are a helpful assistant.",
-    )
-    .unwrap();
+    std::fs::write(prompt_dir.join("system.md"), "You are a helpful assistant.").unwrap();
 
     let result = resolve_file_reference("@file:prompts/system.md", &dir).unwrap();
     assert_eq!(result, "You are a helpful assistant.");
@@ -93,8 +89,7 @@ fn non_file_reference_passes_through() {
 fn multiple_env_vars_in_one_string() {
     unsafe { std::env::set_var("_IT_HOST", "localhost") };
     unsafe { std::env::set_var("_IT_PORT", "8080") };
-    let result =
-        resolve_env_templates("http://${_IT_HOST}:${_IT_PORT}/api", false).unwrap();
+    let result = resolve_env_templates("http://${_IT_HOST}:${_IT_PORT}/api", false).unwrap();
     assert_eq!(result, "http://localhost:8080/api");
     unsafe { std::env::remove_var("_IT_HOST") };
     unsafe { std::env::remove_var("_IT_PORT") };
@@ -140,11 +135,8 @@ fn path_traversal_nested_dotdot_blocked() {
     let outside = std::env::temp_dir().join("ext_it_traversal_nested_secret.txt");
     std::fs::write(&outside, "nested secret").unwrap();
 
-    let err = resolve_file_reference(
-        "@file:deep/../../ext_it_traversal_nested_secret.txt",
-        &dir,
-    )
-    .unwrap_err();
+    let err = resolve_file_reference("@file:deep/../../ext_it_traversal_nested_secret.txt", &dir)
+        .unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("traversal") || msg.contains("Path traversal"));
 

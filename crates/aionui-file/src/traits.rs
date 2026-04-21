@@ -17,24 +17,14 @@ pub trait IFileService: Send + Sync {
 
     /// List the immediate children of `dir`, returning a tree with one level
     /// of depth. `root` is the workspace root used to compute relative paths.
-    async fn get_files_by_dir(
-        &self,
-        dir: &str,
-        root: &str,
-    ) -> Result<Vec<DirOrFile>, AppError>;
+    async fn get_files_by_dir(&self, dir: &str, root: &str) -> Result<Vec<DirOrFile>, AppError>;
 
     /// Recursively list all files under `root` as a flat list.
     /// Returns at most 20,000 entries.
-    async fn list_workspace_files(
-        &self,
-        root: &str,
-    ) -> Result<Vec<WorkspaceFlatFile>, AppError>;
+    async fn list_workspace_files(&self, root: &str) -> Result<Vec<WorkspaceFlatFile>, AppError>;
 
     /// Get metadata for a single file or directory.
-    async fn get_file_metadata(
-        &self,
-        path: &str,
-    ) -> Result<FileMetadata, AppError>;
+    async fn get_file_metadata(&self, path: &str) -> Result<FileMetadata, AppError>;
 
     // -- File read/write --
 
@@ -44,19 +34,11 @@ pub trait IFileService: Send + Sync {
 
     /// Read a file as raw bytes. Returns `None` if the file does not exist.
     /// Files larger than 256 MB are rejected.
-    async fn read_file_buffer(
-        &self,
-        path: &str,
-    ) -> Result<Option<Vec<u8>>, AppError>;
+    async fn read_file_buffer(&self, path: &str) -> Result<Option<Vec<u8>>, AppError>;
 
     /// Write `data` to `path`. On success, emits a
     /// `fileStream.contentUpdate` event with `operation = write`.
-    async fn write_file(
-        &self,
-        path: &str,
-        data: &[u8],
-        workspace: &str,
-    ) -> Result<bool, AppError>;
+    async fn write_file(&self, path: &str, data: &[u8], workspace: &str) -> Result<bool, AppError>;
 
     // -- File management --
 
@@ -71,33 +53,19 @@ pub trait IFileService: Send + Sync {
 
     /// Remove a file or directory (recursively). On success, emits a
     /// `fileStream.contentUpdate` event with `operation = delete`.
-    async fn remove_entry(
-        &self,
-        path: &str,
-        workspace: &str,
-    ) -> Result<(), AppError>;
+    async fn remove_entry(&self, path: &str, workspace: &str) -> Result<(), AppError>;
 
     /// Rename a file or directory. Returns the new absolute path.
-    async fn rename_entry(
-        &self,
-        path: &str,
-        new_name: &str,
-    ) -> Result<String, AppError>;
+    async fn rename_entry(&self, path: &str, new_name: &str) -> Result<String, AppError>;
 
     /// Create an empty temporary file and return its absolute path.
-    async fn create_temp_file(
-        &self,
-        file_name: &str,
-    ) -> Result<String, AppError>;
+    async fn create_temp_file(&self, file_name: &str) -> Result<String, AppError>;
 
     // -- Image processing --
 
     /// Read a local image and return a base64 Data URL
     /// (e.g. `data:image/png;base64,...`).
-    async fn get_image_base64(
-        &self,
-        path: &str,
-    ) -> Result<String, AppError>;
+    async fn get_image_base64(&self, path: &str) -> Result<String, AppError>;
 
     /// Download a remote image and return a base64 Data URL.
     /// On failure, returns a placeholder SVG Data URL.
@@ -137,16 +105,10 @@ pub trait IFileWatchService: Send + Sync {
     /// Start watching a workspace directory for new Office files
     /// (.pptx, .docx, .xlsx).
     /// Emits `workspaceOfficeWatch.fileAdded` events.
-    async fn start_office_watch(
-        &self,
-        workspace: &str,
-    ) -> Result<(), AppError>;
+    async fn start_office_watch(&self, workspace: &str) -> Result<(), AppError>;
 
     /// Stop watching a workspace directory for Office files.
-    async fn stop_office_watch(
-        &self,
-        workspace: &str,
-    ) -> Result<(), AppError>;
+    async fn stop_office_watch(&self, workspace: &str) -> Result<(), AppError>;
 }
 
 /// Git-based workspace snapshot system for tracking file changes.
@@ -162,17 +124,11 @@ pub trait ISnapshotService: Send + Sync {
     async fn init(&self, workspace: &str) -> Result<SnapshotInfo, AppError>;
 
     /// Get the current snapshot mode and branch info.
-    async fn get_info(
-        &self,
-        workspace: &str,
-    ) -> Result<SnapshotInfo, AppError>;
+    async fn get_info(&self, workspace: &str) -> Result<SnapshotInfo, AppError>;
 
     /// Compare workspace state against the baseline.
     /// Returns staged and unstaged changes.
-    async fn compare(
-        &self,
-        workspace: &str,
-    ) -> Result<CompareResult, AppError>;
+    async fn compare(&self, workspace: &str) -> Result<CompareResult, AppError>;
 
     /// Get the baseline (HEAD) content of a file.
     /// Returns `None` for new/untracked files.
@@ -183,21 +139,13 @@ pub trait ISnapshotService: Send + Sync {
     ) -> Result<Option<String>, AppError>;
 
     /// Stage a single file (git-repo mode only).
-    async fn stage_file(
-        &self,
-        workspace: &str,
-        file_path: &str,
-    ) -> Result<(), AppError>;
+    async fn stage_file(&self, workspace: &str, file_path: &str) -> Result<(), AppError>;
 
     /// Stage all changes.
     async fn stage_all(&self, workspace: &str) -> Result<(), AppError>;
 
     /// Unstage a single file.
-    async fn unstage_file(
-        &self,
-        workspace: &str,
-        file_path: &str,
-    ) -> Result<(), AppError>;
+    async fn unstage_file(&self, workspace: &str, file_path: &str) -> Result<(), AppError>;
 
     /// Unstage all staged changes.
     async fn unstage_all(&self, workspace: &str) -> Result<(), AppError>;
@@ -219,10 +167,7 @@ pub trait ISnapshotService: Send + Sync {
     ) -> Result<(), AppError>;
 
     /// List git branches (git-repo mode only).
-    async fn get_branches(
-        &self,
-        workspace: &str,
-    ) -> Result<Vec<String>, AppError>;
+    async fn get_branches(&self, workspace: &str) -> Result<Vec<String>, AppError>;
 
     /// Clean up snapshot resources.
     /// For snapshot mode, deletes the temporary git repository.

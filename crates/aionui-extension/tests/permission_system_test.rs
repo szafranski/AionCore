@@ -3,8 +3,8 @@
 //! These test the public API surface of risk level calculation and permission summary.
 
 use aionui_extension::{
-    build_permission_summary, calculate_risk_level, ExtPermissions, FilesystemScope,
-    NetworkPermission, PermissionLevel, RiskLevel,
+    ExtPermissions, FilesystemScope, NetworkPermission, PermissionLevel, RiskLevel,
+    build_permission_summary, calculate_risk_level,
 };
 
 // -- PS-1: storage + events only → safe --

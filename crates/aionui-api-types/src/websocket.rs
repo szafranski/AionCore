@@ -60,8 +60,7 @@ mod tests {
         };
         let msg = WebSocketMessage::new("list:update", payload.clone());
         let serialized = serde_json::to_string(&msg).unwrap();
-        let deserialized: WebSocketMessage<Payload> =
-            serde_json::from_str(&serialized).unwrap();
+        let deserialized: WebSocketMessage<Payload> = serde_json::from_str(&serialized).unwrap();
         assert_eq!(deserialized.name, "list:update");
         assert_eq!(deserialized.data, payload);
     }

@@ -108,12 +108,18 @@ async fn conversations_defaults() {
     .await
     .unwrap();
 
-    let row = sqlx::query("SELECT extra, pinned, pinned_at, model, source FROM conversations WHERE id = 'conv_def'")
-        .fetch_one(db.pool())
-        .await
-        .unwrap();
+    let row = sqlx::query(
+        "SELECT extra, pinned, pinned_at, model, source FROM conversations WHERE id = 'conv_def'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
 
-    assert_eq!(row.get::<String, _>("extra"), "{}", "extra should default to empty JSON");
+    assert_eq!(
+        row.get::<String, _>("extra"),
+        "{}",
+        "extra should default to empty JSON"
+    );
     assert_eq!(row.get::<i32, _>("pinned"), 0, "pinned should default to 0");
     assert!(
         row.get::<Option<i64>, _>("pinned_at").is_none(),
@@ -218,7 +224,10 @@ async fn cascade_delete_user_removes_conversations() {
         .fetch_one(db.pool())
         .await
         .unwrap();
-    assert_eq!(count.0, 0, "conversations should be cascade-deleted with user");
+    assert_eq!(
+        count.0, 0,
+        "conversations should be cascade-deleted with user"
+    );
 }
 
 // -- Messages table: column acceptance --
@@ -270,12 +279,18 @@ async fn messages_defaults() {
     .await
     .unwrap();
 
-    let row = sqlx::query("SELECT content, hidden, msg_id, position, status FROM messages WHERE id = 'msg_def'")
-        .fetch_one(db.pool())
-        .await
-        .unwrap();
+    let row = sqlx::query(
+        "SELECT content, hidden, msg_id, position, status FROM messages WHERE id = 'msg_def'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
 
-    assert_eq!(row.get::<String, _>("content"), "{}", "content should default to empty JSON");
+    assert_eq!(
+        row.get::<String, _>("content"),
+        "{}",
+        "content should default to empty JSON"
+    );
     assert_eq!(row.get::<i32, _>("hidden"), 0, "hidden should default to 0");
     assert!(row.get::<Option<String>, _>("msg_id").is_none());
     assert!(row.get::<Option<String>, _>("position").is_none());
@@ -298,7 +313,10 @@ async fn messages_position_check_constraint() {
     .execute(db.pool())
     .await;
 
-    assert!(result.is_err(), "invalid position should violate CHECK constraint");
+    assert!(
+        result.is_err(),
+        "invalid position should violate CHECK constraint"
+    );
 }
 
 #[tokio::test]
@@ -315,7 +333,10 @@ async fn messages_status_check_constraint() {
     .execute(db.pool())
     .await;
 
-    assert!(result.is_err(), "invalid status should violate CHECK constraint");
+    assert!(
+        result.is_err(),
+        "invalid status should violate CHECK constraint"
+    );
 }
 
 #[tokio::test]
@@ -401,12 +422,11 @@ async fn cascade_delete_conversation_removes_messages() {
     }
 
     // Verify messages exist
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM messages WHERE conversation_id = $1")
-            .bind(&conv_id)
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM messages WHERE conversation_id = $1")
+        .bind(&conv_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
     assert_eq!(count.0, 3);
 
     // Delete conversation
@@ -417,13 +437,15 @@ async fn cascade_delete_conversation_removes_messages() {
         .unwrap();
 
     // Messages should be gone
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM messages WHERE conversation_id = $1")
-            .bind(&conv_id)
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-    assert_eq!(count.0, 0, "messages should be cascade-deleted with conversation");
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM messages WHERE conversation_id = $1")
+        .bind(&conv_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(
+        count.0, 0,
+        "messages should be cascade-deleted with conversation"
+    );
 }
 
 // -- Full cascade: users → conversations → messages --
@@ -483,11 +505,10 @@ async fn conversation_row_from_row() {
     .await
     .unwrap();
 
-    let row: ConversationRow =
-        sqlx::query_as("SELECT * FROM conversations WHERE id = 'conv_fr'")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
+    let row: ConversationRow = sqlx::query_as("SELECT * FROM conversations WHERE id = 'conv_fr'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
 
     assert_eq!(row.id, "conv_fr");
     assert_eq!(row.user_id, user_id);
@@ -522,11 +543,10 @@ async fn conversation_row_nullable_fields() {
     .await
     .unwrap();
 
-    let row: ConversationRow =
-        sqlx::query_as("SELECT * FROM conversations WHERE id = 'conv_null'")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
+    let row: ConversationRow = sqlx::query_as("SELECT * FROM conversations WHERE id = 'conv_null'")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
 
     assert!(row.model.is_none());
     assert!(row.source.is_none());

@@ -3,11 +3,9 @@ use std::sync::Arc;
 use aionui_api_types::{
     CreateConversationRequest, ListConversationsQuery, UpdateConversationRequest, WebSocketMessage,
 };
-use aionui_common::{
-    AgentType, ConversationSource, ConversationStatus,
-};
+use aionui_common::{AgentType, ConversationSource, ConversationStatus};
 use aionui_conversation::ConversationService;
-use aionui_db::{init_database_memory, SqliteConversationRepository};
+use aionui_db::{SqliteConversationRepository, init_database_memory};
 use aionui_realtime::EventBroadcaster;
 use serde_json::json;
 use std::sync::Mutex;
@@ -235,10 +233,7 @@ async fn t2_4_source_filter() {
     };
     let result = svc.list(USER_ID, query).await.unwrap();
     assert_eq!(result.items.len(), 1);
-    assert_eq!(
-        result.items[0].source,
-        Some(ConversationSource::Telegram)
-    );
+    assert_eq!(result.items[0].source, Some(ConversationSource::Telegram));
 }
 
 #[tokio::test]
@@ -308,8 +303,7 @@ async fn t4_2_pin_conversation() {
     let (svc, _) = setup().await;
     let conv = svc.create(USER_ID, make_create_req()).await.unwrap();
 
-    let req: UpdateConversationRequest =
-        serde_json::from_value(json!({ "pinned": true })).unwrap();
+    let req: UpdateConversationRequest = serde_json::from_value(json!({ "pinned": true })).unwrap();
     let updated = svc.update(USER_ID, &conv.id, req).await.unwrap();
 
     assert!(updated.pinned);
@@ -322,8 +316,7 @@ async fn t4_3_unpin_clears_pinned_at() {
     let conv = svc.create(USER_ID, make_create_req()).await.unwrap();
 
     // Pin
-    let pin: UpdateConversationRequest =
-        serde_json::from_value(json!({ "pinned": true })).unwrap();
+    let pin: UpdateConversationRequest = serde_json::from_value(json!({ "pinned": true })).unwrap();
     let pinned = svc.update(USER_ID, &conv.id, pin).await.unwrap();
     assert!(pinned.pinned_at.is_some());
 
@@ -375,8 +368,7 @@ async fn t4_5_update_model() {
 #[tokio::test]
 async fn t4_6_update_not_found() {
     let (svc, _) = setup().await;
-    let req: UpdateConversationRequest =
-        serde_json::from_value(json!({ "name": "x" })).unwrap();
+    let req: UpdateConversationRequest = serde_json::from_value(json!({ "name": "x" })).unwrap();
     let err = svc.update(USER_ID, "non-existent", req).await.unwrap_err();
     assert!(matches!(err, aionui_common::AppError::NotFound(_)));
 }
@@ -439,8 +431,7 @@ async fn t11_2_update_broadcasts_updated() {
     let conv = svc.create(USER_ID, make_create_req()).await.unwrap();
     broadcaster.take_events();
 
-    let req: UpdateConversationRequest =
-        serde_json::from_value(json!({ "name": "x" })).unwrap();
+    let req: UpdateConversationRequest = serde_json::from_value(json!({ "name": "x" })).unwrap();
     svc.update(USER_ID, &conv.id, req).await.unwrap();
 
     let events = broadcaster.take_events();

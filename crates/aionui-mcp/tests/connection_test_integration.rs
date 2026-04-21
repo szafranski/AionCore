@@ -186,10 +186,7 @@ async fn stdio_timeout_returns_timeout_error() {
 
     assert!(!result.success);
     let error = result.error.as_deref().unwrap();
-    assert!(
-        error.contains("timed out"),
-        "expected timeout in: {error}"
-    );
+    assert!(error.contains("timed out"), "expected timeout in: {error}");
 }
 
 // ---------------------------------------------------------------------------
@@ -219,10 +216,7 @@ async fn http_500_returns_error_with_status() {
 
     assert!(!result.success);
     let error = result.error.as_deref().unwrap();
-    assert!(
-        error.contains("500"),
-        "expected HTTP 500 in: {error}"
-    );
+    assert!(error.contains("500"), "expected HTTP 500 in: {error}");
 
     server_handle.abort();
 }
@@ -239,30 +233,28 @@ async fn http_custom_headers_are_sent() {
     let server_handle = tokio::spawn(async move {
         let app = axum::Router::new().route(
             "/mcp",
-            axum::routing::post(
-                |headers: axum::http::HeaderMap| async move {
-                    // Verify the custom header was received
-                    if headers.get("x-api-key").and_then(|v| v.to_str().ok()) == Some("secret") {
-                        // Return a valid initialize response
-                        axum::Json(serde_json::json!({
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "result": {
-                                "protocolVersion": "2024-11-05",
-                                "capabilities": {},
-                                "serverInfo": { "name": "test", "version": "1.0" }
-                            }
-                        }))
-                    } else {
-                        // Return error if header missing
-                        axum::Json(serde_json::json!({
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "error": { "code": -1, "message": "Missing API key" }
-                        }))
-                    }
-                },
-            ),
+            axum::routing::post(|headers: axum::http::HeaderMap| async move {
+                // Verify the custom header was received
+                if headers.get("x-api-key").and_then(|v| v.to_str().ok()) == Some("secret") {
+                    // Return a valid initialize response
+                    axum::Json(serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "result": {
+                            "protocolVersion": "2024-11-05",
+                            "capabilities": {},
+                            "serverInfo": { "name": "test", "version": "1.0" }
+                        }
+                    }))
+                } else {
+                    // Return error if header missing
+                    axum::Json(serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "error": { "code": -1, "message": "Missing API key" }
+                    }))
+                }
+            }),
         );
         axum::serve(listener, app).await.unwrap();
     });
@@ -313,8 +305,5 @@ async fn stdio_with_args_spawns_correctly() {
     assert!(!result.success);
     let error = result.error.as_deref().unwrap();
     // Should be a protocol error, not a spawn error
-    assert!(
-        !error.contains("Command not found"),
-        "echo should be found"
-    );
+    assert!(!error.contains("Command not found"), "echo should be found");
 }

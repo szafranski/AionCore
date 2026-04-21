@@ -11,10 +11,10 @@ use tracing::debug;
 
 use crate::types::McpServerTransport;
 use protocol::{
-    build_http_headers, build_initialize_request, build_initialized_notification,
-    build_tools_list_request, error_result, read_sse_events, rpc_error_result,
-    run_stdio_protocol, spawn_error_result, success_result, timeout_result, wait_for_endpoint,
-    wait_for_jsonrpc_response, JsonRpcRequest, JsonRpcResponse, SseEvent,
+    JsonRpcRequest, JsonRpcResponse, SseEvent, build_http_headers, build_initialize_request,
+    build_initialized_notification, build_tools_list_request, error_result, read_sse_events,
+    rpc_error_result, run_stdio_protocol, spawn_error_result, success_result, timeout_result,
+    wait_for_endpoint, wait_for_jsonrpc_response,
 };
 
 // ---------------------------------------------------------------------------
@@ -78,12 +78,7 @@ impl McpConnectionTestService {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> McpConnectionTestResult {
-        match tokio::time::timeout(
-            self.timeout,
-            self.test_stdio_inner(command, args, env),
-        )
-        .await
-        {
+        match tokio::time::timeout(self.timeout, self.test_stdio_inner(command, args, env)).await {
             Ok(r) => r,
             Err(_) => timeout_result(self.timeout),
         }
@@ -145,11 +140,13 @@ impl McpConnectionTestService {
         );
 
         // 1. initialize
-        let init_resp =
-            match self.http_post_mcp(url, &req_headers, &build_initialize_request(1)).await {
-                Ok(r) => r,
-                Err(result) => return result,
-            };
+        let init_resp = match self
+            .http_post_mcp(url, &req_headers, &build_initialize_request(1))
+            .await
+        {
+            Ok(r) => r,
+            Err(result) => return result,
+        };
         if let Some(err) = init_resp.rpc.error {
             return rpc_error_result("initialize", &err);
         }
@@ -171,11 +168,13 @@ impl McpConnectionTestService {
             .await;
 
         // 3. tools/list
-        let tools_resp =
-            match self.http_post_mcp(url, &req_headers, &build_tools_list_request(2)).await {
-                Ok(r) => r,
-                Err(result) => return result,
-            };
+        let tools_resp = match self
+            .http_post_mcp(url, &req_headers, &build_tools_list_request(2))
+            .await
+        {
+            Ok(r) => r,
+            Err(result) => return result,
+        };
         if let Some(err) = tools_resp.rpc.error {
             return rpc_error_result("tools/list", &err);
         }
@@ -270,8 +269,9 @@ impl McpConnectionTestService {
             "application/json".parse().expect("valid header"),
         );
 
-        let result =
-            self.run_sse_protocol(url, &req_headers, &mut event_rx).await;
+        let result = self
+            .run_sse_protocol(url, &req_headers, &mut event_rx)
+            .await;
         reader_handle.abort();
         result
     }
@@ -289,7 +289,10 @@ impl McpConnectionTestService {
         };
 
         // 4. initialize
-        if let Err(e) = self.sse_post(&endpoint, headers, &build_initialize_request(1)).await {
+        if let Err(e) = self
+            .sse_post(&endpoint, headers, &build_initialize_request(1))
+            .await
+        {
             return error_result(format!("Failed to send initialize: {e}"));
         }
         let init_resp = match wait_for_jsonrpc_response(event_rx).await {
@@ -306,7 +309,10 @@ impl McpConnectionTestService {
             .await;
 
         // 6. tools/list
-        if let Err(e) = self.sse_post(&endpoint, headers, &build_tools_list_request(2)).await {
+        if let Err(e) = self
+            .sse_post(&endpoint, headers, &build_tools_list_request(2))
+            .await
+        {
             return error_result(format!("Failed to send tools/list: {e}"));
         }
         let tools_resp = match wait_for_jsonrpc_response(event_rx).await {

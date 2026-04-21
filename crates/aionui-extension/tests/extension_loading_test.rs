@@ -7,9 +7,7 @@
 use std::fs;
 use std::path::Path;
 
-use aionui_extension::{
-    filter_by_engine_compatibility, load_all, ExtensionSource, ScanPath,
-};
+use aionui_extension::{ExtensionSource, ScanPath, filter_by_engine_compatibility, load_all};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------

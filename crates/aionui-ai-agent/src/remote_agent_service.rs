@@ -244,8 +244,7 @@ impl RemoteAgentService {
         });
 
         let device_public_key = row.device_public_key.as_deref().map(|encrypted| {
-            decrypt_string(encrypted, &self.encryption_key)
-                .unwrap_or_else(|_| "***".to_string())
+            decrypt_string(encrypted, &self.encryption_key).unwrap_or_else(|_| "***".to_string())
         });
 
         Ok(RemoteAgentResponse {
@@ -415,8 +414,7 @@ mod tests {
         assert_eq!(priv_bytes.len(), 32);
 
         // Verify the keypair is consistent
-        let signing =
-            SigningKey::from_bytes(&priv_bytes.try_into().unwrap());
+        let signing = SigningKey::from_bytes(&priv_bytes.try_into().unwrap());
         let verifying = signing.verifying_key();
         assert_eq!(verifying.as_bytes(), pub_bytes.as_slice());
     }

@@ -6,7 +6,7 @@ use crate::adapter::{DetectedServer, McpAgentAdapter};
 use crate::error::McpError;
 use crate::types::McpServerTransport;
 
-use super::cli_helpers::{is_cli_installed, run_cli, MUTATE_TIMEOUT};
+use super::cli_helpers::{MUTATE_TIMEOUT, is_cli_installed, run_cli};
 
 const CLI_NAME: &str = "codebuddy";
 
@@ -129,10 +129,7 @@ impl McpAgentAdapter for CodeBuddyAdapter {
 }
 
 /// Install via `codebuddy mcp add-json -s user <name> <json>`.
-async fn install_via_add_json(
-    name: &str,
-    config: &serde_json::Value,
-) -> Result<(), McpError> {
+async fn install_via_add_json(name: &str, config: &serde_json::Value) -> Result<(), McpError> {
     let config_str =
         serde_json::to_string(config).map_err(|e| McpError::AgentOperationFailed(e.to_string()))?;
     run_cli(
@@ -197,7 +194,11 @@ fn parse_codebuddy_config(content: &str) -> Result<Vec<DetectedServer>, McpError
 
     for (name, entry) in servers_obj {
         // Skip disabled servers
-        if entry.get("disabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if entry
+            .get("disabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             continue;
         }
 
@@ -389,7 +390,10 @@ mod tests {
         }"#;
         let servers = parse_codebuddy_config(config).unwrap();
         assert_eq!(servers.len(), 1);
-        assert!(matches!(servers[0].transport, McpServerTransport::Http { .. }));
+        assert!(matches!(
+            servers[0].transport,
+            McpServerTransport::Http { .. }
+        ));
     }
 
     #[test]

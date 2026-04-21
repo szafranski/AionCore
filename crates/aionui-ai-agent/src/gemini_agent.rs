@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::Duration;
 
 use aionui_common::{
@@ -199,7 +199,8 @@ impl GeminiAgentManager {
 
         // Intercept skill load requests from text events
         if let AgentStreamEvent::Text(ref text_data) = stream_event {
-            self.handle_skill_load_interception(&text_data.content).await;
+            self.handle_skill_load_interception(&text_data.content)
+                .await;
         }
 
         self.update_state_from_event(&stream_event).await;
@@ -459,10 +460,19 @@ mod tests {
 
     #[test]
     fn gemini_session_mode_roundtrip() {
-        assert_eq!(GeminiSessionMode::from_str("default"), GeminiSessionMode::Default);
+        assert_eq!(
+            GeminiSessionMode::from_str("default"),
+            GeminiSessionMode::Default
+        );
         assert_eq!(GeminiSessionMode::from_str("yolo"), GeminiSessionMode::Yolo);
-        assert_eq!(GeminiSessionMode::from_str("autoEdit"), GeminiSessionMode::AutoEdit);
-        assert_eq!(GeminiSessionMode::from_str("unknown"), GeminiSessionMode::Default);
+        assert_eq!(
+            GeminiSessionMode::from_str("autoEdit"),
+            GeminiSessionMode::AutoEdit
+        );
+        assert_eq!(
+            GeminiSessionMode::from_str("unknown"),
+            GeminiSessionMode::Default
+        );
 
         assert_eq!(GeminiSessionMode::Default.as_str(), "default");
         assert_eq!(GeminiSessionMode::Yolo.as_str(), "yolo");

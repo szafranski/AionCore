@@ -35,11 +35,9 @@ pub fn load_extension_i18n(
 
     let content = std::fs::read_to_string(&file_path)?;
     let messages: HashMap<String, String> =
-        serde_json::from_str(&content).map_err(|e| {
-            ExtensionError::ResolutionFailed {
-                extension_name: extension_name.to_owned(),
-                reason: format!("Invalid i18n JSON for locale '{locale}': {e}"),
-            }
+        serde_json::from_str(&content).map_err(|e| ExtensionError::ResolutionFailed {
+            extension_name: extension_name.to_owned(),
+            reason: format!("Invalid i18n JSON for locale '{locale}': {e}"),
         })?;
 
     Ok(messages)
@@ -112,8 +110,7 @@ mod tests {
     #[test]
     fn test_load_i18n_unsupported_locale_returns_empty() {
         let config = make_i18n_config(vec!["en"]);
-        let result =
-            load_extension_i18n(&config, "fr", "my-ext", Path::new("/tmp")).unwrap();
+        let result = load_extension_i18n(&config, "fr", "my-ext", Path::new("/tmp")).unwrap();
         assert!(result.is_empty());
     }
 

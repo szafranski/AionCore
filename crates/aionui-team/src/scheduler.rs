@@ -117,11 +117,7 @@ impl TeammateManager {
         }
     }
 
-    pub async fn set_status(
-        &self,
-        slot_id: &str,
-        status: TeammateStatus,
-    ) -> Result<(), TeamError> {
+    pub async fn set_status(&self, slot_id: &str, status: TeammateStatus) -> Result<(), TeamError> {
         {
             let mut slots = self.slots.lock().await;
             let slot = slots
@@ -151,10 +147,7 @@ impl TeammateManager {
         Ok(slot.agent.clone())
     }
 
-    pub async fn build_wake_payload(
-        &self,
-        slot_id: &str,
-    ) -> Result<WakePayload, TeamError> {
+    pub async fn build_wake_payload(&self, slot_id: &str) -> Result<WakePayload, TeamError> {
         let agent = self.get_agent(slot_id).await?;
         let tasks = self.task_board.list_tasks(&self.team_id).await?;
         let unread = self.mailbox.read_unread(&self.team_id, slot_id).await?;
@@ -168,10 +161,7 @@ impl TeammateManager {
     /// Attempt to wake an idle agent. Returns the payload to send.
     /// Transitions agent from Idle → Working.
     /// Returns `None` if the agent is not idle (skip duplicate wake).
-    pub async fn try_wake(
-        &self,
-        slot_id: &str,
-    ) -> Result<Option<WakePayload>, TeamError> {
+    pub async fn try_wake(&self, slot_id: &str) -> Result<Option<WakePayload>, TeamError> {
         let current = self.get_status(slot_id).await?;
         if current != TeammateStatus::Idle {
             debug!(
@@ -189,10 +179,7 @@ impl TeammateManager {
 
     /// Mark agent as idle after turn completion or timeout.
     /// Then check if all teammates are idle → maybe wake leader.
-    pub async fn mark_idle(
-        &self,
-        slot_id: &str,
-    ) -> Result<Option<String>, TeamError> {
+    pub async fn mark_idle(&self, slot_id: &str) -> Result<Option<String>, TeamError> {
         self.set_status(slot_id, TeammateStatus::Idle).await?;
 
         let is_lead = {
@@ -346,11 +333,7 @@ impl TeammateManager {
     }
 
     /// Rename an agent slot.
-    pub async fn rename_agent(
-        &self,
-        slot_id: &str,
-        new_name: &str,
-    ) -> Result<(), TeamError> {
+    pub async fn rename_agent(&self, slot_id: &str, new_name: &str) -> Result<(), TeamError> {
         let mut slots = self.slots.lock().await;
         let slot = slots
             .get_mut(slot_id)
@@ -492,17 +475,11 @@ impl TeammateManager {
         Ok(())
     }
 
-    async fn handle_rename_agent(
-        &self,
-        slot_id: &str,
-        new_name: &str,
-    ) -> Result<(), TeamError> {
+    async fn handle_rename_agent(&self, slot_id: &str, new_name: &str) -> Result<(), TeamError> {
         self.rename_agent(slot_id, new_name).await
     }
 
-    async fn maybe_wake_leader_when_all_idle(
-        &self,
-    ) -> Result<Option<String>, TeamError> {
+    async fn maybe_wake_leader_when_all_idle(&self) -> Result<Option<String>, TeamError> {
         let slots = self.slots.lock().await;
 
         let mut lead_slot_id = None;
@@ -552,7 +529,6 @@ impl TeammateManager {
 
         Ok(Some(lead_id))
     }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -562,8 +538,8 @@ impl TeammateManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aionui_api_types::WebSocketMessage;
     use crate::test_utils::MockTeamRepo;
+    use aionui_api_types::WebSocketMessage;
 
     struct RecordingBroadcaster {
         events: std::sync::Mutex<Vec<WebSocketMessage<serde_json::Value>>>,
@@ -608,9 +584,7 @@ mod tests {
         ]
     }
 
-    fn make_manager(
-        agents: &[TeamAgent],
-    ) -> (TeammateManager, Arc<RecordingBroadcaster>) {
+    fn make_manager(agents: &[TeamAgent]) -> (TeammateManager, Arc<RecordingBroadcaster>) {
         let repo = Arc::new(MockTeamRepo::new());
         let mailbox = Arc::new(Mailbox::new(repo.clone()));
         let task_board = Arc::new(TaskBoard::new(repo));
@@ -854,7 +828,9 @@ mod tests {
         let agents = make_team_agents();
         let (mgr, bc) = make_manager(&agents);
 
-        mgr.rename_agent("worker-1", "Renamed Worker").await.unwrap();
+        mgr.rename_agent("worker-1", "Renamed Worker")
+            .await
+            .unwrap();
 
         let agent = mgr.get_agent("worker-1").await.unwrap();
         assert_eq!(agent.name, "Renamed Worker");
@@ -1221,13 +1197,7 @@ mod tests {
         let mailbox = Arc::new(Mailbox::new(repo.clone()));
         let task_board = Arc::new(TaskBoard::new(repo));
         let broadcaster: Arc<dyn EventBroadcaster> = Arc::new(RecordingBroadcaster::new());
-        let mgr = TeammateManager::new(
-            "t1".into(),
-            &agents,
-            mailbox,
-            task_board,
-            broadcaster,
-        );
+        let mgr = TeammateManager::new("t1".into(), &agents, mailbox, task_board, broadcaster);
 
         mgr.set_status("worker-1", TeammateStatus::Working)
             .await

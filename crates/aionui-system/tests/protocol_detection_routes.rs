@@ -39,11 +39,7 @@ fn build_state(db: &aionui_db::Database) -> SystemRouterState {
             SqliteClientPreferenceRepository::new(db.pool().clone()),
         )),
         provider_service: ProviderService::new(provider_repo.clone(), TEST_KEY),
-        model_fetch_service: ModelFetchService::new(
-            provider_repo,
-            TEST_KEY,
-            http_client.clone(),
-        ),
+        model_fetch_service: ModelFetchService::new(provider_repo, TEST_KEY, http_client.clone()),
         protocol_detection_service: ProtocolDetectionService::new(http_client.clone()),
         version_check_service: VersionCheckService::new(http_client, "0.1.0".to_owned()),
     }
@@ -341,10 +337,7 @@ async fn detect_openai_via_v1_variant() {
     assert_eq!(data["protocol"], "openai");
     // fixedBaseUrl should be set when using /v1 variant
     assert!(data["fixedBaseUrl"].is_string());
-    assert!(data["fixedBaseUrl"]
-        .as_str()
-        .unwrap()
-        .ends_with("/v1"));
+    assert!(data["fixedBaseUrl"].as_str().unwrap().ends_with("/v1"));
 }
 
 // ---------------------------------------------------------------------------

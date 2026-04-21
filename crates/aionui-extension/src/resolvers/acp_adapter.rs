@@ -17,12 +17,10 @@ pub fn resolve_acp_adapter(
 ) -> Result<ResolvedAcpAdapter, ExtensionError> {
     let resolved_env = resolve_env_map(&adapter.env, false)?;
 
-    let avatar = adapter.avatar.as_ref().map(|a| {
-        ext_dir
-            .join(a)
-            .to_string_lossy()
-            .into_owned()
-    });
+    let avatar = adapter
+        .avatar
+        .as_ref()
+        .map(|a| ext_dir.join(a).to_string_lossy().into_owned());
 
     Ok(ResolvedAcpAdapter {
         extension_name: extension_name.to_owned(),
@@ -97,8 +95,7 @@ mod tests {
     #[test]
     fn test_resolve_basic_adapter() {
         let adapter = make_adapter(HashMap::new());
-        let result =
-            resolve_acp_adapter(&adapter, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_acp_adapter(&adapter, "my-ext", Path::new("/ext/my-ext")).unwrap();
 
         assert_eq!(result.extension_name, "my-ext");
         assert_eq!(result.id, "test-adapter");
@@ -116,8 +113,7 @@ mod tests {
         env.insert("STATIC".into(), "fixed".into());
 
         let adapter = make_adapter(env);
-        let result =
-            resolve_acp_adapter(&adapter, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_acp_adapter(&adapter, "my-ext", Path::new("/ext/my-ext")).unwrap();
 
         assert_eq!(result.env["API_KEY"], "secret123");
         assert_eq!(result.env["STATIC"], "fixed");
@@ -130,8 +126,7 @@ mod tests {
         env.insert("KEY".into(), "${_NONEXISTENT_ACP_VAR}".into());
 
         let adapter = make_adapter(env);
-        let result =
-            resolve_acp_adapter(&adapter, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_acp_adapter(&adapter, "my-ext", Path::new("/ext/my-ext")).unwrap();
 
         assert_eq!(result.env["KEY"], "");
     }
@@ -147,8 +142,7 @@ mod tests {
     fn test_resolve_adapter_no_avatar() {
         let mut adapter = make_adapter(HashMap::new());
         adapter.avatar = None;
-        let result =
-            resolve_acp_adapter(&adapter, "my-ext", Path::new("/ext/my-ext")).unwrap();
+        let result = resolve_acp_adapter(&adapter, "my-ext", Path::new("/ext/my-ext")).unwrap();
         assert!(result.avatar.is_none());
     }
 }

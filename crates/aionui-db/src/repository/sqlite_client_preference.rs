@@ -19,11 +19,10 @@ impl SqliteClientPreferenceRepository {
 #[async_trait::async_trait]
 impl IClientPreferenceRepository for SqliteClientPreferenceRepository {
     async fn get_all(&self) -> Result<Vec<ClientPreference>, DbError> {
-        let rows = sqlx::query_as::<_, ClientPreference>(
-            "SELECT * FROM client_preferences ORDER BY key",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows =
+            sqlx::query_as::<_, ClientPreference>("SELECT * FROM client_preferences ORDER BY key")
+                .fetch_all(&self.pool)
+                .await?;
 
         Ok(rows)
     }

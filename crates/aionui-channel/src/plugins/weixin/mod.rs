@@ -3,5 +3,5 @@ mod login;
 mod plugin;
 mod types;
 
-pub use login::{weixin_login_stream, WeixinLoginEvent};
+pub use login::{WeixinLoginEvent, weixin_login_stream};
 pub use plugin::WeixinPlugin;

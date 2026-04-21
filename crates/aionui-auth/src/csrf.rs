@@ -2,12 +2,12 @@ use std::fmt::Write as _;
 use std::sync::Arc;
 
 use axum::extract::{Request, State};
-use axum::http::{header, HeaderValue, Method};
+use axum::http::{HeaderValue, Method, header};
 use axum::middleware::Next;
 use axum::response::Response;
 
-use aionui_common::constants::{CSRF_COOKIE_NAME, CSRF_HEADER_NAME};
 use aionui_common::AppError;
+use aionui_common::constants::{CSRF_COOKIE_NAME, CSRF_HEADER_NAME};
 
 use crate::cookie::CookieConfig;
 use crate::extract::extract_cookie_value;
@@ -50,9 +50,7 @@ pub async fn csrf_middleware(
                 // Valid: cookie and header match
             }
             _ => {
-                return Err(AppError::Forbidden(
-                    "CSRF token validation failed".into(),
-                ));
+                return Err(AppError::Forbidden("CSRF token validation failed".into()));
             }
         }
     }
@@ -64,9 +62,7 @@ pub async fn csrf_middleware(
         let token = generate_csrf_token();
         let cookie_str = cookie_config.build_csrf_cookie(&token);
         if let Ok(value) = HeaderValue::from_str(&cookie_str) {
-            response
-                .headers_mut()
-                .append(header::SET_COOKIE, value);
+            response.headers_mut().append(header::SET_COOKIE, value);
         }
     }
 

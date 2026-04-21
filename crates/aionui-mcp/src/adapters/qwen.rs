@@ -7,8 +7,8 @@ use crate::error::McpError;
 use crate::types::McpServerTransport;
 
 use super::cli_helpers::{
-    build_env_args, build_header_args, is_cli_installed, parse_standard_list_output, run_cli,
-    DETECT_TIMEOUT, MUTATE_TIMEOUT,
+    DETECT_TIMEOUT, MUTATE_TIMEOUT, build_env_args, build_header_args, is_cli_installed,
+    parse_standard_list_output, run_cli,
 };
 
 const CLI_NAME: &str = "qwen";
@@ -147,8 +147,7 @@ async fn remove_from_config_file(name: &str) -> Result<(), McpError> {
         .await
         .map_err(|e| McpError::AgentOperationFailed(format!("read qwen config: {e}")))?;
 
-    let mut config: serde_json::Value =
-        serde_json::from_str(&content).map_err(McpError::from)?;
+    let mut config: serde_json::Value = serde_json::from_str(&content).map_err(McpError::from)?;
 
     let removed = config
         .get_mut("mcpServers")
@@ -157,8 +156,7 @@ async fn remove_from_config_file(name: &str) -> Result<(), McpError> {
         .unwrap_or(false);
 
     if removed {
-        let new_content =
-            serde_json::to_string_pretty(&config).map_err(McpError::from)?;
+        let new_content = serde_json::to_string_pretty(&config).map_err(McpError::from)?;
         tokio::fs::write(&config_path, new_content)
             .await
             .map_err(|e| McpError::AgentOperationFailed(format!("write qwen config: {e}")))?;
@@ -169,7 +167,8 @@ async fn remove_from_config_file(name: &str) -> Result<(), McpError> {
 
 /// Get the user's home directory.
 fn home_dir() -> Result<std::path::PathBuf, McpError> {
-    dirs::home_dir().ok_or_else(|| McpError::AgentOperationFailed("cannot determine home directory".into()))
+    dirs::home_dir()
+        .ok_or_else(|| McpError::AgentOperationFailed("cannot determine home directory".into()))
 }
 
 #[cfg(test)]

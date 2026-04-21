@@ -6,8 +6,8 @@
 use std::sync::Arc;
 
 use aionui_db::{
-    init_database_memory, CreateMcpServerParams, DbError, IMcpServerRepository,
-    SqliteMcpServerRepository, UpdateMcpServerParams,
+    CreateMcpServerParams, DbError, IMcpServerRepository, SqliteMcpServerRepository,
+    UpdateMcpServerParams, init_database_memory,
 };
 
 async fn repo() -> (Arc<dyn IMcpServerRepository>, aionui_db::Database) {
@@ -116,7 +116,10 @@ async fn find_by_id_returns_full_record() {
     assert_eq!(found.id, created.id);
     assert_eq!(found.name, "test-mcp");
     assert_eq!(found.transport_type, "stdio");
-    assert_eq!(found.original_json.as_deref(), Some(r#"{"name":"test-mcp"}"#));
+    assert_eq!(
+        found.original_json.as_deref(),
+        Some(r#"{"name":"test-mcp"}"#)
+    );
 }
 
 #[tokio::test]

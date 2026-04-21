@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{Json, State};
-use axum::http::{header, HeaderMap};
+use axum::http::{HeaderMap, header};
 use axum::middleware::from_fn_with_state;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
@@ -14,17 +14,17 @@ use aionui_api_types::{
     PublicUser, QrLoginRequest, RefreshResponse, RefreshTokenRequest, UserInfoResponse,
     WsTokenResponse,
 };
-use aionui_common::constants::COOKIE_MAX_AGE_DAYS;
 use aionui_common::AppError;
+use aionui_common::constants::COOKIE_MAX_AGE_DAYS;
 use aionui_db::IUserRepository;
 
 use crate::extract::extract_token_from_headers;
-use crate::middleware::{auth_middleware, AuthState, CurrentUser};
+use crate::middleware::{AuthState, CurrentUser, auth_middleware};
 use crate::password::{dummy_password_hash, hash_password, verify_password_timed};
 use crate::qr_token::QrTokenStore;
 use crate::rate_limit::{
-    api_rate_limit_middleware, auth_rate_limit_middleware,
-    authenticated_action_rate_limit_middleware, RateLimiter,
+    RateLimiter, api_rate_limit_middleware, auth_rate_limit_middleware,
+    authenticated_action_rate_limit_middleware,
 };
 use crate::validation::validate_password;
 use crate::{CookieConfig, JwtService};
@@ -70,10 +70,7 @@ pub fn auth_routes(state: AuthRouterState) -> Router {
     let auth_rate_limited = Router::new()
         .route("/login", post(login_handler))
         .route("/api/auth/qr-login", post(qr_login_handler))
-        .route_layer(from_fn_with_state(
-            auth_limiter,
-            auth_rate_limit_middleware,
-        ))
+        .route_layer(from_fn_with_state(auth_limiter, auth_rate_limit_middleware))
         .with_state(state.clone());
 
     // API rate limited public routes (no auth required)
@@ -171,8 +168,8 @@ async fn login_handler(
         ));
     }
 
-    let user = found_user
-        .ok_or_else(|| AppError::Unauthorized("Invalid username or password".into()))?;
+    let user =
+        found_user.ok_or_else(|| AppError::Unauthorized("Invalid username or password".into()))?;
 
     let token = state
         .jwt_service
@@ -251,9 +248,7 @@ async fn status_handler(
 // GET /api/auth/user
 // ---------------------------------------------------------------------------
 
-async fn user_handler(
-    Extension(user): Extension<CurrentUser>,
-) -> Json<UserInfoResponse> {
+async fn user_handler(Extension(user): Extension<CurrentUser>) -> Json<UserInfoResponse> {
     Json(UserInfoResponse {
         success: true,
         user: PublicUser {

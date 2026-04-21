@@ -373,7 +373,11 @@ fn action_category_prefix(action: &str) -> &'static str {
 }
 
 /// Parsed callback data: (category, action, params).
-pub(crate) type ParsedLarkCallback = (String, String, Option<std::collections::HashMap<String, String>>);
+pub(crate) type ParsedLarkCallback = (
+    String,
+    String,
+    Option<std::collections::HashMap<String, String>>,
+);
 
 /// Parse a Lark card button value string back to (category, action, params).
 ///

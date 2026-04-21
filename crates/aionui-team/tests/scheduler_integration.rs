@@ -5,8 +5,8 @@ use std::sync::Arc;
 use aionui_api_types::WebSocketMessage;
 use aionui_realtime::EventBroadcaster;
 use aionui_team::{
-    Mailbox, SchedulerAction, TaskBoard, TeamAgent, TeammateManager, TeammateRole, TeammateStatus,
-    MailboxMessageType, WAKE_TIMEOUT_MS,
+    Mailbox, MailboxMessageType, SchedulerAction, TaskBoard, TeamAgent, TeammateManager,
+    TeammateRole, TeammateStatus, WAKE_TIMEOUT_MS,
 };
 use common::MockTeamRepo;
 
@@ -102,7 +102,14 @@ async fn aw1_wake_idle_agent_transitions_to_working_with_payload() {
         .unwrap();
 
     h.mailbox
-        .write("team-1", "w1", "lead", MailboxMessageType::Message, "Do it", None)
+        .write(
+            "team-1",
+            "w1",
+            "lead",
+            MailboxMessageType::Message,
+            "Do it",
+            None,
+        )
         .await
         .unwrap();
 
@@ -165,10 +172,7 @@ async fn aw2_wake_complete_finalize_executes_actions() {
     assert_eq!(w2_msgs.len(), 1);
     assert_eq!(w2_msgs[0].content, "Please review when done");
 
-    assert_eq!(
-        h.mgr.get_status("w1").await.unwrap(),
-        TeammateStatus::Idle
-    );
+    assert_eq!(h.mgr.get_status("w1").await.unwrap(), TeammateStatus::Idle);
 }
 
 // -- AW-3: WAKE_TIMEOUT_MS constant is 60000 --------------------------------
@@ -352,10 +356,7 @@ async fn ae3_idle_notification_marks_idle_and_notifies_lead() {
         .await
         .unwrap();
 
-    assert_eq!(
-        h.mgr.get_status("w1").await.unwrap(),
-        TeammateStatus::Idle
-    );
+    assert_eq!(h.mgr.get_status("w1").await.unwrap(), TeammateStatus::Idle);
 
     let lead_msgs = h.mailbox.read_unread("team-1", "lead").await.unwrap();
     assert_eq!(lead_msgs.len(), 1);
@@ -471,7 +472,14 @@ async fn full_workflow_lead_delegate_workers_idle_lead_rewake() {
 
     // 1. Wake lead with user message
     h.mailbox
-        .write("team-1", "lead", "user", MailboxMessageType::Message, "Build X", None)
+        .write(
+            "team-1",
+            "lead",
+            "user",
+            MailboxMessageType::Message,
+            "Build X",
+            None,
+        )
         .await
         .unwrap();
 
@@ -524,7 +532,11 @@ async fn full_workflow_lead_delegate_workers_idle_lead_rewake() {
         summary: Some("Tests written".into()),
     }];
     let wake = h.mgr.finalize_turn("w2", &w2_actions).await.unwrap();
-    assert_eq!(wake.as_deref(), Some("lead"), "all teammates idle → wake leader");
+    assert_eq!(
+        wake.as_deref(),
+        Some("lead"),
+        "all teammates idle → wake leader"
+    );
 
     // 6. Verify lead has idle notifications from both workers
     let lead_msgs = h.mailbox.read_unread("team-1", "lead").await.unwrap();

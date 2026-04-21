@@ -14,7 +14,7 @@ use serde_json::json;
 
 use aionui_ai_agent::api_client::key_manager::ApiKeyManager;
 use aionui_ai_agent::api_client::openai::OpenAIRotatingClient;
-use aionui_ai_agent::api_client::{ClientOptions, create_rotating_client, LlmClient};
+use aionui_ai_agent::api_client::{ClientOptions, LlmClient, create_rotating_client};
 
 // ---------------------------------------------------------------------------
 // Mock server helpers
@@ -92,7 +92,10 @@ async fn multiple_keys_parsed_correctly() {
 #[tokio::test]
 async fn key_rotation_on_401() {
     let (url, call_count) = start_mock_server(vec![
-        (StatusCode::UNAUTHORIZED, json!({ "error": "invalid_api_key" })),
+        (
+            StatusCode::UNAUTHORIZED,
+            json!({ "error": "invalid_api_key" }),
+        ),
         (StatusCode::OK, json!({ "result": "success" })),
     ])
     .await;

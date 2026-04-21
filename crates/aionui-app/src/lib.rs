@@ -8,51 +8,50 @@ use sha2::{Digest, Sha256};
 
 use aionui_ai_agent::{
     AcpRouterState, AcpSkillManager, AgentFactoryDeps, AuxiliaryRouterState,
-    ConnectionTestRouterState, ConnectionTestService, IWorkerTaskManager,
-    RemoteAgentRouterState, RemoteAgentService, WorkerTaskManagerImpl, acp_routes,
-    auxiliary_routes, build_agent_factory, connection_test_routes, remote_agent_routes,
+    ConnectionTestRouterState, ConnectionTestService, IWorkerTaskManager, RemoteAgentRouterState,
+    RemoteAgentService, WorkerTaskManagerImpl, acp_routes, auxiliary_routes, build_agent_factory,
+    connection_test_routes, remote_agent_routes,
 };
 use aionui_auth::{
     AuthRouterState, AuthState, CookieConfig, JwtService, QrTokenStore, auth_middleware,
     auth_routes, csrf_middleware, extract_token_from_ws_headers, resolve_jwt_secret,
     security_headers_middleware,
 };
+#[cfg(feature = "weixin")]
+use aionui_channel::weixin_login_route;
+use aionui_channel::{ChannelRouterState, channel_routes};
 use aionui_conversation::{ConversationRouterState, ConversationService, conversation_routes};
-use aionui_extension::{
-    ExtensionRegistry, ExtensionRouterState, ExtensionStateStore, ExternalPathsManager,
-    HubIndexManager, HubInstaller, HubRouterState, SkillRouterState, extension_routes, hub_routes,
-    skill_routes,
-};
+use aionui_cron::{CronEventEmitter, CronRouterState, cron_routes};
 use aionui_db::{
     Database, IUserRepository, SqliteClientPreferenceRepository, SqliteConversationRepository,
     SqliteProviderRepository, SqliteRemoteAgentRepository, SqliteSettingsRepository,
     SqliteUserRepository,
 };
-use aionui_file::{
-    FileRouterState, FileService, FileWatchService, SnapshotService, file_routes,
+use aionui_extension::{
+    ExtensionRegistry, ExtensionRouterState, ExtensionStateStore, ExternalPathsManager,
+    HubIndexManager, HubInstaller, HubRouterState, SkillRouterState, extension_routes, hub_routes,
+    skill_routes,
 };
+use aionui_file::{FileRouterState, FileService, FileWatchService, SnapshotService, file_routes};
 use aionui_mcp::{
     AionrsAdapter, AionuiAdapter, ClaudeAdapter, CodeBuddyAdapter, CodexAdapter, GeminiAdapter,
     IFlowAdapter, McpAgentAdapter, McpConfigService, McpConnectionTestService, McpRouterState,
     McpSyncService, OpencodeAdapter, QwenAdapter, mcp_routes,
 };
-use aionui_channel::{ChannelRouterState, channel_routes};
-#[cfg(feature = "weixin")]
-use aionui_channel::weixin_login_route;
-use aionui_team::{TeamRouterState, TeamSessionService, team_routes};
-use aionui_cron::{CronEventEmitter, CronRouterState, cron_routes};
 use aionui_office::{
-    ConversionService, OfficecliWatchManager, OfficeRouterState, ProxyService, SnapshotService as OfficeSnapshotService,
-    StarOfficeDetector, office_proxy_routes, office_routes,
+    ConversionService, OfficeRouterState, OfficecliWatchManager, ProxyService,
+    SnapshotService as OfficeSnapshotService, StarOfficeDetector, office_proxy_routes,
+    office_routes,
 };
-use aionui_shell::{ShellRouterState, shell_routes};
 use aionui_realtime::{
     BroadcastEventBus, NoopMessageRouter, WebSocketManager, WsHandlerState, ws_upgrade_handler,
 };
+use aionui_shell::{ShellRouterState, shell_routes};
 use aionui_system::{
     ClientPrefService, ModelFetchService, ProtocolDetectionService, ProviderService,
     SettingsService, SystemRouterState, VersionCheckService, system_routes,
 };
+use aionui_team::{TeamRouterState, TeamSessionService, team_routes};
 
 /// Application configuration parsed from CLI arguments.
 #[derive(Debug, Clone)]
@@ -103,10 +102,7 @@ impl AppServices {
     /// Replace the worker task manager after construction.
     ///
     /// Primarily used by tests to inject mock implementations.
-    pub fn with_worker_task_manager(
-        mut self,
-        wtm: Arc<dyn IWorkerTaskManager>,
-    ) -> Self {
+    pub fn with_worker_task_manager(mut self, wtm: Arc<dyn IWorkerTaskManager>) -> Self {
         self.worker_task_manager = wtm;
         self
     }
@@ -141,9 +137,7 @@ impl AppServices {
         let (secret, is_new) = resolve_jwt_secret(env_secret.as_deref(), db_secret);
 
         // Persist newly generated secret to database
-        if is_new
-            && let Some(user) = &system_user
-        {
+        if is_new && let Some(user) = &system_user {
             user_repo
                 .update_jwt_secret(&user.id, &secret)
                 .await
@@ -152,9 +146,7 @@ impl AppServices {
         }
 
         let encryption_key = derive_encryption_key(&secret);
-        let remote_agent_repo = Arc::new(SqliteRemoteAgentRepository::new(
-            database.pool().clone(),
-        ));
+        let remote_agent_repo = Arc::new(SqliteRemoteAgentRepository::new(database.pool().clone()));
         let factory = build_agent_factory(AgentFactoryDeps {
             skill_manager: AcpSkillManager::new(),
             remote_agent_repo,
@@ -332,9 +324,8 @@ pub fn build_file_state(services: &AppServices) -> FileRouterState {
         dirs::home_dir().unwrap_or_else(std::env::temp_dir),
     ];
     let file_service = Arc::new(FileService::new(broadcaster.clone(), allowed_roots));
-    let watch_service = Arc::new(
-        FileWatchService::new(broadcaster).expect("file watch service initialization"),
-    );
+    let watch_service =
+        Arc::new(FileWatchService::new(broadcaster).expect("file watch service initialization"));
     let snapshot_service = Arc::new(SnapshotService::new());
     FileRouterState {
         file_service,
@@ -361,10 +352,9 @@ pub fn build_mcp_state(services: &AppServices) -> McpRouterState {
         Arc::new(AionuiAdapter::new(repo.clone())),
     ];
 
-    let oauth_token_repo: Arc<dyn aionui_db::IOAuthTokenRepository> =
-        Arc::new(aionui_db::SqliteOAuthTokenRepository::new(
-            services.database.pool().clone(),
-        ));
+    let oauth_token_repo: Arc<dyn aionui_db::IOAuthTokenRepository> = Arc::new(
+        aionui_db::SqliteOAuthTokenRepository::new(services.database.pool().clone()),
+    );
     let http_client = reqwest::Client::new();
 
     McpRouterState {
@@ -398,9 +388,7 @@ pub fn build_channel_state(services: &AppServices) -> ChannelRouterState {
         services.event_bus.clone(),
     ));
 
-    let session_manager = Arc::new(aionui_channel::session::SessionManager::new(
-        repo.clone(),
-    ));
+    let session_manager = Arc::new(aionui_channel::session::SessionManager::new(repo.clone()));
 
     let plugin_factory: Arc<aionui_channel::manager::PluginFactory> =
         Arc::new(Box::new(aionui_channel::plugins::create_plugin));
@@ -421,8 +409,7 @@ pub fn build_team_state(services: &AppServices) -> TeamRouterState {
         Arc::new(aionui_db::SqliteTeamRepository::new(pool.clone()));
     let conv_repo: Arc<dyn aionui_db::IConversationRepository> =
         Arc::new(SqliteConversationRepository::new(pool));
-    let conv_service =
-        ConversationService::new(conv_repo, services.event_bus.clone());
+    let conv_service = ConversationService::new(conv_repo, services.event_bus.clone());
     let service = Arc::new(TeamSessionService::new(
         team_repo,
         conv_service,
@@ -467,10 +454,7 @@ pub fn build_cron_state(services: &AppServices) -> CronRouterState {
 
     let emitter = CronEventEmitter::new(services.event_bus.clone());
     let cron_service = Arc::new(aionui_cron::service::CronService::new(
-        cron_repo,
-        scheduler,
-        executor,
-        emitter,
+        cron_repo, scheduler, executor, emitter,
     ));
 
     tick_service_ref
@@ -526,9 +510,7 @@ pub fn build_shell_state(services: &AppServices) -> ShellRouterState {
 /// `CronService` owns the scheduler. We use a `Mutex<Option<Arc<CronService>>>`
 /// that gets populated after both are constructed.
 #[derive(Default)]
-struct CronServiceTickRef(
-    std::sync::Mutex<Option<Arc<aionui_cron::service::CronService>>>,
-);
+struct CronServiceTickRef(std::sync::Mutex<Option<Arc<aionui_cron::service::CronService>>>);
 
 /// Build the default extension-related router states.
 ///
@@ -585,9 +567,8 @@ pub fn build_ws_state(services: &AppServices) -> WsHandlerState {
     let jwt_service = services.jwt_service.clone();
     let token_validator = Arc::new(move |token: &str| jwt_service.verify(token).is_ok());
 
-    let token_extractor = Arc::new(|headers: &axum::http::HeaderMap| {
-        extract_token_from_ws_headers(headers)
-    });
+    let token_extractor =
+        Arc::new(|headers: &axum::http::HeaderMap| extract_token_from_ws_headers(headers));
 
     WsHandlerState {
         manager: services.ws_manager.clone(),
@@ -601,10 +582,7 @@ pub fn build_ws_state(services: &AppServices) -> WsHandlerState {
 ///
 /// Used for testing when specific service overrides are needed
 /// (e.g. injecting a mock HTTP server URL for version check).
-pub fn create_router_with_states(
-    services: &AppServices,
-    states: ModuleStates,
-) -> Router {
+pub fn create_router_with_states(services: &AppServices, states: ModuleStates) -> Router {
     let ws_state = build_ws_state(services);
     create_router_with_all_state(services, states, ws_state)
 }
@@ -694,8 +672,8 @@ pub fn create_router_with_all_state(
         .route_layer(from_fn_with_state(auth_mw_state.clone(), auth_middleware));
 
     // Shell + STT routes protected by auth middleware
-    let shell_authenticated = shell_routes(states.shell)
-        .route_layer(from_fn_with_state(auth_mw_state, auth_middleware));
+    let shell_authenticated =
+        shell_routes(states.shell).route_layer(from_fn_with_state(auth_mw_state, auth_middleware));
 
     // Office proxy routes — exempt from auth (serve iframe content)
     let office_proxy = office_proxy_routes(states.office);
@@ -781,10 +759,7 @@ mod tests {
         let services = AppServices::from_database(db).await.unwrap();
 
         // JWT service should be functional
-        let token = services
-            .jwt_service
-            .sign("test_user", "testuser")
-            .unwrap();
+        let token = services.jwt_service.sign("test_user", "testuser").unwrap();
         let payload = services.jwt_service.verify(&token).unwrap();
         assert_eq!(payload.user_id, "test_user");
 

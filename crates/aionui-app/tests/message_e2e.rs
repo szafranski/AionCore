@@ -26,7 +26,13 @@ async fn create_conversation(
     csrf: &str,
     name: &str,
 ) -> String {
-    let req = common::json_with_token("POST", "/api/conversations", create_conv_body(name), token, csrf);
+    let req = common::json_with_token(
+        "POST",
+        "/api/conversations",
+        create_conv_body(name),
+        token,
+        csrf,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     let json = common::body_json(resp).await;
     json["data"]["id"].as_str().unwrap().to_owned()
@@ -207,10 +213,7 @@ async fn t9_1_search_keyword_match() {
     insert_message(&services, &conv_id, "msg-2", "Python is also nice", 2000).await;
 
     let resp = app
-        .oneshot(get_with_token(
-            "/api/messages/search?keyword=Rust",
-            &token,
-        ))
+        .oneshot(get_with_token("/api/messages/search?keyword=Rust", &token))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -277,10 +280,7 @@ async fn t9_4_search_empty_keyword() {
     let (token, _csrf) = setup_and_login(&mut app, &services, "admin", "StrongP@ss1").await;
 
     let resp = app
-        .oneshot(get_with_token(
-            "/api/messages/search?keyword=",
-            &token,
-        ))
+        .oneshot(get_with_token("/api/messages/search?keyword=", &token))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
@@ -375,10 +375,7 @@ async fn delete_conversation_cascades_messages() {
 
     // Search for messages from the deleted conversation should return nothing
     let resp = app
-        .oneshot(get_with_token(
-            "/api/messages/search?keyword=msg",
-            &token,
-        ))
+        .oneshot(get_with_token("/api/messages/search?keyword=msg", &token))
         .await
         .unwrap();
     let json = body_json(resp).await;
@@ -400,10 +397,7 @@ async fn search_across_multiple_conversations() {
     insert_message(&services, &conv2, "msg-b2", "Python patterns", 3000).await;
 
     let resp = app
-        .oneshot(get_with_token(
-            "/api/messages/search?keyword=Rust",
-            &token,
-        ))
+        .oneshot(get_with_token("/api/messages/search?keyword=Rust", &token))
         .await
         .unwrap();
     let json = body_json(resp).await;

@@ -117,15 +117,27 @@ async fn setup_and_login(
 ) -> (String, String) {
     // Create user
     let hash = aionui_auth::hash_password(password).unwrap();
-    services.user_repo.create_user(username, &hash).await.unwrap();
+    services
+        .user_repo
+        .create_user(username, &hash)
+        .await
+        .unwrap();
 
     // Get CSRF token from a GET request first
-    let resp = app.clone().oneshot(get_request("/api/auth/status")).await.unwrap();
+    let resp = app
+        .clone()
+        .oneshot(get_request("/api/auth/status"))
+        .await
+        .unwrap();
     let csrf = extract_csrf_token(&resp).expect("CSRF cookie should be set");
 
     // Login (exempt from CSRF)
     let body = format!(r#"{{"username":"{username}","password":"{password}"}}"#);
-    let resp = app.clone().oneshot(post_json_login("/login", &body)).await.unwrap();
+    let resp = app
+        .clone()
+        .oneshot(post_json_login("/login", &body))
+        .await
+        .unwrap();
     assert_eq!(resp.status(), StatusCode::OK, "login should succeed");
 
     let json = body_json(resp).await;
@@ -186,10 +198,7 @@ async fn t12_2_csrf_blocks_post_without_token() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     let json = body_json(resp).await;
     assert!(
-        json["error"]
-            .as_str()
-            .unwrap_or("")
-            .contains("CSRF"),
+        json["error"].as_str().unwrap_or("").contains("CSRF"),
         "error message should mention CSRF"
     );
 }
@@ -226,7 +235,11 @@ async fn t12_2_csrf_exempt_paths() {
 async fn t12_3_session_cookie_attributes() {
     let (app, services) = build_app().await;
     let hash = aionui_auth::hash_password("StrongP@ss1").unwrap();
-    services.user_repo.create_user("admin", &hash).await.unwrap();
+    services
+        .user_repo
+        .create_user("admin", &hash)
+        .await
+        .unwrap();
 
     let req = post_json_login("/login", r#"{"username":"admin","password":"StrongP@ss1"}"#);
     let resp = app.oneshot(req).await.unwrap();
@@ -317,7 +330,11 @@ async fn t14_2_setup_then_login() {
     let (app, services) = build_app().await;
 
     // Fresh system: needsSetup=true
-    let resp = app.clone().oneshot(get_request("/api/auth/status")).await.unwrap();
+    let resp = app
+        .clone()
+        .oneshot(get_request("/api/auth/status"))
+        .await
+        .unwrap();
     let json = body_json(resp).await;
     assert_eq!(json["needsSetup"], true);
 
@@ -330,7 +347,11 @@ async fn t14_2_setup_then_login() {
         .unwrap();
 
     // Now needsSetup=false
-    let resp = app.clone().oneshot(get_request("/api/auth/status")).await.unwrap();
+    let resp = app
+        .clone()
+        .oneshot(get_request("/api/auth/status"))
+        .await
+        .unwrap();
     let json = body_json(resp).await;
     assert_eq!(json["needsSetup"], false);
 
@@ -361,7 +382,11 @@ async fn full_auth_flow_e2e() {
     let (app, services) = build_app().await;
 
     // 1. Check initial status
-    let resp = app.clone().oneshot(get_request("/api/auth/status")).await.unwrap();
+    let resp = app
+        .clone()
+        .oneshot(get_request("/api/auth/status"))
+        .await
+        .unwrap();
     let csrf = extract_csrf_token(&resp).expect("CSRF cookie on first request");
     let json = body_json(resp).await;
     assert_eq!(json["needsSetup"], true);
@@ -375,7 +400,10 @@ async fn full_auth_flow_e2e() {
         .unwrap();
 
     // 3. Login
-    let req = post_json_login("/login", r#"{"username":"admin","password":"Initial@Pass1"}"#);
+    let req = post_json_login(
+        "/login",
+        r#"{"username":"admin","password":"Initial@Pass1"}"#,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let session_token = extract_session_token(&resp).expect("session cookie set");
@@ -408,7 +436,10 @@ async fn full_auth_flow_e2e() {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 
     // 7. Login with new password
-    let req = post_json_login("/login", r#"{"username":"admin","password":"Updated@Pass2"}"#);
+    let req = post_json_login(
+        "/login",
+        r#"{"username":"admin","password":"Updated@Pass2"}"#,
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let json = body_json(resp).await;

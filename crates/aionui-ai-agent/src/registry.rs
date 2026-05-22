@@ -613,7 +613,20 @@ mod tests {
     async fn find_builtin_claude_has_bridge_command() {
         let reg = registry().await;
         let m = reg.find_builtin_by_backend("claude").await.unwrap();
-        assert_eq!(m.command.as_deref(), Some("bun"));
+        // Migration 007 cutover: bun x is replaced by `npm exec --prefix=…`
+        // driven by the bundled node runtime. Placeholders are expanded at
+        // spawn time by `Builder::expand_placeholders`.
+        assert_eq!(m.command.as_deref(), Some("npm"));
+        assert!(
+            m.args.iter().any(|a| a == "exec"),
+            "claude args must use `npm exec`: {:?}",
+            m.args
+        );
+        assert!(
+            m.args.iter().any(|a| a == "--prefix=${AGENT_PREFIX}"),
+            "claude args must reference AGENT_PREFIX placeholder: {:?}",
+            m.args
+        );
         assert!(m.behavior_policy.supports_side_question);
         assert_eq!(
             m.native_skills_dirs.as_deref(),

@@ -181,7 +181,15 @@ impl AcpAgentManager {
         ),
         AppError,
     > {
-        let process = CliAgentProcess::spawn_for_sdk(params.command_spec.clone(), &params.data_dir).await?;
+        let binary_name = params
+            .metadata
+            .agent_source_info
+            .binary_name
+            .as_deref()
+            .unwrap_or_else(|| params.metadata.backend.as_deref().unwrap_or(""))
+            .to_string();
+        let agent_id = params.metadata.id.clone();
+        let process = CliAgentProcess::spawn_for_sdk(params.command_spec.clone(), &params.data_dir, &binary_name, &agent_id).await?;
         let (stdin, stdout) = process.take_stdio().await.ok_or_else(|| {
             error!(conversation_id = %params.conversation_id, "Failed to take stdio from CLI process");
             AppError::Internal("Failed to take stdio from CLI process".into())

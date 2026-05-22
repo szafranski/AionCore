@@ -21,15 +21,49 @@ impl CliAgentProcess {
     /// operator's `--data-dir` choice instead of falling back to the OS
     /// local data dir.
     ///
+    /// `binary_name` and `agent_id` are used to expand placeholder variables
+    /// like `${AGENT_PREFIX}` in the command and environment.
+    ///
     /// Background tasks are still spawned for:
     /// - stderr buffering
     /// - Process exit monitoring
-    pub async fn spawn_for_sdk(config: CommandSpec, data_dir: &Path) -> Result<Self, AppError> {
+    pub async fn spawn_for_sdk(
+        config: CommandSpec,
+        data_dir: &Path,
+        binary_name: &str,
+        agent_id: &str,
+    ) -> Result<Self, AppError> {
         let mut cmd = CmdBuilder::new(&config.command);
+
+        let placeholders = super::placeholders::placeholder_env(data_dir, binary_name, agent_id);
+
+        // Materialise the agent's `--prefix` directory + the shared npm cache.
+        // Failure here is a real environment problem, not a backend bug.
+        let agent_prefix = std::path::PathBuf::from(&placeholders["AGENT_PREFIX"]);
+        let npm_cache = std::path::PathBuf::from(&placeholders["AGENT_NPM_CACHE"]);
+        if let Err(e) = std::fs::create_dir_all(&agent_prefix) {
+            return Err(AppError::EnvironmentError(format!(
+                "Failed to prepare agent runtime directory at {}: {e}",
+                agent_prefix.display()
+            )));
+        }
+        if let Err(e) = std::fs::create_dir_all(&npm_cache) {
+            return Err(AppError::EnvironmentError(format!(
+                "Failed to prepare npm cache at {}: {e}",
+                npm_cache.display()
+            )));
+        }
+
         cmd.args(&config.args)
             .envs(config.env.iter().map(|e| (&e.name, &e.value)))
             .envs(Self::agent_spawn_env(data_dir))
-            .stdin(std::process::Stdio::piped())
+            .expand_placeholders(&placeholders).map_err(|e| {
+                AppError::Internal(format!("Unknown placeholder in agent command: {e}"))
+            })?;
+        // The expand_placeholders call rebuilds the inner Command and resets
+        // stdio. Re-apply the SDK-mode stdio config so the rest of this fn
+        // can take the handles.
+        cmd.stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
@@ -175,7 +209,7 @@ mod tests {
     async fn spawn_for_sdk_take_stdio() {
         let config = simple_script_config("read line && echo \"$line\"");
         let tmp = std::env::temp_dir();
-        let proc = CliAgentProcess::spawn_for_sdk(config, &tmp).await.unwrap();
+        let proc = CliAgentProcess::spawn_for_sdk(config, &tmp, "test-bin", "test-id").await.unwrap();
 
         let stdio = proc.take_stdio().await;
         assert!(stdio.is_some(), "First take_stdio should succeed");

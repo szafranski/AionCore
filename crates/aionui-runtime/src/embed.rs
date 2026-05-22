@@ -75,6 +75,7 @@ pub trait EmbeddedNode: Send + Sync {
     fn sha256(&self) -> &'static str;
     fn version(&self) -> &'static str;
     /// Stable directory name `node-<version>-<sha12>` derived at build time.
+    #[allow(dead_code)]
     fn dir_name(&self) -> &'static str;
 }
 

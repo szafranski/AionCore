@@ -71,7 +71,7 @@ async fn acp_initialize(
     data_dir: &Path,
 ) -> Result<(), String> {
     let spec = CommandSpec {
-        command: resolved,
+        command: resolved.clone(),
         args: args.to_vec(),
         env: env
             .iter()
@@ -83,7 +83,16 @@ async fn acp_initialize(
         cwd: Some(std::env::temp_dir().to_string_lossy().into_owned()),
     };
 
-    let proc = CliAgentProcess::spawn_for_sdk(spec, data_dir)
+    // Extract binary name from the resolved path for placeholder expansion.
+    let binary_name = resolved
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+    // Use a synthetic agent_id for probe connections (not tied to any persistent agent).
+    let agent_id = "probe";
+
+    let proc = CliAgentProcess::spawn_for_sdk(spec, data_dir, &binary_name, agent_id)
         .await
         .map_err(|e| format!("spawn failed: {e}"))?;
 

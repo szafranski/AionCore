@@ -30,6 +30,7 @@ fn main() {
                     pub const NODE_BLOB: &[u8] = include_bytes!(\"node.blob.zst.tar\");\n\
                     pub const NODE_SHA256: &str = \"\";\n\
                     pub const NODE_VERSION: &str = \"\";\n\
+                    #[allow(dead_code)]\n\
                     pub const NODE_DIR_NAME: &str = \"\";\n\
                     pub const HAS_EMBEDDED_NODE: bool = false;\n";
         std::fs::write(&node_meta_path, body).expect("write stub node_meta.rs");
@@ -324,7 +325,12 @@ fn repack_as_zstd_tar(unpacked: &Path, out: &Path) {
     let top = fs::read_dir(unpacked)
         .expect("read unpack")
         .filter_map(|e| e.ok().map(|e| e.path()))
-        .find(|p| p.is_dir() && p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("node-")))
+        .find(|p| {
+            p.is_dir()
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with("node-"))
+        })
         .expect("node-* top-level dir");
 
     let f = fs::File::create(out).expect("create blob");

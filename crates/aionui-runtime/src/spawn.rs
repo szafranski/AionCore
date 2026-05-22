@@ -39,6 +39,32 @@ enum Mode {
     CleanCli,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ExpandError {
+    #[error("unknown placeholder ${{{0}}}")]
+    Unknown(String),
+}
+
+/// Expand `${NAME}` placeholders in a string against `env`. Strict — an
+/// unknown name returns `ExpandError::Unknown(name)`.
+fn expand_str(input: &str, env: &std::collections::HashMap<String, String>) -> Result<String, ExpandError> {
+    let mut out = String::with_capacity(input.len());
+    let mut rest = input;
+    while let Some(start) = rest.find("${") {
+        out.push_str(&rest[..start]);
+        let after_open = &rest[start + 2..];
+        let end = after_open
+            .find('}')
+            .ok_or_else(|| ExpandError::Unknown(after_open.into()))?;
+        let name = &after_open[..end];
+        let value = env.get(name).ok_or_else(|| ExpandError::Unknown(name.to_string()))?;
+        out.push_str(value);
+        rest = &after_open[end + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
 pub struct Builder {
     inner: Command,
     mode: Mode,
@@ -71,7 +97,23 @@ impl Builder {
     /// - `kill_on_drop(true)`
     /// - removes `NODE_OPTIONS`, `NODE_INSPECT`, `NODE_DEBUG`, `CLAUDECODE`
     pub fn new<S: AsRef<OsStr>>(program: S) -> Self {
-        let mut inner = Command::new(resolve_program(program.as_ref()));
+        let resolved_program = resolve_program(program.as_ref());
+        // Logical "npm" → spawn `<bundled-node> <npm-cli.js> ...` instead of
+        // letting cmd.exe / shell shim layers handle the .cmd shim. Keeps
+        // spawn behaviour identical across OS.
+        if program.as_ref().to_string_lossy() == "npm"
+            && let (Ok(node), Ok(cli)) = (crate::resolver::resolve_node(), crate::resolver::resolve_npm_cli_js())
+        {
+            let mut inner = Command::new(node);
+            inner.arg(cli);
+            inner.kill_on_drop(true);
+            strip_pollution(&mut inner);
+            return Self {
+                inner,
+                mode: Mode::Default,
+            };
+        }
+        let mut inner = Command::new(resolved_program);
         inner.kill_on_drop(true);
         strip_pollution(&mut inner);
         Self {
@@ -159,6 +201,62 @@ impl Builder {
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Self {
         self.inner.stderr(cfg);
         self
+    }
+
+    /// Walk over args + env values currently configured on this builder,
+    /// rewriting every `${NAME}` token using `env`. An unknown placeholder
+    /// produces an error rather than silently substituting empty.
+    ///
+    /// Note: only the std::process::Command's args + env values are
+    /// rewritten — not the program path. Program-path placeholders are
+    /// disallowed by spec. Stdio config does NOT survive the rebuild —
+    /// callers set it after expand, or this is called pre-stdio in
+    /// spawn_sdk.
+    pub fn expand_placeholders(
+        &mut self,
+        env: &std::collections::HashMap<String, String>,
+    ) -> Result<&mut Self, ExpandError> {
+        let cmd = self.inner.as_std();
+        let program = cmd.get_program().to_os_string();
+        let cwd = cmd.get_current_dir().map(|p| p.to_path_buf());
+
+        // Collect & rewrite args.
+        let mut new_args: Vec<OsString> = Vec::new();
+        for raw in cmd.get_args() {
+            let s = raw.to_string_lossy();
+            let rewritten = expand_str(&s, env)?;
+            new_args.push(OsString::from(rewritten));
+        }
+
+        // Collect & rewrite env entries (only Some values; removals stay).
+        let envs: Vec<(OsString, Option<OsString>)> = cmd
+            .get_envs()
+            .map(|(k, v)| (k.to_os_string(), v.map(|v| v.to_os_string())))
+            .collect();
+
+        // Rebuild Command with rewritten content.
+        let mut new_inner = tokio::process::Command::new(program);
+        new_inner.kill_on_drop(true);
+        for arg in &new_args {
+            new_inner.arg(arg);
+        }
+        if let Some(d) = cwd {
+            new_inner.current_dir(d);
+        }
+        for (k, v) in envs {
+            match v {
+                Some(value) => {
+                    let s = value.to_string_lossy();
+                    let rewritten = expand_str(&s, env)?;
+                    new_inner.env(&k, OsString::from(rewritten));
+                }
+                None => {
+                    new_inner.env_remove(&k);
+                }
+            }
+        }
+        self.inner = new_inner;
+        Ok(self)
     }
 
     /// Spawn the process and return the standard `tokio::process::Child`.
@@ -313,5 +411,83 @@ mod tests {
         );
         assert!(preview.contains(r#""--flag""#), "arg --flag missing: {preview}");
         assert!(preview.contains(r#""with space""#), "arg with space missing: {preview}");
+    }
+
+    #[test]
+    fn expand_placeholders_substitutes_known_vars() {
+        let mut b = Builder::new("sh");
+        b.arg("--prefix=${AGENT_PREFIX}").arg("--cache=${AGENT_NPM_CACHE}");
+        let env = std::collections::HashMap::from([
+            ("AGENT_PREFIX".to_string(), "/data/agents/npx/claude-1".to_string()),
+            ("AGENT_NPM_CACHE".to_string(), "/data/agents/npx/_npm_cache".to_string()),
+        ]);
+        b.expand_placeholders(&env).expect("must succeed");
+
+        let preview = format!("{b}");
+        assert!(
+            preview.contains("--prefix=/data/agents/npx/claude-1"),
+            "expanded prefix missing: {preview}"
+        );
+        assert!(
+            preview.contains("--cache=/data/agents/npx/_npm_cache"),
+            "expanded cache missing: {preview}"
+        );
+    }
+
+    #[test]
+    fn expand_placeholders_errors_on_unknown_var() {
+        let mut b = Builder::new("sh");
+        b.arg("--config=${WHO_ARE_YOU}");
+        let env = std::collections::HashMap::new();
+        let err = b
+            .expand_placeholders(&env)
+            .expect_err("must fail on unknown placeholder");
+        let msg = err.to_string();
+        assert!(msg.contains("WHO_ARE_YOU"), "must name the missing key; got {msg}");
+    }
+
+    #[test]
+    fn expand_placeholders_leaves_literal_when_no_dollar_brace() {
+        let mut b = Builder::new("sh");
+        b.arg("plain-arg");
+        let env = std::collections::HashMap::new();
+        b.expand_placeholders(&env).unwrap();
+        assert!(format!("{b}").contains("plain-arg"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn builder_for_npm_uses_node_plus_npm_cli_js_when_resolved() {
+        // We can't guarantee a bundled node here, but we can guarantee
+        // that when AIONUI_NODE_PATH is set + npm-cli.js exists nearby,
+        // the resulting program token points to node and arg[0] points
+        // to npm-cli.js. Skip when host has no node.
+        let Ok(host_node) = which::which("node") else {
+            return;
+        };
+        let host_root = host_node.parent().and_then(|p| p.parent());
+        let Some(root) = host_root else {
+            return;
+        };
+        let cli = root.join("lib/node_modules/npm/bin/npm-cli.js");
+        if !cli.is_file() {
+            return;
+        }
+        unsafe {
+            std::env::set_var("AIONUI_NODE_PATH", &host_node);
+        }
+        let b = Builder::new("npm");
+        let preview = format!("{b}");
+        assert!(
+            preview.contains("node"),
+            "program should be node when bundled is available: {preview}"
+        );
+        assert!(
+            preview.contains("npm-cli.js"),
+            "args should start with npm-cli.js: {preview}"
+        );
+        unsafe {
+            std::env::remove_var("AIONUI_NODE_PATH");
+        }
     }
 }

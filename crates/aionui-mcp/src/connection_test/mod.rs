@@ -1,10 +1,11 @@
 mod protocol;
 
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::time::Duration;
 
 use aionui_api_types::McpConnectionTestResult;
-use aionui_runtime::{Builder as CmdBuilder, kill_process_tree};
+use aionui_runtime::{Builder as CmdBuilder, kill_process_tree, resolve_command_path};
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
@@ -81,7 +82,8 @@ impl McpConnectionTestService {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> McpConnectionTestResult {
-        let mut cmd = CmdBuilder::new(command);
+        let program = resolve_stdio_command(command);
+        let mut cmd = CmdBuilder::new(&program);
         cmd.args(args)
             .envs(env.iter())
             .stdin(std::process::Stdio::piped())
@@ -310,6 +312,18 @@ impl McpConnectionTestService {
             .map_err(|e| e.to_string())?;
         Ok(())
     }
+}
+
+fn resolve_stdio_command(command: &str) -> OsString {
+    if !command.is_empty()
+        && !command.contains('/')
+        && !command.contains('\\')
+        && let Some(path) = resolve_command_path(command)
+    {
+        return path.into_os_string();
+    }
+
+    OsString::from(command)
 }
 
 /// Intermediate struct for HTTP transport response parsing.

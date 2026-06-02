@@ -20,7 +20,7 @@ use std::sync::Arc;
 use aionui_api_types::{AgentEnvEntry, AgentHandshake, AgentMetadata, AgentSource, AgentSourceInfo, BehaviorPolicy};
 use aionui_common::{AgentType, AppError};
 use aionui_db::{AgentMetadataRow, IAgentMetadataRepository, UpdateAgentHandshakeParams};
-use aionui_runtime::resolve_command_path;
+use aionui_runtime::{RuntimeCommandProbe, probe_node_runtime_supported, probe_runtime_command, resolve_command_path};
 use serde_json::Value;
 use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, info, warn};
@@ -565,7 +565,7 @@ fn probe_resolved_command(meta: &AgentMetadata) -> Result<PathBuf, UnavailableRe
 
     if let Some(bridge) = meta.agent_source_info.bridge_binary.as_deref()
         && bridge != cmd
-        && resolve_command_path(bridge).is_none()
+        && probe_command_candidate(bridge).is_none()
     {
         return Err(UnavailableReason::BridgeMissing {
             bridge: bridge.to_owned(),
@@ -574,16 +574,26 @@ fn probe_resolved_command(meta: &AgentMetadata) -> Result<PathBuf, UnavailableRe
     if let Some(primary) = meta.agent_source_info.binary_name.as_deref()
         && primary != cmd
         && meta.agent_source_info.bridge_binary.as_deref() != Some(primary)
-        && resolve_command_path(primary).is_none()
+        && probe_command_candidate(primary).is_none()
     {
         return Err(UnavailableReason::PrimaryMissing {
             binary: primary.to_owned(),
         });
     }
 
-    resolve_command_path(cmd).ok_or_else(|| UnavailableReason::CommandMissing {
+    probe_command_candidate(cmd).ok_or_else(|| UnavailableReason::CommandMissing {
         command: cmd.to_owned(),
     })
+}
+
+fn probe_command_candidate(command: &str) -> Option<PathBuf> {
+    match probe_runtime_command(command) {
+        RuntimeCommandProbe::ExplicitPath { path } => path.exists().then_some(path),
+        RuntimeCommandProbe::PathLookup { command } => resolve_command_path(&command),
+        RuntimeCommandProbe::NodeTool { command, .. } => probe_node_runtime_supported()
+            .is_supported()
+            .then(|| PathBuf::from(command)),
+    }
 }
 
 #[cfg(test)]
@@ -597,6 +607,41 @@ mod tests {
         let reg = AgentRegistry::new(repo);
         reg.hydrate().await.unwrap();
         reg
+    }
+
+    #[test]
+    fn probe_resolved_command_accepts_bare_npx_when_managed_runtime_is_supported() {
+        if !probe_node_runtime_supported().is_supported() {
+            return;
+        }
+
+        let meta = AgentMetadata {
+            id: "agent-1".into(),
+            icon: None,
+            name: "Test ACP".into(),
+            name_i18n: None,
+            description: None,
+            description_i18n: None,
+            backend: Some("custom".into()),
+            agent_type: AgentType::Acp,
+            agent_source: AgentSource::Custom,
+            agent_source_info: AgentSourceInfo::default(),
+            enabled: true,
+            available: false,
+            command: Some("npx".into()),
+            resolved_command: None,
+            args: vec![],
+            env: vec![],
+            native_skills_dirs: None,
+            behavior_policy: BehaviorPolicy::default(),
+            yolo_id: None,
+            sort_order: 0,
+            team_capable: false,
+            handshake: AgentHandshake::default(),
+        };
+
+        let resolved = probe_resolved_command(&meta).expect("probe");
+        assert_eq!(resolved, PathBuf::from("npx"));
     }
 
     #[tokio::test]

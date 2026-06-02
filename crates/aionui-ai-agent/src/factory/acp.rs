@@ -12,7 +12,7 @@ use aionui_common::{AppError, CommandSpec};
 use aionui_db::IMcpServerRepository;
 use aionui_db::models::McpServerRow;
 use aionui_mcp::{AcpMcpCapabilities, parse_acp_mcp_capabilities};
-use aionui_runtime::resolve_command_path;
+use aionui_runtime::ensure_runtime_command;
 use tracing::{debug, info, warn};
 
 pub(super) async fn build(
@@ -76,32 +76,13 @@ pub(super) async fn build(
         );
     }
 
-    // Registry resolved the spawn command via `which()` at
-    // hydrate time. A missing `resolved_command` means either the
-    // CLI was uninstalled between hydrate and now, or the row
-    // never had a command (e.g. remote-only). Either way the
-    // caller needs to see a BadRequest, not a confusing
-    // spawn-time error.
-    let (command, args, mut env, cwd) = (
-        meta.resolved_command
-            .clone()
-            .ok_or_else(|| AppError::BadRequest(format!("Agent '{}' CLI not found in PATH", meta.name)))?,
-        meta.args.clone(),
-        meta.env
-            .iter()
-            .map(|e| aionui_common::EnvVar {
-                name: e.name.clone(),
-                value: e.value.clone(),
-            })
-            .collect::<Vec<_>>(),
-        Some(ctx.workspace.clone()),
-    );
+    let mut command_spec = resolve_agent_command_spec(&meta, &ctx.workspace).await?;
     if meta.backend.as_deref() == Some("claude") {
         let cc_switch_env = crate::cc_switch::read_claude_provider_env();
         if !cc_switch_env.is_empty() {
             let keys: Vec<&str> = cc_switch_env.keys().map(|k| k.as_str()).collect();
             for (name, value) in &cc_switch_env {
-                env.push(aionui_common::EnvVar {
+                command_spec.env.push(aionui_common::EnvVar {
                     name: name.clone(),
                     value: value.clone(),
                 });
@@ -109,13 +90,6 @@ pub(super) async fn build(
             tracing::info!(?keys, "cc-switch: env vars injected");
         }
     }
-
-    let command_spec = CommandSpec {
-        command,
-        args,
-        env,
-        cwd,
-    };
     let session_snapshot = deps.acp_agent_service.load_snapshot_state(&ctx.conversation_id).await;
 
     // Load user-configured MCP servers from the DB so they reach
@@ -152,7 +126,7 @@ pub(super) async fn build(
             );
             continue;
         }
-        match session_server_to_sdk_mcp_server(server) {
+        match session_server_to_sdk_mcp_server(server).await {
             Ok(server) => session_mcp_servers.push(server),
             Err(err) => {
                 warn!(
@@ -221,6 +195,47 @@ pub(super) async fn build(
     Ok(instance)
 }
 
+async fn resolve_agent_command_spec(
+    meta: &aionui_api_types::AgentMetadata,
+    workspace: &str,
+) -> Result<CommandSpec, AppError> {
+    let command = meta
+        .command
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::BadRequest(format!("Agent '{}' has no spawn command configured", meta.name)))?;
+    let resolved = ensure_runtime_command(command)
+        .await
+        .map_err(|error| AppError::BadRequest(format!("Agent '{}' CLI unavailable: {error}", meta.name)))?;
+
+    let mut args: Vec<String> = resolved
+        .args_prefix
+        .iter()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
+    args.extend(meta.args.iter().cloned());
+
+    let mut env: Vec<aionui_common::EnvVar> = meta
+        .env
+        .iter()
+        .map(|entry| aionui_common::EnvVar {
+            name: entry.name.clone(),
+            value: entry.value.clone(),
+        })
+        .collect();
+    env.extend(resolved.env.iter().map(|(name, value)| aionui_common::EnvVar {
+        name: name.to_string_lossy().into_owned(),
+        value: value.to_string_lossy().into_owned(),
+    }));
+
+    Ok(CommandSpec {
+        command: resolved.program,
+        args,
+        env,
+        cwd: Some(workspace.to_owned()),
+    })
+}
+
 /// Load the operator's enabled MCP servers from the DB, log+skip any rows
 /// whose `transport_config` JSON fails to parse (better to start without one
 /// MCP tool than fail the whole session), and return them in SDK shape ready
@@ -270,7 +285,7 @@ async fn load_user_mcp_servers(
             );
             continue;
         }
-        match row_to_sdk_mcp_server(&row) {
+        match row_to_sdk_mcp_server(&row).await {
             Ok(server) => servers.push(server),
             Err(err) => {
                 warn!(
@@ -297,7 +312,7 @@ async fn load_user_mcp_servers(
 /// Convert an `McpServerRow` into the SDK `McpServer` shape used by
 /// `NewSessionRequest::mcp_servers`. Returns an error string when
 /// `transport_config` is malformed or required fields are missing.
-fn row_to_sdk_mcp_server(row: &McpServerRow) -> Result<McpServer, String> {
+async fn row_to_sdk_mcp_server(row: &McpServerRow) -> Result<McpServer, String> {
     let value: serde_json::Value =
         serde_json::from_str(&row.transport_config).map_err(|e| format!("invalid transport_config JSON: {e}"))?;
 
@@ -307,25 +322,22 @@ fn row_to_sdk_mcp_server(row: &McpServerRow) -> Result<McpServer, String> {
                 .get("command")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| "stdio: missing command".to_owned())?;
-            let resolved_command = resolve_stdio_command(command);
             let args: Vec<String> = value
                 .get("args")
                 .and_then(|v| v.as_array())
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
                 .unwrap_or_default();
-            let env: Vec<EnvVariable> = value
+            let mut env_entries: Vec<(String, String)> = value
                 .get("env")
                 .and_then(|v| v.as_object())
                 .map(|obj| {
-                    let mut entries: Vec<(String, String)> = obj
-                        .iter()
+                    obj.iter()
                         .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_owned())))
-                        .collect();
-                    // Sort for deterministic ordering across runs.
-                    entries.sort_by(|a, b| a.0.cmp(&b.0));
-                    entries.into_iter().map(|(k, v)| EnvVariable::new(k, v)).collect()
+                        .collect()
                 })
                 .unwrap_or_default();
+            env_entries.sort_by(|a, b| a.0.cmp(&b.0));
+            let (resolved_command, args, env) = ensure_stdio_launch(command, &args, &env_entries).await?;
 
             let stdio = McpServerStdio::new(row.name.clone(), resolved_command)
                 .args(args)
@@ -368,7 +380,7 @@ fn parse_headers(value: Option<&serde_json::Value>) -> Vec<HttpHeader> {
     entries.into_iter().map(|(k, v)| HttpHeader::new(k, v)).collect()
 }
 
-fn session_server_to_sdk_mcp_server(server: &SessionMcpServer) -> Result<McpServer, String> {
+async fn session_server_to_sdk_mcp_server(server: &SessionMcpServer) -> Result<McpServer, String> {
     match &server.transport {
         SessionMcpTransport::Stdio { command, args, env } => {
             if command.is_empty() {
@@ -376,11 +388,9 @@ fn session_server_to_sdk_mcp_server(server: &SessionMcpServer) -> Result<McpServ
             }
             let mut entries: Vec<(String, String)> = env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
             entries.sort_by(|a, b| a.0.cmp(&b.0));
-            let env = entries.into_iter().map(|(k, v)| EnvVariable::new(k, v)).collect();
+            let (command, args, env) = ensure_stdio_launch(command, args, &entries).await?;
             Ok(McpServer::Stdio(
-                McpServerStdio::new(server.name.clone(), resolve_stdio_command(command))
-                    .args(args.clone())
-                    .env(env),
+                McpServerStdio::new(server.name.clone(), command).args(args).env(env),
             ))
         }
         SessionMcpTransport::Http { url, headers } | SessionMcpTransport::StreamableHttp { url, headers } => {
@@ -408,24 +418,34 @@ fn session_server_to_sdk_mcp_server(server: &SessionMcpServer) -> Result<McpServ
     }
 }
 
-fn resolve_stdio_command(command: &str) -> String {
-    let trimmed = command.trim();
-    if trimmed.is_empty() {
-        return command.to_owned();
-    }
+async fn ensure_stdio_launch(
+    command: &str,
+    args: &[String],
+    env: &[(String, String)],
+) -> Result<(std::path::PathBuf, Vec<String>, Vec<EnvVariable>), String> {
+    let resolved = ensure_runtime_command(command)
+        .await
+        .map_err(|error| error.to_string())?;
 
-    let path = std::path::Path::new(trimmed);
-    if path.is_absolute()
-        || trimmed.contains(std::path::MAIN_SEPARATOR)
-        || trimmed.contains('/')
-        || trimmed.contains('\\')
-    {
-        return trimmed.to_owned();
-    }
+    let mut final_args: Vec<String> = resolved
+        .args_prefix
+        .iter()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
+    final_args.extend(args.iter().cloned());
 
-    resolve_command_path(trimmed)
-        .map(|path| path.to_string_lossy().into_owned())
-        .unwrap_or_else(|| trimmed.to_owned())
+    let mut final_env: Vec<EnvVariable> = env
+        .iter()
+        .map(|(name, value)| EnvVariable::new(name.clone(), value.clone()))
+        .collect();
+    final_env.extend(resolved.env.iter().map(|(name, value)| {
+        EnvVariable::new(
+            name.to_string_lossy().into_owned(),
+            value.to_string_lossy().into_owned(),
+        )
+    }));
+
+    Ok((resolved.program, final_args, final_env))
 }
 
 fn row_supported_by_capabilities(row: &McpServerRow, capabilities: &AcpMcpCapabilities) -> bool {
@@ -448,6 +468,8 @@ fn session_server_supported_by_capabilities(server: &SessionMcpServer, capabilit
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
+    use std::sync::{Mutex, OnceLock};
 
     fn make_row(
         name: &str,
@@ -474,8 +496,64 @@ mod tests {
         }
     }
 
-    #[test]
-    fn row_to_sdk_stdio_roundtrip() {
+    fn path_test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[cfg(unix)]
+    struct PathGuard {
+        original: Option<OsString>,
+    }
+
+    #[cfg(unix)]
+    impl Drop for PathGuard {
+        fn drop(&mut self) {
+            match &self.original {
+                Some(path) => unsafe { std::env::set_var("PATH", path) },
+                None => unsafe { std::env::remove_var("PATH") },
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    fn prepend_fake_runtime_to_path(bin_dir: &std::path::Path) -> PathGuard {
+        let original = std::env::var_os("PATH");
+        let mut paths = vec![bin_dir.to_path_buf()];
+        if let Some(current) = &original {
+            paths.extend(std::env::split_paths(current));
+        }
+        let joined = std::env::join_paths(paths).expect("join PATH");
+        unsafe { std::env::set_var("PATH", joined) };
+        PathGuard { original }
+    }
+
+    #[cfg(unix)]
+    fn install_fake_system_runtime() -> tempfile::TempDir {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let bin = tmp.path().join("bin");
+        std::fs::create_dir_all(&bin).expect("create bin");
+
+        for tool in ["node", "npm", "npx"] {
+            let path = bin.join(tool);
+            std::fs::write(&path, "#!/bin/sh\necho v24.11.0\n").expect("write tool");
+            let mut perms = std::fs::metadata(&path).expect("metadata").permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&path, perms).expect("chmod");
+        }
+
+        tmp
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn row_to_sdk_stdio_flattens_resolved_npx_command() {
+        let _lock = path_test_lock().lock().expect("lock");
+        let runtime = install_fake_system_runtime();
+        let _path_guard = prepend_fake_runtime_to_path(&runtime.path().join("bin"));
+
         let row = make_row(
             "ctx7",
             "stdio",
@@ -483,7 +561,75 @@ mod tests {
             true,
             false,
         );
-        let server = row_to_sdk_mcp_server(&row).expect("convert");
+
+        let server = row_to_sdk_mcp_server(&row).await.expect("convert");
+        match server {
+            McpServer::Stdio(s) => {
+                let expected = std::fs::canonicalize(runtime.path().join("bin").join("npx")).expect("canonical path");
+                assert_eq!(s.command, expected);
+                assert_eq!(s.args, vec!["-y".to_owned(), "@upstash/context7-mcp".to_owned()]);
+            }
+            _ => panic!("expected Stdio"),
+        }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn resolve_agent_command_spec_flattens_bare_npx_command() {
+        let _lock = path_test_lock().lock().expect("lock");
+        let runtime = install_fake_system_runtime();
+        let _path_guard = prepend_fake_runtime_to_path(&runtime.path().join("bin"));
+
+        let meta = aionui_api_types::AgentMetadata {
+            id: "agent-1".into(),
+            icon: None,
+            name: "Test ACP".into(),
+            name_i18n: None,
+            description: None,
+            description_i18n: None,
+            backend: Some("custom".into()),
+            agent_type: aionui_common::AgentType::Acp,
+            agent_source: aionui_api_types::AgentSource::Custom,
+            agent_source_info: aionui_api_types::AgentSourceInfo::default(),
+            enabled: true,
+            available: true,
+            command: Some("npx".into()),
+            resolved_command: None,
+            args: vec!["-y".into(), "@scope/test-agent".into()],
+            env: vec![aionui_api_types::AgentEnvEntry {
+                name: "K".into(),
+                value: "V".into(),
+                description: None,
+            }],
+            native_skills_dirs: None,
+            behavior_policy: aionui_api_types::BehaviorPolicy::default(),
+            yolo_id: None,
+            sort_order: 0,
+            team_capable: false,
+            handshake: aionui_api_types::AgentHandshake::default(),
+        };
+
+        let spec = resolve_agent_command_spec(&meta, "/tmp/workspace")
+            .await
+            .expect("resolved command spec");
+
+        let expected = std::fs::canonicalize(runtime.path().join("bin").join("npx")).expect("canonical path");
+        assert_eq!(spec.command, expected);
+        assert_eq!(spec.args, vec!["-y".to_owned(), "@scope/test-agent".to_owned()]);
+        assert!(spec.env.iter().any(|entry| entry.name == "K" && entry.value == "V"));
+        assert_eq!(spec.cwd.as_deref(), Some("/tmp/workspace"));
+    }
+
+    #[tokio::test]
+    async fn row_to_sdk_stdio_roundtrip() {
+        let row = make_row(
+            "ctx7",
+            "stdio",
+            r#"{"command":"npx","args":["-y","@upstash/context7-mcp"],"env":{"K":"V"}}"#,
+            true,
+            false,
+        );
+        let server = row_to_sdk_mcp_server(&row).await.expect("convert");
         match server {
             McpServer::Stdio(s) => {
                 assert_eq!(s.name, "ctx7");
@@ -501,8 +647,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn row_to_sdk_http_with_headers() {
+    #[tokio::test]
+    async fn row_to_sdk_http_with_headers() {
         let row = make_row(
             "remote",
             "http",
@@ -510,7 +656,7 @@ mod tests {
             true,
             false,
         );
-        let server = row_to_sdk_mcp_server(&row).expect("convert");
+        let server = row_to_sdk_mcp_server(&row).await.expect("convert");
         match server {
             McpServer::Http(h) => {
                 assert_eq!(h.name, "remote");
@@ -523,22 +669,22 @@ mod tests {
         }
     }
 
-    #[test]
-    fn row_to_sdk_unknown_transport_type_errors() {
+    #[tokio::test]
+    async fn row_to_sdk_unknown_transport_type_errors() {
         let row = make_row("bad", "websocket", "{}", true, false);
-        assert!(row_to_sdk_mcp_server(&row).is_err());
+        assert!(row_to_sdk_mcp_server(&row).await.is_err());
     }
 
-    #[test]
-    fn row_to_sdk_invalid_json_errors() {
+    #[tokio::test]
+    async fn row_to_sdk_invalid_json_errors() {
         let row = make_row("bad", "stdio", "not-json", true, false);
-        assert!(row_to_sdk_mcp_server(&row).is_err());
+        assert!(row_to_sdk_mcp_server(&row).await.is_err());
     }
 
-    #[test]
-    fn row_to_sdk_stdio_missing_command_errors() {
+    #[tokio::test]
+    async fn row_to_sdk_stdio_missing_command_errors() {
         let row = make_row("bad", "stdio", r#"{"args":[]}"#, true, false);
-        assert!(row_to_sdk_mcp_server(&row).is_err());
+        assert!(row_to_sdk_mcp_server(&row).await.is_err());
     }
 
     // -- load_user_mcp_servers integration -----------------------------------

@@ -4,6 +4,26 @@
 
 关联草稿：`docs/superpowers/specs/managed-node-runtime.md`
 
+## 当前实现状态（2026-06-02）
+
+阶段一的最小稳定闭环已经基本落地：
+
+- `aionui-runtime` 已引入 runtime-first 的 Node 模块，并提供结构化的 `probe_*` / `ensure_*` API 与 `ResolvedCommand`
+- `Builder::from_resolved()` 已接入，执行链路不再要求把 managed `npm` / `npx` 错误建模成单一路径
+- bare `node` / `npm` / `npx` 的 validation、agent registry probe、doctor runtime snapshot 已切到 runtime-first 语义
+- MCP connection test、ACP factory、AionRS factory、custom agent try-connect 已切到执行前 `ensure_*`
+- Office 已切到 managed npm 安装 + managed prefix 解析 `officecli`，并把 npm cache/config/prefix 收口到 `data_dir`
+- 历史 `node -> bun` alias 已停止创建，不再把 bun 当作 Node 兼容层
+
+当前仍保留为阶段二待完成项：
+
+- archive checksum verification
+- 更完整的 install lock（尤其跨进程锁）
+- retry / cleanup / old-version cleanup 的可靠性加固
+- `runtime preparing` 状态事件
+- install progress 或阶段性状态展示
+- 首次初始化提示文案
+
 ## 设计目的
 
 定义 AionCore 的稳定 Node.js runtime 策略，使 MCP、Office、Agent 相关链路不再依赖用户本机环境里的 `node` / `npm` / `npx`。

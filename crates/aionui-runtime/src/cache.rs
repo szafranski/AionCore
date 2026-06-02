@@ -65,6 +65,10 @@ pub fn bun_dir(version: &str, sha256: &str) -> Option<PathBuf> {
     runtime_root().map(|root| root.join(bun_dir_name(version, sha256)))
 }
 
+pub fn node_runtime_root() -> Option<PathBuf> {
+    runtime_root().map(|root| root.join("node"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,5 +101,20 @@ mod tests {
         let dir = bun_dir("1.1.38", "deadbeefcafebabe").expect("cache available");
         let name = dir.file_name().unwrap().to_string_lossy().into_owned();
         assert_eq!(name, "bun-1.1.38-deadbeefcafe");
+    }
+
+    #[test]
+    fn node_runtime_root_appends_node_directory() {
+        let dir = node_runtime_root().expect("cache available");
+        let tail: Vec<_> = dir
+            .components()
+            .rev()
+            .take(3)
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            tail,
+            vec!["node".to_string(), "runtime".to_string(), "aionui".to_string()]
+        );
     }
 }

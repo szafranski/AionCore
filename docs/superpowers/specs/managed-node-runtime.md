@@ -5,6 +5,10 @@
 > 当前已经批准的设计基线是
 > `docs/superpowers/specs/2026-06-02-managed-node-runtime-design.md`。
 > 如果两份文档存在冲突，以设计稿为准。
+>
+> 当前实现状态摘要（2026-06-02）：
+> managed Node runtime 的阶段一闭环已经基本落地，包括 runtime-first API、MCP/ACP/AionRS 执行接入、Office managed prefix 闭环、doctor/runtime probe 输出，以及移除 `node -> bun` alias 创建。
+> 尚未完成的是阶段二的可靠性和体验加固项，例如 checksum、跨进程 install lock、runtime preparing 状态事件、install progress 与首次初始化提示。
 
 ## 背景
 

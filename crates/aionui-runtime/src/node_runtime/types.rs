@@ -47,7 +47,9 @@ pub struct ResolvedNodeRuntime {
     pub version: Version,
     pub node_path: PathBuf,
     pub npm_path: PathBuf,
+    pub npm_args_prefix: Vec<OsString>,
     pub npx_path: PathBuf,
+    pub npx_args_prefix: Vec<OsString>,
     pub env: Vec<(OsString, OsString)>,
 }
 
@@ -55,7 +57,7 @@ impl ResolvedNodeRuntime {
     pub fn npm_command(&self) -> ResolvedCommand {
         ResolvedCommand {
             program: self.npm_path.clone(),
-            args_prefix: vec![],
+            args_prefix: self.npm_args_prefix.clone(),
             env: self.env.clone(),
         }
     }
@@ -63,7 +65,7 @@ impl ResolvedNodeRuntime {
     pub fn npx_command(&self) -> ResolvedCommand {
         ResolvedCommand {
             program: self.npx_path.clone(),
-            args_prefix: vec![],
+            args_prefix: self.npx_args_prefix.clone(),
             env: self.env.clone(),
         }
     }
@@ -96,6 +98,18 @@ pub struct NodeRuntimeError {
 
 impl NodeRuntimeError {
     pub fn system_invalid(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    pub fn managed_invalid(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    pub fn unsupported_platform(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
         }

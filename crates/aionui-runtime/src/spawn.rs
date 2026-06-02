@@ -30,8 +30,8 @@ use std::process::Stdio;
 
 use tokio::process::{Child, Command};
 
-use crate::resolver::resolve_command_path;
 use crate::ResolvedCommand;
+use crate::resolver::resolve_command_path;
 
 /// Construction mode — determines default stdio + env extras.
 #[derive(Debug, Clone, Copy)]
@@ -400,7 +400,10 @@ mod tests {
 
         let builder = Builder::from_resolved(&resolved);
         let preview = builder.to_string();
-        assert!(preview.contains("hello"), "preview should include args prefix: {preview}");
+        assert!(
+            preview.contains("hello"),
+            "preview should include args prefix: {preview}"
+        );
         assert!(preview.contains("NO_COLOR=\"1\"") || preview.contains("NO_COLOR=1"));
     }
 

@@ -43,8 +43,8 @@ pub fn tool_command(tool: NodeTool, runtime: &ResolvedNodeRuntime) -> ResolvedCo
 }
 
 pub fn probe_system_runtime() -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
-    let node = crate::resolve_command_path("node")
-        .ok_or_else(|| NodeRuntimeError::system_invalid("system node not found"))?;
+    let node =
+        crate::resolve_command_path("node").ok_or_else(|| NodeRuntimeError::system_invalid("system node not found"))?;
     let node = std::fs::canonicalize(node).map_err(NodeRuntimeError::io_system)?;
     let root = derive_runtime_root(&node, cfg!(windows))
         .ok_or_else(|| NodeRuntimeError::system_invalid("cannot derive runtime root from node path"))?;
@@ -68,13 +68,15 @@ pub fn probe_system_runtime() -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
         version: Version::new(0, 0, 0),
         node_path: node,
         npm_path: npm,
+        npm_args_prefix: vec![],
         npx_path: npx,
+        npx_args_prefix: vec![],
         env: vec![],
     })
 }
 
 pub async fn detect_system_runtime() -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
-    probe_system_runtime()
+    super::validate_runtime(probe_system_runtime()?, Some(22)).await
 }
 
 #[cfg(test)]

@@ -591,12 +591,13 @@ pub fn build_office_state(services: &AppServices) -> OfficeRouterState {
     let data_dir = services.data_dir.as_path();
     let allowed_roots = default_allowed_roots(Some(services.work_dir.as_path()));
 
-    let spawner: Arc<dyn aionui_office::ProcessSpawner> = Arc::new(aionui_office::DefaultProcessSpawner);
+    let spawner: Arc<dyn aionui_office::ProcessSpawner> =
+        Arc::new(aionui_office::DefaultProcessSpawner::new(data_dir.to_path_buf()));
     let watch_manager = Arc::new(OfficecliWatchManager::new(spawner, services.event_bus.clone()));
 
     let snapshot_service = Arc::new(OfficeSnapshotService::new(data_dir));
     let star_office_detector = Arc::new(StarOfficeDetector::new(reqwest::Client::new()));
-    let conversion_service = Arc::new(ConversionService::new(None));
+    let conversion_service = Arc::new(ConversionService::with_data_dir(None, data_dir.to_path_buf()));
     let proxy_service = Arc::new(ProxyService::new(watch_manager.clone()));
 
     OfficeRouterState {

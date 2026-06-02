@@ -2402,7 +2402,10 @@ mod tests {
     #[test]
     fn validate_stdio_command_accepts_bare_npx_when_runtime_supports_it() {
         let result = validate_stdio_command("npx");
-        assert!(result.is_ok(), "bare npx should be accepted when managed runtime is supported");
+        assert!(
+            result.is_ok(),
+            "bare npx should be accepted when managed runtime is supported"
+        );
     }
 
     #[test]

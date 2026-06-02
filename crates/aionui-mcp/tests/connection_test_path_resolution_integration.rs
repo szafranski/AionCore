@@ -17,10 +17,26 @@ async fn stdio_npx_resolves_from_enhanced_process_path() {
     let bin_dir = tmp.path().join("bin");
     std::fs::create_dir(&bin_dir).unwrap();
 
+    let fake_node = bin_dir.join("node");
+    std::fs::write(&fake_node, "#!/bin/sh\necho v24.11.0\n").unwrap();
+    let mut node_perms = std::fs::metadata(&fake_node).unwrap().permissions();
+    node_perms.set_mode(0o755);
+    std::fs::set_permissions(&fake_node, node_perms).unwrap();
+
+    let fake_npm = bin_dir.join("npm");
+    std::fs::write(&fake_npm, "#!/bin/sh\necho 24.11.0\n").unwrap();
+    let mut npm_perms = std::fs::metadata(&fake_npm).unwrap().permissions();
+    npm_perms.set_mode(0o755);
+    std::fs::set_permissions(&fake_npm, npm_perms).unwrap();
+
     let fake_npx = bin_dir.join("npx");
     std::fs::write(
         &fake_npx,
         r#"#!/bin/sh
+if [ "${1:-}" = "--version" ]; then
+  echo 24.11.0
+  exit 0
+fi
 while IFS= read -r line; do
   case "$line" in
     *'"id":1'*)

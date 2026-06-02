@@ -434,6 +434,214 @@ impl Builder {
 
 现有 `Builder::new()` 保留给廉价的同步解析和非 Node 场景。
 
+### 阻塞模型与调用点约束
+
+managed Node 方案不只是“命令如何解析”的变化，还包括“下载/安装会在什么时机发生，以及哪些调用点允许等待”。
+
+这一点需要明确，否则很容易误解成：
+
+- 创建 conversation 时就会卡在下载 Node
+- 任意 validation 都可能触发网络请求
+- 首次发消息会阻塞 HTTP handler 很久
+
+本设计要求不同调用点采用不同的阻塞策略。
+
+#### 1. 永远不允许触发下载安装的调用点
+
+这些调用点只能使用 `probe_*`，不得调用 `ensure_*`：
+
+- conversation create
+- MCP 配置保存前 validation
+- 普通表单校验
+- doctor 的快速环境摘要
+- agent registry 的 availability 计算
+
+原因：
+
+- 它们的职责是“判断当前状态”或“在落库前做同步校验”
+- 不应在用户无感知时触发下载
+- 不应把网络副作用塞进同步或准同步路径
+
+这些路径可以返回：
+
+- 当前 system runtime 是否完整
+- 当前平台是否允许 managed runtime
+- 当前如果立刻执行，是否会走 managed runtime
+
+但不能主动开始 install。
+
+#### 2. 明确允许等待下载安装的调用点
+
+这些调用点可以调用 `ensure_*`，因为它们的语义本来就是“为真实执行做准备”或“立即验证真实执行能力”：
+
+- `POST /api/conversations/{id}/warmup`
+- 首次 `send_message` 时的 task build
+- MCP connection test
+- custom agent try-connect
+- Office install/update
+
+这些路径允许等待 managed runtime 准备完成，并在失败时返回结构化错误。
+
+#### 3. conversation create 不应被阻塞
+
+当前 `ConversationService::create()` 只负责：
+
+- 创建 conversation row
+- 选择/创建 workspace
+- 持久化初始 extra
+
+它不会构建 agent task，也不会启动 CLI。
+
+因此在 managed Node 方案下，conversation create 仍应保持这一属性：
+
+- 只做 `probe_*`
+- 不做 `ensure_*`
+- 不触发 Node 下载
+
+这是一条强约束。
+
+#### 4. warmup 可以阻塞，并且应该阻塞到 ready
+
+当前 `warmup` 路径会调用 `get_or_build_task()`，而 ACP factory 在 build 末尾又会显式执行 `warmup_session()`。
+
+这意味着 `warmup` 的现有语义本来就是：
+
+- 返回成功时，agent task 已经构建完成
+- ACP `session/new` 或 resume 已完成
+- 调用方可以把“warmup 成功”理解为“ready”
+
+因此在 managed Node 方案下：
+
+- 如果 warmup 首次触发 managed Node install，允许它等待下载/解压/校验完成
+- `warmup` 返回成功时，Node runtime 也应被视为 ready
+- 如果 install 失败，`warmup` 应直接返回结构化错误
+
+也就是说，`warmup` 是显式 readiness endpoint，允许承担首次安装成本。
+
+#### 5. `send_message` 不应阻塞 HTTP 返回
+
+当前 `send_message` 已经采用“HTTP 先返回，agent task build 在后台 task 中执行”的模型：
+
+- 用户消息先入库
+- HTTP handler 返回 `202`
+- 后台 `tokio::spawn` 中调用 `get_or_build_task()`
+- task build 完成后才真正向 agent 发送消息
+
+因此在 managed Node 方案下，首次发消息触发的 Node 下载不会阻塞 HTTP handler 本身。
+
+它会影响的是：
+
+- agent task 何时 ready
+- 第一轮消息何时真正开始被 agent 处理
+
+不会影响的是：
+
+- 用户消息入库
+- HTTP `202 Accepted` 的及时返回
+
+这条链路的要求是：
+
+1. `send_message` 主线程不调用 `ensure_*`
+2. `get_or_build_task()` 内部允许 await managed runtime 准备
+3. 如果准备失败，沿用当前 send failure tip / stream failure 路径反馈错误
+
+也就是说：
+
+- 首次发消息可以“延后开始真正执行”
+- 但不能“卡住请求本身”
+
+#### 6. MCP connection test / custom agent try-connect 可以等待
+
+这些接口的语义是“立即验证真实执行能力”，所以允许等待 install。
+
+在这些路径里：
+
+- `probe_*` 不够
+- 必须使用 `ensure_*`
+- 如果 install 失败，应把失败原因直接返回给用户
+
+它们本来就是显式测试动作，因此允许比普通保存校验更重。
+
+### 并发与去重
+
+managed Node 引入异步 install 后，还必须定义并发去重策略。
+
+#### 1. conversation 级 task build 去重
+
+当前 `WorkerTaskManager::get_or_build_task()` 已经通过 `OnceCell` 保证同一个 conversation 的 task build 只会跑一次。
+
+这意味着对于同一 conversation：
+
+- `/warmup`
+- 首次 `send_message`
+
+如果并发触发，只会等待同一个 build future，不会重复构建多个 agent task。
+
+#### 2. runtime 级 install 去重
+
+还需要新增一个更高层的“Node runtime install 去重”，否则不同 conversation 并发首次触发 managed Node 时会重复下载。
+
+第一阶段建议：
+
+- 进程内使用 async `OnceCell` / `Mutex` 保护 `ensure_node_runtime()`
+- 同一进程内，多个调用方共享同一个 install future
+
+第二阶段再增加：
+
+- 跨进程 lock file
+
+防止多个 backend 进程或 doctor/服务端并发安装同一 runtime。
+
+### 推荐的调用点映射
+
+第一阶段建议按下表执行：
+
+- conversation create：`probe_*`，绝不 install
+- validation/save：`probe_*`，绝不 install
+- doctor：默认 `probe_*`
+- task build（ACP/AionRS/首次 send/warmup）：`ensure_*`
+- MCP connection test：`ensure_*`
+- custom agent try-connect：`ensure_*`
+- Office install/update：`ensure_*`
+
+### ACP / AionRS 的具体集成位置
+
+对于 ACP / AionRS，真正适合触发 `ensure_*` 的位置不是 conversation create，而是 agent factory build 阶段。
+
+原因：
+
+- factory 本身已经是 async
+- `get_or_build_task()` 已经允许等待 CLI spawn、握手和 warmup
+- MCP 注入的 command 解析当前就在 ACP/AionRS factory 内完成
+
+因此建议：
+
+1. conversation row / session snapshot 中继续保留原始 bare command，例如 `npx`
+2. ACP/AionRS factory 在把 MCP server 转换为最终 `CommandSpec` 或 SDK config 时，调用 `ensure_runtime_command()`
+3. 只有 factory build 真正开始时，才允许触发 Node install
+
+这保证了：
+
+- 配置层与持久化层语义稳定
+- task build 层拥有完整的异步能力
+- 下载成本只发生在真正“需要执行”的时刻
+
+### 用户体验与可观察性
+
+第一阶段至少应保证：
+
+- `send_message` 不阻塞 HTTP 返回
+- `warmup` 成功即 ready
+- install 失败能进入现有 send failure / connection test error 路径
+- 日志能区分“task build 中等待 managed runtime”与“CLI 已启动但握手失败”
+
+如果后续要进一步优化体验，可以增加：
+
+- 首次 build 超过阈值时的“正在准备 Node 环境”状态事件
+- install progress 的前端提示
+
+但这些属于增强项，不是第一阶段闭环所必需。
+
 ### MCP 执行链路
 
 执行期的 stdio launcher 应这样工作：

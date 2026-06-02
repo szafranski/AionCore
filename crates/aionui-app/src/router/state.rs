@@ -144,6 +144,10 @@ pub async fn build_module_states(services: &AppServices) -> (ModuleStates, Chann
             .and_then(|p| p.canonicalize().ok())
             .unwrap_or_else(|| std::path::PathBuf::from("aioncore")),
     );
+    tracing::info!(
+        elapsed_ms = boot.elapsed().as_millis(),
+        "startup: backend binary path resolved"
+    );
 
     let pool = services.database.pool().clone();
     let provider_repo: Arc<dyn IProviderRepository> = Arc::new(SqliteProviderRepository::new(pool));
@@ -154,7 +158,12 @@ pub async fn build_module_states(services: &AppServices) -> (ModuleStates, Chann
         encryption_key,
         services.data_dir.clone(),
     );
+    tracing::info!(elapsed_ms = boot.elapsed().as_millis(), "startup: agent service built");
 
+    tracing::info!(
+        elapsed_ms = boot.elapsed().as_millis(),
+        "startup: module states bundle started"
+    );
     let states = ModuleStates {
         system: build_system_state(services),
         conversation: build_conversation_state(services, Some(cron.cron_service.clone())),
@@ -254,7 +263,8 @@ pub fn build_conversation_state(
         conversaion_repo,
         agent_metadata_repo,
         acp_session_repo,
-    );
+    )
+    .with_runtime_state(services.conversation_runtime_state.clone());
     conversation_service.with_mcp_server_repo(Arc::new(aionui_db::SqliteMcpServerRepository::new(
         services.database.pool().clone(),
     )));
@@ -390,15 +400,18 @@ pub async fn build_channel_state(
     let acp_session_repo: Arc<dyn aionui_db::IAcpSessionRepository> = Arc::new(
         aionui_db::SqliteAcpSessionRepository::new(services.database.pool().clone()),
     );
-    let conversation_svc = Arc::new(ConversationService::new(
-        services.work_dir.clone(),
-        services.event_bus.clone(),
-        skill_resolver,
-        services.worker_task_manager.clone(),
-        conv_repo,
-        agent_metadata_repo,
-        acp_session_repo,
-    ));
+    let conversation_svc = Arc::new(
+        ConversationService::new(
+            services.work_dir.clone(),
+            services.event_bus.clone(),
+            skill_resolver,
+            services.worker_task_manager.clone(),
+            conv_repo,
+            agent_metadata_repo,
+            acp_session_repo,
+        )
+        .with_runtime_state(services.conversation_runtime_state.clone()),
+    );
     conversation_svc.with_mcp_server_repo(Arc::new(aionui_db::SqliteMcpServerRepository::new(
         services.database.pool().clone(),
     )));
@@ -479,7 +492,8 @@ pub fn build_team_state(
         conv_repo,
         agent_metadata_repo,
         acp_session_repo,
-    );
+    )
+    .with_runtime_state(services.conversation_runtime_state.clone());
     conv_service.with_mcp_server_repo(Arc::new(aionui_db::SqliteMcpServerRepository::new(
         services.database.pool().clone(),
     )));
@@ -524,7 +538,8 @@ pub fn build_cron_state(services: &AppServices) -> CronRouterState {
         conv_repo.clone(),
         agent_metadata_repo,
         acp_session_repo,
-    );
+    )
+    .with_runtime_state(services.conversation_runtime_state.clone());
     conv_service.with_mcp_server_repo(Arc::new(aionui_db::SqliteMcpServerRepository::new(
         services.database.pool().clone(),
     )));

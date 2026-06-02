@@ -1,10 +1,14 @@
 mod protocol;
 
 use std::collections::HashMap;
+use std::ffi::OsString;
 use std::time::Duration;
 
-use aionui_api_types::McpConnectionTestResult;
-use aionui_runtime::{Builder as CmdBuilder, ensure_runtime_command, kill_process_tree};
+use aionui_api_types::{McpConnectionTestErrorCode, McpConnectionTestResult};
+use aionui_runtime::{
+    Builder as CmdBuilder, RuntimeCommandProbe, ensure_runtime_command, kill_process_tree, probe_runtime_command,
+    resolve_command_path,
+};
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
@@ -81,20 +85,19 @@ impl McpConnectionTestService {
         args: &[String],
         env: &HashMap<String, String>,
     ) -> McpConnectionTestResult {
-        let resolved = match ensure_runtime_command(command).await {
-            Ok(resolved) => resolved,
-            Err(error) => {
-                let message = error.to_string();
-                let io_error = if message.contains("not found") {
-                    std::io::Error::new(std::io::ErrorKind::NotFound, message)
-                } else {
-                    std::io::Error::other(message)
+        let mut cmd = match probe_runtime_command(command) {
+            RuntimeCommandProbe::NodeTool { .. } => {
+                let resolved = match ensure_runtime_command(command).await {
+                    Ok(resolved) => resolved,
+                    Err(error) => return spawn_error_result(command, &runtime_resolution_error(&error.to_string())),
                 };
-                return spawn_error_result(command, &io_error);
+                CmdBuilder::from_resolved(&resolved)
+            }
+            _ => {
+                let program = resolve_stdio_command(command);
+                CmdBuilder::new(&program)
             }
         };
-
-        let mut cmd = CmdBuilder::from_resolved(&resolved);
         cmd.args(args)
             .envs(env.iter())
             .stdin(std::process::Stdio::piped())
@@ -198,13 +201,23 @@ impl McpConnectionTestService {
             .json(body)
             .send()
             .await
-            .map_err(|e| error_result(format!("Connection failed: {e}")))?;
+            .map_err(|e| {
+                error_result(
+                    McpConnectionTestErrorCode::ConnectionFailed,
+                    format!("Connection failed: {e}"),
+                    Some(serde_json::json!({ "transport": "http" })),
+                )
+            })?;
 
         if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
             return Err(protocol::auth_result(resp.headers()));
         }
         if !resp.status().is_success() {
-            return Err(error_result(format!("HTTP {} from server", resp.status())));
+            return Err(error_result(
+                McpConnectionTestErrorCode::HttpError,
+                format!("HTTP {} from server", resp.status()),
+                Some(serde_json::json!({ "status": resp.status().as_u16() })),
+            ));
         }
 
         let session_id = resp
@@ -213,8 +226,13 @@ impl McpConnectionTestService {
             .and_then(|v| v.to_str().ok())
             .map(String::from);
 
-        let rpc = protocol::parse_http_response(resp).await.map_err(error_result)?;
-
+        let rpc = protocol::parse_http_response(resp).await.map_err(|error| {
+            error_result(
+                McpConnectionTestErrorCode::ProtocolError,
+                error,
+                Some(serde_json::json!({ "transport": "http" })),
+            )
+        })?;
         Ok(HttpMcpResponse { rpc, session_id })
     }
 
@@ -240,13 +258,23 @@ impl McpConnectionTestService {
             .await
         {
             Ok(r) => r,
-            Err(e) => return error_result(format!("Connection failed: {e}")),
+            Err(e) => {
+                return error_result(
+                    McpConnectionTestErrorCode::ConnectionFailed,
+                    format!("Connection failed: {e}"),
+                    Some(serde_json::json!({ "transport": "sse" })),
+                );
+            }
         };
         if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
             return protocol::auth_result(resp.headers());
         }
         if !resp.status().is_success() {
-            return error_result(format!("HTTP {} from server", resp.status()));
+            return error_result(
+                McpConnectionTestErrorCode::HttpError,
+                format!("HTTP {} from server", resp.status()),
+                Some(serde_json::json!({ "status": resp.status().as_u16() })),
+            );
         }
 
         // 2. Start SSE reader task
@@ -272,16 +300,32 @@ impl McpConnectionTestService {
         // 3. Wait for endpoint event
         let endpoint = match wait_for_endpoint(event_rx, base_url).await {
             Ok(ep) => ep,
-            Err(e) => return error_result(e),
+            Err(e) => {
+                return error_result(
+                    McpConnectionTestErrorCode::ProtocolError,
+                    e,
+                    Some(serde_json::json!({ "transport": "sse", "stage": "endpoint" })),
+                );
+            }
         };
 
         // 4. initialize
         if let Err(e) = self.sse_post(&endpoint, headers, &build_initialize_request(1)).await {
-            return error_result(format!("Failed to send initialize: {e}"));
+            return error_result(
+                McpConnectionTestErrorCode::ProtocolError,
+                format!("Failed to send initialize: {e}"),
+                Some(serde_json::json!({ "transport": "sse", "stage": "initialize_send" })),
+            );
         }
         let init_resp = match wait_for_jsonrpc_response(event_rx).await {
             Ok(r) => r,
-            Err(e) => return error_result(format!("initialize response: {e}")),
+            Err(e) => {
+                return error_result(
+                    McpConnectionTestErrorCode::ProtocolError,
+                    format!("initialize response: {e}"),
+                    Some(serde_json::json!({ "transport": "sse", "stage": "initialize_response" })),
+                );
+            }
         };
         if let Some(err) = init_resp.error {
             return rpc_error_result("initialize", &err);
@@ -294,11 +338,21 @@ impl McpConnectionTestService {
 
         // 6. tools/list
         if let Err(e) = self.sse_post(&endpoint, headers, &build_tools_list_request(2)).await {
-            return error_result(format!("Failed to send tools/list: {e}"));
+            return error_result(
+                McpConnectionTestErrorCode::ProtocolError,
+                format!("Failed to send tools/list: {e}"),
+                Some(serde_json::json!({ "transport": "sse", "stage": "tools_list_send" })),
+            );
         }
         let tools_resp = match wait_for_jsonrpc_response(event_rx).await {
             Ok(r) => r,
-            Err(e) => return error_result(format!("tools/list response: {e}")),
+            Err(e) => {
+                return error_result(
+                    McpConnectionTestErrorCode::ProtocolError,
+                    format!("tools/list response: {e}"),
+                    Some(serde_json::json!({ "transport": "sse", "stage": "tools_list_response" })),
+                );
+            }
         };
         if let Some(err) = tools_resp.error {
             return rpc_error_result("tools/list", &err);
@@ -322,6 +376,31 @@ impl McpConnectionTestService {
             .await
             .map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+
+fn resolve_stdio_command(command: &str) -> OsString {
+    if !command.is_empty()
+        && !command.contains('/')
+        && !command.contains('\\')
+        && let Some(path) = resolve_command_path(command)
+    {
+        return path.into_os_string();
+    }
+
+    OsString::from(command)
+}
+
+fn runtime_resolution_error(message: &str) -> std::io::Error {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("not found")
+        || lower.contains("unsupported")
+        || lower.contains("unavailable")
+        || lower.contains("system node")
+    {
+        std::io::Error::new(std::io::ErrorKind::NotFound, message.to_owned())
+    } else {
+        std::io::Error::other(message.to_owned())
     }
 }
 

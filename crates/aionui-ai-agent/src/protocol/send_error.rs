@@ -68,6 +68,21 @@ impl AgentSendError {
     pub fn from_app_error_ref(err: &AppError) -> Self {
         let detail = strip_error_prefix(&err.to_string());
         match err {
+            AppError::WorkspacePathContainsWhitespaceRuntimeUnsupported(path) => Self {
+                stream_error: AgentStreamErrorData {
+                    message: "This workspace path is no longer supported for execution".into(),
+                    code: Some(AgentErrorCode::WorkspacePathContainsWhitespaceRuntimeUnsupported),
+                    ownership: Some(AgentErrorOwnership::Aionui),
+                    detail: Some(sanitize_error_detail(&detail)),
+                    workspace_path: Some(path.clone()),
+                    retryable: Some(false),
+                    feedback_recommended: Some(false),
+                    resolution: Some(AgentErrorResolution::new(
+                        AgentErrorResolutionKind::StartNewSession,
+                        Some(AgentErrorResolutionTarget::NewConversation),
+                    )),
+                },
+            },
             AppError::Internal(_) => Self::new(
                 "AionUI failed while sending the message",
                 AgentErrorCode::AionuiInternalError,
@@ -337,6 +352,14 @@ fn classify_agent_lifecycle(lower: &str) -> Option<ClassifiedError> {
             AgentErrorResolutionKind::CheckAgentInstallation,
         ));
     }
+    if lower.contains("process exited with code") {
+        return Some(agent_error(
+            "The selected Agent process exited unexpectedly",
+            AgentErrorCode::UserAgentDisconnected,
+            true,
+            AgentErrorResolutionKind::ReconnectAgent,
+        ));
+    }
     if lower.contains("initialize handshake timed out") {
         return Some(agent_error(
             "The selected Agent did not finish starting in time",
@@ -395,7 +418,17 @@ fn classify_agent_lifecycle(lower: &str) -> Option<ClassifiedError> {
 }
 
 fn classify_provider_api(lower: &str) -> Option<ClassifiedError> {
-    if contains_any(lower, &["402", "insufficient balance"]) {
+    if contains_any(
+        lower,
+        &[
+            "402",
+            "insufficient balance",
+            "credit balance is too low",
+            "purchase credits",
+            "plans & billing",
+            "plans and billing",
+        ],
+    ) {
         return Some(provider_error(
             "The model provider account requires billing attention",
             AgentErrorCode::UserLlmProviderBillingRequired,
@@ -511,6 +544,7 @@ fn classify_provider_api(lower: &str) -> Option<ClassifiedError> {
             "unknown model",
             "invalid model",
             "model_not_found",
+            "model identifier is invalid",
         ],
     ) {
         return Some(provider_error(
@@ -521,9 +555,7 @@ fn classify_provider_api(lower: &str) -> Option<ClassifiedError> {
             Some(AgentErrorResolutionTarget::ProviderSettings),
         ));
     }
-    if (lower.contains("404") || lower.contains("not found"))
-        && contains_any(lower, &["/chat/completions", "\"path\"", "endpoint", "base url"])
-    {
+    if lower.contains("404") || lower.contains("not found") {
         return Some(provider_error(
             "The model provider endpoint was not found",
             AgentErrorCode::UserLlmProviderEndpointNotFound,
@@ -709,19 +741,43 @@ fn strip_error_prefix(message: &str) -> String {
 }
 
 pub(crate) fn sanitize_error_detail(input: &str) -> String {
-    let without_query = redact_url_queries(input);
-    let mut out = String::new();
-    for line in without_query.lines() {
-        if is_sensitive_header_line(line) {
-            push_bounded_line(&mut out, "<redacted header>");
-        } else {
-            push_bounded_line(&mut out, &redact_secret_words(line));
+    let stripped = strip_markup(input);
+    let without_query = redact_url_queries(&stripped);
+    let redacted = redact_lines(&without_query);
+    truncate_chars(redacted.trim(), MAX_DETAIL_CHARS)
+}
+
+fn strip_markup(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut in_tag = false;
+    for ch in input.chars() {
+        match (ch, in_tag) {
+            ('<', _) => in_tag = true,
+            ('>', true) => {
+                in_tag = false;
+                out.push(' ');
+            }
+            (c, false) => out.push(c),
+            _ => {}
         }
+    }
+    out
+}
+
+fn redact_lines(input: &str) -> String {
+    let mut out = String::new();
+    for line in input.lines() {
+        let cleaned = if is_sensitive_header_line(line) {
+            "<redacted header>".to_owned()
+        } else {
+            redact_secret_words(line)
+        };
+        push_bounded_line(&mut out, &cleaned);
         if out.chars().count() >= MAX_DETAIL_CHARS {
             break;
         }
     }
-    truncate_chars(out.trim(), MAX_DETAIL_CHARS)
+    out
 }
 
 fn push_bounded_line(out: &mut String, line: &str) {
@@ -836,6 +892,29 @@ mod tests {
     }
 
     #[test]
+    fn preserves_runtime_workspace_validation_as_structured_aionui_error() {
+        let err = AgentSendError::from_app_error(AppError::WorkspacePathContainsWhitespaceRuntimeUnsupported(
+            "/Users/test/Archive ".into(),
+        ));
+
+        assert_eq!(
+            err.code(),
+            Some(AgentErrorCode::WorkspacePathContainsWhitespaceRuntimeUnsupported)
+        );
+        assert_eq!(err.ownership(), Some(AgentErrorOwnership::Aionui));
+        assert_eq!(
+            err.stream_error().workspace_path.as_deref(),
+            Some("/Users/test/Archive ")
+        );
+        assert_eq!(err.stream_error().retryable, Some(false));
+        assert_eq!(err.stream_error().feedback_recommended, Some(false));
+        assert_eq!(
+            err.stream_error().resolution.map(|value| value.kind),
+            Some(AgentErrorResolutionKind::StartNewSession)
+        );
+    }
+
+    #[test]
     fn classifies_provider_error_without_specific_signal_as_provider_gateway() {
         let err = AgentSendError::from_app_error(AppError::BadGateway("Provider error: upstream failed".into()));
 
@@ -872,6 +951,52 @@ mod tests {
     }
 
     #[test]
+    fn strip_markup_removes_html_tags_keeping_visible_text() {
+        let detail = sanitize_error_detail(
+            "Provider error: API error 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body><center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>openresty</center></body></html>",
+        );
+
+        assert!(!detail.contains('<'));
+        assert!(!detail.contains('>'));
+        assert!(detail.contains("504 Gateway Time-out"));
+        assert!(detail.contains("openresty"));
+        assert!(detail.starts_with("Provider error: API error 504:"));
+    }
+
+    #[test]
+    fn strip_markup_is_identity_for_plain_text() {
+        let detail = sanitize_error_detail("Provider error: API error 504: error code: 524");
+
+        assert_eq!(detail, "Provider error: API error 504: error code: 524");
+    }
+
+    #[test]
+    fn redaction_runs_after_strip_markup() {
+        let detail = sanitize_error_detail(
+            "<html><body>Authorization: Bearer sk-secret\nGET https://example.com/v1?api_key=sk-secret</body></html>",
+        );
+
+        assert!(!detail.contains("sk-secret"));
+        assert!(!detail.contains("api_key=sk"));
+        assert!(detail.contains("<redacted header>"));
+        assert!(!detail.contains("<html"));
+        assert!(!detail.contains("</body>"));
+    }
+
+    #[test]
+    fn classifies_provider_504_html_body_as_timeout_with_stripped_detail() {
+        let raw = "Aionrs agent error: Provider error: API error 504: <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>openresty</center>\r\n</body>\r\n</html>";
+        let err = AgentSendError::from_app_error(AppError::BadGateway(raw.into()));
+
+        assert_eq!(err.code(), Some(AgentErrorCode::UserLlmProviderTimeout));
+        let detail = err.stream_error().detail.clone().expect("detail present");
+        assert!(!detail.contains('<'));
+        assert!(!detail.contains('>'));
+        assert!(detail.chars().count() <= MAX_DETAIL_CHARS);
+        assert!(detail.contains("504 Gateway Time-out"));
+    }
+
+    #[test]
     fn classifies_agent_lifecycle_before_bad_gateway_wrapper() {
         assert_classification(
             "Bad gateway: Agent process exited before initialize handshake completed (exit code 1)",
@@ -885,6 +1010,25 @@ mod tests {
             AgentErrorOwnership::UserAgent,
             AgentErrorResolutionKind::ReconnectAgent,
         );
+    }
+
+    #[test]
+    fn classifies_mid_session_cli_exit_as_agent_disconnected() {
+        // Mid-session ACP CLI exit (e.g. Claude Code) surfaces as -32603 with
+        // `details: "Claude Code process exited with code 1"`. Previously this
+        // fell through to UNKNOWN_UPSTREAM_ERROR; it now maps to a retryable
+        // agent disconnect.
+        assert_classification(
+            "Agent internal error (code -32603) ({\"details\":\"Claude Code process exited with code 1\"})",
+            AgentErrorCode::UserAgentDisconnected,
+            AgentErrorOwnership::UserAgent,
+            AgentErrorResolutionKind::ReconnectAgent,
+        );
+        let err = AgentSendError::from_app_error(AppError::BadGateway(
+            "Agent internal error (code -32603) ({\"details\":\"Claude Code process exited with code 1\"})".into(),
+        ));
+        assert_eq!(err.stream_error().retryable, Some(true));
+        assert_eq!(err.stream_error().feedback_recommended, Some(false));
     }
 
     #[test]
@@ -941,6 +1085,12 @@ mod tests {
     fn classifies_provider_billing_auth_and_rate_limit() {
         assert_classification(
             "Aionrs agent error: Provider error: API error 402: {\"error\":{\"message\":\"Insufficient Balance\"}}",
+            AgentErrorCode::UserLlmProviderBillingRequired,
+            AgentErrorOwnership::UserLlmProvider,
+            AgentErrorResolutionKind::CheckProviderBilling,
+        );
+        assert_classification(
+            "Aionrs agent error: Provider error: API error 400: {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"}}",
             AgentErrorCode::UserLlmProviderBillingRequired,
             AgentErrorOwnership::UserLlmProvider,
             AgentErrorResolutionKind::CheckProviderBilling,
@@ -1018,6 +1168,20 @@ mod tests {
     }
 
     #[test]
+    fn classifies_bedrock_invalid_model_identifier_as_model_not_found() {
+        assert_classification(
+            "Aionrs agent error: Provider error: API error 400: {\"message\":\"The provided model identifier is invalid.\"}",
+            AgentErrorCode::UserLlmProviderModelNotFound,
+            AgentErrorOwnership::UserLlmProvider,
+            AgentErrorResolutionKind::ChangeModel,
+        );
+        assert_resolution_target(
+            "Aionrs agent error: Provider error: API error 400: {\"message\":\"The provided model identifier is invalid.\"}",
+            AgentErrorResolutionTarget::ProviderSettings,
+        );
+    }
+
+    #[test]
     fn classifies_generic_provider_invalid_requests() {
         for detail in [
             "API error 400: Invalid request: Invalid input",
@@ -1090,6 +1254,20 @@ mod tests {
             AgentErrorOwnership::UserLlmProvider,
             AgentErrorResolutionKind::Retry,
         );
+    }
+
+    #[test]
+    fn classifies_bare_provider_404_as_endpoint_not_found() {
+        let detail = "Aionrs agent error: Provider error: API error 404: {\"detail\":\"Not Found\"}";
+        assert_classification(
+            detail,
+            AgentErrorCode::UserLlmProviderEndpointNotFound,
+            AgentErrorOwnership::UserLlmProvider,
+            AgentErrorResolutionKind::CheckProviderBaseUrl,
+        );
+        assert_resolution_target(detail, AgentErrorResolutionTarget::ProviderSettings);
+        let err = AgentSendError::from_app_error(AppError::BadGateway(detail.into()));
+        assert_eq!(err.stream_error().retryable, Some(false));
     }
 
     #[test]

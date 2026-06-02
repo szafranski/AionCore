@@ -158,6 +158,26 @@ impl AionrsAgentManager {
             cancel_notify: Arc::new(Notify::new()),
         })
     }
+
+    fn request_stop(&self, reason: Option<AgentKillReason>, operation: &'static str) {
+        let was_running = self.runtime.status() == Some(ConversationStatus::Running);
+
+        if let Ok(mut confs) = self.confirmations.write() {
+            confs.clear();
+        }
+
+        if was_running {
+            self.cancel_notify.notify_waiters();
+        }
+
+        info!(
+            conversation_id = %self.runtime.conversation_id(),
+            ?reason,
+            was_running,
+            operation,
+            "Aionrs stop signal requested"
+        );
+    }
 }
 
 #[async_trait::async_trait]
@@ -203,7 +223,7 @@ impl crate::agent_task::IAgentTask for AionrsAgentManager {
             _ = self.cancel_notify.notified() => {
                 info!(
                     conversation_id = %self.runtime.conversation_id(),
-                    "Aionrs engine.run() cancelled by user"
+                    "Aionrs engine.run() cancelled by stop signal"
                 );
                 engine.abort_current_turn("Tool execution canceled by user");
                 None
@@ -245,24 +265,12 @@ impl crate::agent_task::IAgentTask for AionrsAgentManager {
     }
 
     async fn cancel(&self) -> Result<(), AppError> {
-        info!(
-            conversation_id = %self.runtime.conversation_id(),
-            "Aionrs stop requested"
-        );
-        if let Ok(mut confs) = self.confirmations.write() {
-            confs.clear();
-        }
-        // Signal the tokio::select! in send_message() to drop engine.run()
-        self.cancel_notify.notify_waiters();
+        self.request_stop(None, "cancel");
         Ok(())
     }
 
     fn kill(&self, reason: Option<AgentKillReason>) -> Result<(), AppError> {
-        info!(
-            conversation_id = %self.runtime.conversation_id(),
-            ?reason,
-            "Killing Aionrs agent"
-        );
+        self.request_stop(reason, "kill");
         Ok(())
     }
 }
@@ -357,7 +365,7 @@ fn parse_session_mode(s: &str) -> SessionMode {
 
 fn aionrs_engine_error_to_send_error(error_msg: String) -> AgentSendError {
     let lower = error_msg.to_ascii_lowercase();
-    if lower.contains("provider error") || lower.contains("provider:") {
+    if lower.contains("provider error") || lower.contains("provider:") || lower.contains("api error:") {
         return AgentSendError::from_app_error(AppError::BadGateway(error_msg));
     }
     AgentSendError::from_app_error(AppError::Internal(error_msg))
@@ -367,6 +375,18 @@ fn aionrs_engine_error_to_send_error(error_msg: String) -> AgentSendError {
 mod tests {
     use super::*;
     use crate::agent_task::IAgentTask;
+
+    async fn assert_no_stop_signal(agent: &AionrsAgentManager) {
+        let notified = agent.cancel_notify.notified();
+        tokio::pin!(notified);
+
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(20), &mut notified)
+                .await
+                .is_err(),
+            "idle stop must not leave a stale cancellation signal for the next turn"
+        );
+    }
 
     fn make_test_config() -> AionrsResolvedConfig {
         AionrsResolvedConfig {
@@ -417,7 +437,7 @@ mod tests {
             .await
             .unwrap();
         assert!(agent.kill(None).is_ok());
-        // kill() is a no-op for aionrs (no subprocess); status remains Pending.
+        // Idle kill only clears transient state; task-manager removal owns lifecycle cleanup.
         assert_eq!(agent.status(), Some(ConversationStatus::Pending));
     }
 
@@ -427,6 +447,43 @@ mod tests {
             .await
             .unwrap();
         assert!(agent.kill(Some(AgentKillReason::IdleTimeout)).is_ok());
+    }
+
+    #[tokio::test]
+    async fn aionrs_agent_kill_running_turn_sends_stop_signal() {
+        let agent = AionrsAgentManager::new("conv-1".into(), "/project".into(), make_test_config(), None)
+            .await
+            .unwrap();
+        agent.runtime.reset_for_new_turn(ConversationStatus::Running);
+
+        let notified = agent.cancel_notify.notified();
+        tokio::pin!(notified);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(20), &mut notified)
+                .await
+                .is_err()
+        );
+
+        agent
+            .kill(Some(AgentKillReason::ConversationDeleted))
+            .expect("kill should request stop");
+
+        tokio::time::timeout(std::time::Duration::from_millis(50), &mut notified)
+            .await
+            .expect("running kill should wake in-flight turn");
+    }
+
+    #[tokio::test]
+    async fn aionrs_agent_kill_idle_turn_does_not_leave_stale_stop_signal() {
+        let agent = AionrsAgentManager::new("conv-1".into(), "/project".into(), make_test_config(), None)
+            .await
+            .unwrap();
+
+        agent
+            .kill(Some(AgentKillReason::ConversationDeleted))
+            .expect("idle kill should be harmless");
+
+        assert_no_stop_signal(&agent).await;
     }
 
     #[tokio::test]
@@ -471,6 +528,7 @@ mod tests {
 
         assert_eq!(agent.status(), Some(ConversationStatus::Pending));
         assert!(matches!(rx.try_recv(), Err(broadcast::error::TryRecvError::Empty)));
+        assert_no_stop_signal(&agent).await;
     }
 
     #[tokio::test]
@@ -515,5 +573,22 @@ mod tests {
             Some(aionui_api_types::AgentErrorOwnership::UserLlmProvider)
         );
         assert_eq!(send_error.stream_error().retryable, Some(false));
+    }
+
+    #[test]
+    fn aionrs_api_connection_error_is_user_llm_provider_network_error() {
+        let send_error = aionrs_engine_error_to_send_error(
+            "Aionrs agent error: API error: Connection error: error decoding response body".to_owned(),
+        );
+
+        assert_eq!(
+            send_error.code(),
+            Some(aionui_api_types::AgentErrorCode::UserLlmProviderNetworkError)
+        );
+        assert_eq!(
+            send_error.ownership(),
+            Some(aionui_api_types::AgentErrorOwnership::UserLlmProvider)
+        );
+        assert_eq!(send_error.stream_error().retryable, Some(true));
     }
 }

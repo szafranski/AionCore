@@ -103,6 +103,7 @@ pub enum ManagedAcpToolFailureKind {
     Timeout,
     DownloadFailed,
     HttpStatus,
+    ChecksumMismatch,
     ValidationFailed,
     UnsupportedPlatform,
     Unknown,

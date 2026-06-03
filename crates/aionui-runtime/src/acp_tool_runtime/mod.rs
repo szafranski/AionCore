@@ -558,7 +558,10 @@ fn classify_error(error: &ManagedAcpToolError) -> (ManagedAcpToolFailureKind, Op
     if message.contains("unsupported") {
         return (ManagedAcpToolFailureKind::UnsupportedPlatform, None);
     }
-    if message.contains("validate") || message.contains("entrypoint missing") || message.contains("checksum mismatch") {
+    if message.contains("checksum mismatch") {
+        return (ManagedAcpToolFailureKind::ChecksumMismatch, None);
+    }
+    if message.contains("validate") || message.contains("entrypoint missing") {
         return (ManagedAcpToolFailureKind::ValidationFailed, None);
     }
     if message.contains("download") || message.contains("extract") || message.contains("connect failed") {
@@ -640,6 +643,14 @@ mod tests {
         std::fs::write(&path, b"not-tool").unwrap();
         let error = verify_archive_checksum(&path, "deadbeef").unwrap_err();
         assert!(error.to_string().contains("checksum mismatch"));
+    }
+
+    #[test]
+    fn checksum_mismatch_classifies_separately() {
+        let error = ManagedAcpToolError::invalid("managed ACP archive checksum mismatch");
+        let (kind, status_code) = classify_error(&error);
+        assert_eq!(kind, ManagedAcpToolFailureKind::ChecksumMismatch);
+        assert_eq!(status_code, None);
     }
 
     #[test]

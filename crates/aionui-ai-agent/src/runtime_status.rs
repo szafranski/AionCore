@@ -128,6 +128,7 @@ fn map_acp_failure_kind(kind: ManagedAcpToolFailureKind) -> RuntimeFailureKind {
         ManagedAcpToolFailureKind::Timeout => RuntimeFailureKind::Timeout,
         ManagedAcpToolFailureKind::DownloadFailed => RuntimeFailureKind::DownloadFailed,
         ManagedAcpToolFailureKind::HttpStatus => RuntimeFailureKind::HttpStatus,
+        ManagedAcpToolFailureKind::ChecksumMismatch => RuntimeFailureKind::ChecksumMismatch,
         ManagedAcpToolFailureKind::ValidationFailed => RuntimeFailureKind::ValidationFailed,
         ManagedAcpToolFailureKind::UnsupportedPlatform => RuntimeFailureKind::UnsupportedPlatform,
         ManagedAcpToolFailureKind::Unknown => RuntimeFailureKind::Unknown,

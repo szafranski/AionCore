@@ -38,6 +38,7 @@ pub enum RuntimeFailureKind {
     Timeout,
     DownloadFailed,
     HttpStatus,
+    ChecksumMismatch,
     ValidationFailed,
     UnsupportedPlatform,
     Unknown,

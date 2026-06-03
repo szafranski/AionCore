@@ -9,8 +9,8 @@ use aionui_api_types::{
 use aionui_common::AppError;
 use aionui_db::IMcpServerRepository;
 use aionui_db::models::McpServerRow;
-use aionui_runtime::ensure_runtime_command_with_reporter;
 use aionui_realtime::EventBroadcaster;
+use aionui_runtime::ensure_runtime_command_with_reporter;
 use tracing::{debug, info, warn};
 
 use crate::agent_task::AgentInstance;
@@ -59,14 +59,13 @@ pub(super) async fn build(
 
     let mut extra_mcp_servers = resolve_mcp_servers(&overrides, &ctx.conversation_id);
     if let Some(repo) = deps.mcp_server_repo.as_ref() {
-        for (name, config) in
-            load_user_mcp_servers(
-                repo.as_ref(),
-                overrides.mcp_server_ids.as_deref(),
-                &ctx.conversation_id,
-                deps.broadcaster.clone(),
-            )
-            .await
+        for (name, config) in load_user_mcp_servers(
+            repo.as_ref(),
+            overrides.mcp_server_ids.as_deref(),
+            &ctx.conversation_id,
+            deps.broadcaster.clone(),
+        )
+        .await
         {
             extra_mcp_servers.entry(name).or_insert(config);
         }
@@ -443,7 +442,8 @@ async fn session_server_to_mcp_server_config(
                 return Err("stdio: missing command".to_owned());
             }
             let entries: Vec<(String, String)> = env.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-            let (command, args, env) = ensure_stdio_launch(command, args, &entries, conversation_id, broadcaster).await?;
+            let (command, args, env) =
+                ensure_stdio_launch(command, args, &entries, conversation_id, broadcaster).await?;
             Ok(McpServerConfig {
                 transport: TransportType::Stdio,
                 command: Some(command),
@@ -621,9 +621,9 @@ fn guide_mcp_to_config(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aionui_realtime::BroadcastEventBus;
     use std::ffi::OsString;
     use std::sync::{Mutex, OnceLock};
-    use aionui_realtime::BroadcastEventBus;
 
     fn path_test_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();

@@ -622,8 +622,8 @@ mod tests {
             "conv-acp",
             Arc::new(BroadcastEventBus::new(16)),
         )
-            .await
-            .expect("resolved command spec");
+        .await
+        .expect("resolved command spec");
 
         let expected = std::fs::canonicalize(runtime.path().join("bin").join("npx")).expect("canonical path");
         assert_eq!(spec.command, expected);

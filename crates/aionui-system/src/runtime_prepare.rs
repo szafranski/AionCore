@@ -21,10 +21,7 @@ impl RuntimePrepareService {
         Self { broadcaster }
     }
 
-    pub async fn ensure_node_runtime(
-        &self,
-        scope: RuntimeStatusScope,
-    ) -> Result<EnsureNodeRuntimeResponse, AppError> {
+    pub async fn ensure_node_runtime(&self, scope: RuntimeStatusScope) -> Result<EnsureNodeRuntimeResponse, AppError> {
         let reporter = self.runtime_reporter(scope);
         ensure_node_runtime_with_reporter(Some(reporter.as_ref()))
             .await

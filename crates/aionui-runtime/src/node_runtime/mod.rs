@@ -158,9 +158,7 @@ async fn cached_managed_runtime_unreported() -> Option<ResolvedNodeRuntime> {
     cached_managed_runtime(None).await
 }
 
-async fn cached_managed_runtime(
-    reporter: Option<&dyn NodeRuntimeProgressReporter>,
-) -> Option<ResolvedNodeRuntime> {
+async fn cached_managed_runtime(reporter: Option<&dyn NodeRuntimeProgressReporter>) -> Option<ResolvedNodeRuntime> {
     let cached = managed_runtime_cache().lock().await.clone()?;
 
     match managed::validate_managed_runtime(&cached.root, reporter).await {

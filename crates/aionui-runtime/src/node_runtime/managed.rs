@@ -66,10 +66,7 @@ pub async fn install_and_validate_with_reporter(
     let spec = platform_spec().inspect_err(|error| {
         emit_progress(
             reporter,
-            NodeRuntimeProgress::failed(
-                NodeRuntimeFailureKind::UnsupportedPlatform,
-                error.to_string(),
-            ),
+            NodeRuntimeProgress::failed(NodeRuntimeFailureKind::UnsupportedPlatform, error.to_string()),
         );
     })?;
     let runtime_root = cache::node_runtime_root()
@@ -322,7 +319,10 @@ async fn install_archive(
 
     emit_progress(
         reporter,
-        NodeRuntimeProgress::extracting(format!("extracting managed Node runtime into {}", runtime_root.display())),
+        NodeRuntimeProgress::extracting(format!(
+            "extracting managed Node runtime into {}",
+            runtime_root.display()
+        )),
     );
     match spec.archive_ext {
         "tar.gz" => extract_tar_gz(&archive_path, runtime_root)?,
@@ -551,10 +551,7 @@ fn reqwest_error(stage: &str, url: &str, error: &reqwest::Error) -> NodeRuntimeE
 }
 
 fn timeout_error(stage: &str, url: &str, timeout: Duration) -> NodeRuntimeError {
-    NodeRuntimeError::managed_invalid(format!(
-        "{stage} timed out after {}s for {url}",
-        timeout.as_secs()
-    ))
+    NodeRuntimeError::managed_invalid(format!("{stage} timed out after {}s for {url}", timeout.as_secs()))
 }
 
 fn download_progress_message(url: &str, downloaded_bytes: u64, total_bytes: Option<u64>) -> String {
@@ -583,7 +580,8 @@ fn classify_error(error: &NodeRuntimeError) -> (NodeRuntimeFailureKind, Option<u
     if message.contains("unsupported") {
         return (NodeRuntimeFailureKind::UnsupportedPlatform, None);
     }
-    if message.contains("validate") || message.contains("executable missing") || message.contains("entrypoint missing") {
+    if message.contains("validate") || message.contains("executable missing") || message.contains("entrypoint missing")
+    {
         return (NodeRuntimeFailureKind::ValidationFailed, None);
     }
     if message.contains("download") || message.contains("extract") || message.contains("connect failed") {
@@ -595,17 +593,11 @@ fn classify_error(error: &NodeRuntimeError) -> (NodeRuntimeFailureKind, Option<u
 fn parse_http_status(message: &str) -> Option<u16> {
     let marker = "http ";
     let start = message.find(marker)? + marker.len();
-    let digits: String = message[start..]
-        .chars()
-        .take_while(|ch| ch.is_ascii_digit())
-        .collect();
+    let digits: String = message[start..].chars().take_while(|ch| ch.is_ascii_digit()).collect();
     digits.parse::<u16>().ok()
 }
 
-fn install_error(
-    error: NodeRuntimeError,
-    reporter: Option<&dyn NodeRuntimeProgressReporter>,
-) -> NodeRuntimeError {
+fn install_error(error: NodeRuntimeError, reporter: Option<&dyn NodeRuntimeProgressReporter>) -> NodeRuntimeError {
     let (kind, status_code) = classify_error(&error);
     emit_progress(
         reporter,
@@ -617,10 +609,7 @@ fn install_error(
     error
 }
 
-fn validation_error(
-    error: NodeRuntimeError,
-    reporter: Option<&dyn NodeRuntimeProgressReporter>,
-) -> NodeRuntimeError {
+fn validation_error(error: NodeRuntimeError, reporter: Option<&dyn NodeRuntimeProgressReporter>) -> NodeRuntimeError {
     emit_progress(
         reporter,
         NodeRuntimeProgress::failed(NodeRuntimeFailureKind::ValidationFailed, error.to_string()),

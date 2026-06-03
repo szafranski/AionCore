@@ -20,8 +20,8 @@ use aionui_db::{
 };
 use aionui_realtime::BroadcastEventBus;
 use aionui_system::{
-    ClientPrefService, ModelFetchService, ProtocolDetectionService, ProviderService, SettingsService,
-    RuntimePrepareService, SystemRouterState, VersionCheckService, system_routes,
+    ClientPrefService, ModelFetchService, ProtocolDetectionService, ProviderService, RuntimePrepareService,
+    SettingsService, SystemRouterState, VersionCheckService, system_routes,
 };
 
 // ---------------------------------------------------------------------------

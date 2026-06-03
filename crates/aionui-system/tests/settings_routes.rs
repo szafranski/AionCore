@@ -16,8 +16,8 @@ use aionui_db::{
     SqliteClientPreferenceRepository, SqliteProviderRepository, SqliteSettingsRepository, init_database_memory,
 };
 use aionui_system::{
-    ClientPrefService, ModelFetchService, ProtocolDetectionService, ProviderService, SettingsService,
-    RuntimePrepareService, SystemRouterState, VersionCheckService, settings_routes,
+    ClientPrefService, ModelFetchService, ProtocolDetectionService, ProviderService, RuntimePrepareService,
+    SettingsService, SystemRouterState, VersionCheckService, settings_routes,
 };
 
 // ---------------------------------------------------------------------------

@@ -145,7 +145,11 @@ async fn test_connection(
     let transport = McpServerTransport::from(req.transport);
     let result = state
         .connection_test_service
-        .test_connection_with_runtime_scope(&req.name, &transport, req.runtime_scope_id.as_deref().or(req.id.as_deref()))
+        .test_connection_with_runtime_scope(
+            &req.name,
+            &transport,
+            req.runtime_scope_id.as_deref().or(req.id.as_deref()),
+        )
         .await;
     if let Some(server_id) = req.id.as_deref() {
         state.config_service.persist_test_result(server_id, &result).await?;

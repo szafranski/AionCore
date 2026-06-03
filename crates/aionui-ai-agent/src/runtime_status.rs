@@ -5,9 +5,7 @@ use aionui_api_types::{
     RuntimeStatusScopeKind, WebSocketMessage,
 };
 use aionui_realtime::EventBroadcaster;
-use aionui_runtime::{
-    NodeRuntimeFailureKind, NodeRuntimeProgress, SharedNodeRuntimeProgressReporter,
-};
+use aionui_runtime::{NodeRuntimeFailureKind, NodeRuntimeProgress, SharedNodeRuntimeProgressReporter};
 
 pub(crate) fn conversation_runtime_reporter(
     broadcaster: Arc<dyn EventBroadcaster>,

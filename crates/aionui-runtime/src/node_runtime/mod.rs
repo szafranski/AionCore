@@ -13,7 +13,7 @@ pub use types::{
     ResolvedNodeSource, RuntimeCommandProbe,
 };
 
-static MANAGED_RUNTIME_CACHE: OnceLock<ResolvedNodeRuntime> = OnceLock::new();
+static MANAGED_RUNTIME_CACHE: OnceLock<tokio::sync::Mutex<Option<ResolvedNodeRuntime>>> = OnceLock::new();
 static MANAGED_RUNTIME_INSTALL_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 
 pub fn probe_runtime_command(command: &str) -> RuntimeCommandProbe {
@@ -57,21 +57,21 @@ pub async fn ensure_node_runtime() -> Result<ResolvedNodeRuntime, NodeRuntimeErr
         Err(error) => {
             log_system_runtime_rejected(&error);
 
-            if let Some(runtime) = MANAGED_RUNTIME_CACHE.get() {
-                log_runtime_selected(runtime);
-                return Ok(runtime.clone());
+            if let Some(runtime) = cached_managed_runtime().await {
+                log_runtime_selected(&runtime);
+                return Ok(runtime);
             }
 
             let lock = MANAGED_RUNTIME_INSTALL_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
             let _guard = lock.lock().await;
 
-            if let Some(runtime) = MANAGED_RUNTIME_CACHE.get() {
-                log_runtime_selected(runtime);
-                return Ok(runtime.clone());
+            if let Some(runtime) = cached_managed_runtime().await {
+                log_runtime_selected(&runtime);
+                return Ok(runtime);
             }
 
             let runtime = install_managed_runtime().await?;
-            let _ = MANAGED_RUNTIME_CACHE.set(runtime.clone());
+            *managed_runtime_cache().lock().await = Some(runtime.clone());
             log_runtime_selected(&runtime);
             Ok(runtime)
         }
@@ -134,6 +134,30 @@ fn log_runtime_selected(runtime: &ResolvedNodeRuntime) {
 
 fn log_system_runtime_rejected(error: &NodeRuntimeError) {
     warn!(error = %error, "system node runtime rejected");
+}
+
+fn managed_runtime_cache() -> &'static tokio::sync::Mutex<Option<ResolvedNodeRuntime>> {
+    MANAGED_RUNTIME_CACHE.get_or_init(|| tokio::sync::Mutex::new(None))
+}
+
+async fn cached_managed_runtime() -> Option<ResolvedNodeRuntime> {
+    let cached = managed_runtime_cache().lock().await.clone()?;
+
+    match managed::validate_managed_runtime(&cached.root).await {
+        Ok(runtime) => {
+            *managed_runtime_cache().lock().await = Some(runtime.clone());
+            Some(runtime)
+        }
+        Err(error) => {
+            warn!(
+                error = %error,
+                root = %cached.root.display(),
+                "managed node runtime cache invalidated"
+            );
+            *managed_runtime_cache().lock().await = None;
+            None
+        }
+    }
 }
 
 pub fn doctor_snapshot() -> Vec<DoctorRow> {
@@ -239,6 +263,7 @@ pub fn doctor_snapshot_for_test(rows: Vec<(&str, &str, &str)>) -> Vec<DoctorRow>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
 
@@ -275,6 +300,37 @@ mod tests {
 
         tracing::subscriber::with_default(subscriber, f);
         String::from_utf8(buffer.lock().expect("lock").clone()).expect("utf8")
+    }
+
+    fn write_executable(path: &std::path::Path, body: &str) {
+        fs::write(path, body).expect("write executable");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(path).expect("metadata").permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(path, perms).expect("set permissions");
+        }
+    }
+
+    fn fake_managed_runtime(root: &std::path::Path) -> ResolvedNodeRuntime {
+        let bin = root.join("bin");
+        fs::create_dir_all(&bin).expect("create runtime bin");
+        write_executable(&bin.join("node"), "#!/bin/sh\necho v24.11.0\n");
+        write_executable(&bin.join("npm"), "#!/bin/sh\necho 24.11.0\n");
+        write_executable(&bin.join("npx"), "#!/bin/sh\necho 24.11.0\n");
+
+        ResolvedNodeRuntime {
+            source: ResolvedNodeSource::Managed,
+            root: root.to_path_buf(),
+            version: semver::Version::new(0, 0, 0),
+            node_path: bin.join("node"),
+            npm_path: bin.join("npm"),
+            npm_args_prefix: vec![],
+            npx_path: bin.join("npx"),
+            npx_args_prefix: vec![],
+            env: vec![],
+        }
     }
 
     #[test]
@@ -361,6 +417,28 @@ mod tests {
         assert!(
             error.to_string().contains("not found"),
             "expected not-found error, got: {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_managed_runtime_cache_is_evicted_when_root_is_deleted() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path().join("node-v24.11.0-test");
+        let runtime = fake_managed_runtime(&root);
+        *managed_runtime_cache().lock().await = Some(runtime.clone());
+
+        let cached = cached_managed_runtime().await.expect("cache should validate");
+        assert_eq!(cached.root, runtime.root);
+
+        fs::remove_dir_all(&root).expect("remove runtime root");
+
+        assert!(
+            cached_managed_runtime().await.is_none(),
+            "deleted managed runtime should invalidate cache"
+        );
+        assert!(
+            managed_runtime_cache().lock().await.is_none(),
+            "stale managed runtime cache should be cleared"
         );
     }
 }

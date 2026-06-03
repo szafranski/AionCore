@@ -297,29 +297,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn builtin_bridge_rows_use_npx_after_migrations() {
+    async fn builtin_managed_acp_rows_drop_runtime_bridge_command() {
         let (repo, _db) = setup().await;
 
         let claude = repo.get("2d23ff1c").await.unwrap().expect("seeded claude row");
-        assert_eq!(claude.command.as_deref(), Some("npx"));
-        assert_eq!(
-            claude.args.as_deref(),
-            Some(r#"["-y","@agentclientprotocol/claude-agent-acp@0.39.0"]"#)
-        );
+        assert!(claude.command.is_none());
+        assert_eq!(claude.args.as_deref(), Some(r#"[]"#));
         assert_eq!(
             claude.agent_source_info.as_deref(),
-            Some(r#"{"binary_name":"claude","bridge_binary":"npx"}"#)
+            Some(r#"{"binary_name":"claude"}"#)
         );
 
         let codex = repo.get("8e1acf31").await.unwrap().expect("seeded codex row");
-        assert_eq!(codex.command.as_deref(), Some("npx"));
-        assert_eq!(
-            codex.args.as_deref(),
-            Some(r#"["-y","@zed-industries/codex-acp@0.14.0"]"#)
-        );
+        assert!(codex.command.is_none());
+        assert_eq!(codex.args.as_deref(), Some(r#"[]"#));
         assert_eq!(
             codex.agent_source_info.as_deref(),
-            Some(r#"{"binary_name":"codex","bridge_binary":"npx"}"#)
+            Some(r#"{"binary_name":"codex"}"#)
         );
 
         let codebuddy = repo.get("8b20fd41").await.unwrap().expect("seeded codebuddy row");

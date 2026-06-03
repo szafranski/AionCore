@@ -686,11 +686,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn find_builtin_claude_has_npx_bridge_command() {
+    async fn find_builtin_claude_uses_managed_acp_runtime_metadata() {
         let reg = registry().await;
         let m = reg.find_builtin_by_backend("claude").await.unwrap();
-        assert_eq!(m.command.as_deref(), Some("npx"));
-        assert_eq!(m.agent_source_info.bridge_binary.as_deref(), Some("npx"));
+        assert!(m.command.is_none());
+        assert!(m.args.is_empty());
+        assert!(m.agent_source_info.bridge_binary.is_none());
         assert!(m.behavior_policy.supports_side_question);
         assert_eq!(
             m.native_skills_dirs.as_deref(),

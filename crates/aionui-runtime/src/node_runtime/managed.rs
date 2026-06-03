@@ -6,6 +6,8 @@ use std::time::Duration;
 
 use flate2::read::GzDecoder;
 use fs2::FileExt;
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use tracing::{info, warn};
 
 use crate::cache;
@@ -16,6 +18,7 @@ use super::types::{
 };
 
 const MANAGED_NODE_VERSION: &str = "24.11.0";
+const MANAGED_NODE_CDN_BASE: &str = "https://static.aionui.com/managed/node";
 const MANAGED_NODE_CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 const MANAGED_NODE_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(600);
 const MANAGED_NODE_DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -33,7 +36,7 @@ impl PlatformSpec {
         format!("node-v{MANAGED_NODE_VERSION}-{}", self.folder_suffix)
     }
 
-    fn download_url(self) -> String {
+    fn official_download_url(self) -> String {
         format!(
             "https://nodejs.org/dist/v{version}/{name}.{ext}",
             version = MANAGED_NODE_VERSION,
@@ -41,6 +44,25 @@ impl PlatformSpec {
             ext = self.archive_ext
         )
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct ManagedNodeManifest {
+    version: String,
+    artifacts: std::collections::BTreeMap<String, ManagedNodeArtifact>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ManagedNodeArtifact {
+    url: String,
+    sha256: String,
+}
+
+#[derive(Debug, Clone)]
+struct ManagedNodeDownloadSource {
+    url: String,
+    sha256: Option<String>,
+    source: &'static str,
 }
 
 pub fn probe_support() -> NodeRuntimeSupport {
@@ -90,7 +112,7 @@ pub async fn install_and_validate_with_reporter(
     info!(
         version = MANAGED_NODE_VERSION,
         root = %runtime_root.display(),
-        url = %spec.download_url(),
+        url = %spec.official_download_url(),
         "managed node runtime install started"
     );
     install_archive_with_retry(&runtime_root, spec, reporter).await?;
@@ -288,7 +310,9 @@ async fn install_archive(
     spec: PlatformSpec,
     reporter: Option<&dyn NodeRuntimeProgressReporter>,
 ) -> Result<(), NodeRuntimeError> {
-    let url = spec.download_url();
+    let client = build_http_client()?;
+    let download_source = resolve_download_source(&client, spec).await;
+    let url = download_source.url.clone();
     let version_dir = runtime_root.join(spec.directory_name());
     let archive_path = archive_download_path(runtime_root, spec);
     if version_dir.exists() {
@@ -303,11 +327,15 @@ async fn install_archive(
         NodeRuntimeProgress::downloading(format!("downloading managed Node runtime from {url}")),
     );
 
-    let response = reqwest::Client::builder()
-        .connect_timeout(MANAGED_NODE_CONNECT_TIMEOUT)
-        .timeout(MANAGED_NODE_DOWNLOAD_TIMEOUT)
-        .build()
-        .map_err(|error| NodeRuntimeError::managed_invalid(format!("build http client: {error}")))?
+    info!(
+        version = MANAGED_NODE_VERSION,
+        platform = spec.folder_suffix,
+        source = download_source.source,
+        url = %url,
+        "managed node runtime download source selected"
+    );
+
+    let response = client
         .get(url.clone())
         .send()
         .await
@@ -316,6 +344,13 @@ async fn install_archive(
         .error_for_status()
         .map_err(|error| reqwest_error("download archive", &url, &error))?;
     stream_archive_to_file(response, &archive_path, &url, reporter).await?;
+    if let Some(expected_sha256) = download_source.sha256.as_deref() {
+        emit_progress(
+            reporter,
+            NodeRuntimeProgress::validating("verifying managed Node artifact checksum".to_owned()),
+        );
+        verify_archive_checksum(&archive_path, expected_sha256)?;
+    }
 
     emit_progress(
         reporter,
@@ -336,6 +371,109 @@ async fn install_archive(
     let _ = fs::remove_file(&archive_path);
 
     Ok(())
+}
+
+fn build_http_client() -> Result<reqwest::Client, NodeRuntimeError> {
+    reqwest::Client::builder()
+        .connect_timeout(MANAGED_NODE_CONNECT_TIMEOUT)
+        .timeout(MANAGED_NODE_DOWNLOAD_TIMEOUT)
+        .build()
+        .map_err(|error| NodeRuntimeError::managed_invalid(format!("build http client: {error}")))
+}
+
+async fn resolve_download_source(client: &reqwest::Client, spec: PlatformSpec) -> ManagedNodeDownloadSource {
+    match fetch_managed_manifest(client).await {
+        Ok(manifest) => match download_source_from_manifest(spec, &manifest) {
+            Ok(source) => source,
+            Err(error) => {
+                warn!(
+                    version = MANAGED_NODE_VERSION,
+                    platform = spec.folder_suffix,
+                    error = %error,
+                    "managed node runtime manifest unavailable for platform; falling back to official source"
+                );
+                ManagedNodeDownloadSource::official(spec)
+            }
+        },
+        Err(error) => {
+            warn!(
+                version = MANAGED_NODE_VERSION,
+                platform = spec.folder_suffix,
+                error = %error,
+                "managed node runtime manifest fetch failed; falling back to official source"
+            );
+            ManagedNodeDownloadSource::official(spec)
+        }
+    }
+}
+
+async fn fetch_managed_manifest(client: &reqwest::Client) -> Result<ManagedNodeManifest, NodeRuntimeError> {
+    let url = versioned_manifest_url();
+    let manifest = client
+        .get(url.clone())
+        .send()
+        .await
+        .map_err(|error| reqwest_error("fetch managed node manifest", &url, &error))?
+        .error_for_status()
+        .map_err(|error| reqwest_error("fetch managed node manifest", &url, &error))?
+        .json::<ManagedNodeManifest>()
+        .await
+        .map_err(|error| {
+            NodeRuntimeError::managed_invalid(format!("parse managed node manifest failed for {url}: {error}"))
+        })?;
+    if manifest.version != MANAGED_NODE_VERSION {
+        return Err(NodeRuntimeError::managed_invalid(format!(
+            "managed node manifest version mismatch: expected {MANAGED_NODE_VERSION}, got {}",
+            manifest.version
+        )));
+    }
+    Ok(manifest)
+}
+
+fn versioned_manifest_url() -> String {
+    format!("{MANAGED_NODE_CDN_BASE}/v{MANAGED_NODE_VERSION}/manifest.json")
+}
+
+fn download_source_from_manifest(
+    spec: PlatformSpec,
+    manifest: &ManagedNodeManifest,
+) -> Result<ManagedNodeDownloadSource, NodeRuntimeError> {
+    let artifact = manifest.artifacts.get(spec.folder_suffix).ok_or_else(|| {
+        NodeRuntimeError::managed_invalid(format!("managed node manifest missing {}", spec.folder_suffix))
+    })?;
+    if artifact.sha256.trim().is_empty() {
+        return Err(NodeRuntimeError::managed_invalid(format!(
+            "managed node manifest missing sha256 for {}",
+            spec.folder_suffix
+        )));
+    }
+    Ok(ManagedNodeDownloadSource {
+        url: artifact.url.clone(),
+        sha256: Some(artifact.sha256.clone()),
+        source: "aionui-cdn",
+    })
+}
+
+fn verify_archive_checksum(path: &Path, expected_sha256: &str) -> Result<(), NodeRuntimeError> {
+    let bytes = fs::read(path).map_err(NodeRuntimeError::io_system)?;
+    let actual = hex::encode(Sha256::digest(bytes));
+    if !actual.eq_ignore_ascii_case(expected_sha256) {
+        return Err(NodeRuntimeError::managed_invalid(format!(
+            "managed node archive checksum mismatch for {}: expected {expected_sha256}, got {actual}",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+impl ManagedNodeDownloadSource {
+    fn official(spec: PlatformSpec) -> Self {
+        Self {
+            url: spec.official_download_url(),
+            sha256: None,
+            source: "nodejs.org",
+        }
+    }
 }
 
 async fn install_archive_with_retry(
@@ -694,6 +832,73 @@ mod tests {
         let message = error.to_string();
         assert!(message.contains("HTTP 502"));
         assert!(message.contains("download archive"));
+    }
+
+    #[test]
+    fn managed_runtime_manifest_url_uses_versioned_cdn_path() {
+        assert_eq!(
+            versioned_manifest_url(),
+            "https://static.aionui.com/managed/node/v24.11.0/manifest.json"
+        );
+    }
+
+    #[test]
+    fn managed_runtime_prefers_manifest_artifact_url_and_checksum() {
+        let manifest = ManagedNodeManifest {
+            version: MANAGED_NODE_VERSION.to_owned(),
+            artifacts: std::collections::BTreeMap::from([(
+                "darwin-arm64".to_owned(),
+                ManagedNodeArtifact {
+                    url: "https://static.aionui.com/managed/node/v24.11.0/node-v24.11.0-darwin-arm64.tar.gz".to_owned(),
+                    sha256: "abc123".to_owned(),
+                },
+            )]),
+        };
+
+        let source = download_source_from_manifest(
+            PlatformSpec {
+                folder_suffix: "darwin-arm64",
+                archive_ext: "tar.gz",
+            },
+            &manifest,
+        )
+        .expect("source");
+
+        assert_eq!(source.source, "aionui-cdn");
+        assert_eq!(
+            source.url,
+            "https://static.aionui.com/managed/node/v24.11.0/node-v24.11.0-darwin-arm64.tar.gz"
+        );
+        assert_eq!(source.sha256.as_deref(), Some("abc123"));
+    }
+
+    #[test]
+    fn managed_runtime_manifest_falls_back_to_official_when_platform_missing() {
+        let manifest = ManagedNodeManifest {
+            version: MANAGED_NODE_VERSION.to_owned(),
+            artifacts: std::collections::BTreeMap::new(),
+        };
+
+        let error = download_source_from_manifest(
+            PlatformSpec {
+                folder_suffix: "darwin-arm64",
+                archive_ext: "tar.gz",
+            },
+            &manifest,
+        )
+        .unwrap_err();
+
+        assert!(error.to_string().contains("darwin-arm64"));
+    }
+
+    #[test]
+    fn managed_runtime_checksum_verification_detects_mismatch() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("node.tar.gz");
+        std::fs::write(&path, b"not-node").unwrap();
+
+        let error = verify_archive_checksum(&path, "deadbeef").unwrap_err();
+        assert!(error.to_string().contains("checksum mismatch"));
     }
 
     #[test]

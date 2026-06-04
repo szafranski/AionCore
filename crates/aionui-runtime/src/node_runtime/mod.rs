@@ -7,7 +7,7 @@ use std::sync::OnceLock;
 use tracing::{debug, info, warn};
 
 pub use managed::{install_and_validate as install_managed_runtime, probe_support as probe_node_runtime_supported};
-pub use system::{derive_runtime_root, detect_system_runtime, probe_system_runtime, tool_command, validate_same_root};
+pub use system::{derive_runtime_root, tool_command, validate_same_root};
 pub use types::{
     DoctorRow, NodeRuntimeError, NodeRuntimeFailureKind, NodeRuntimeProgress, NodeRuntimeProgressPhase,
     NodeRuntimeProgressReporter, NodeRuntimeSupport, NodeTool, ResolvedCommand, ResolvedNodeRuntime,
@@ -56,34 +56,23 @@ pub async fn ensure_node_runtime() -> Result<ResolvedNodeRuntime, NodeRuntimeErr
 pub async fn ensure_node_runtime_with_reporter(
     reporter: Option<&dyn NodeRuntimeProgressReporter>,
 ) -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
-    match detect_system_runtime().await {
-        Ok(runtime) => {
-            emit_runtime_ready(reporter, &runtime);
-            log_runtime_selected(&runtime);
-            Ok(runtime)
-        }
-        Err(error) => {
-            log_system_runtime_rejected(&error);
-
-            if let Some(runtime) = cached_managed_runtime_unreported().await {
-                log_runtime_selected(&runtime);
-                return Ok(runtime);
-            }
-
-            let lock = MANAGED_RUNTIME_INSTALL_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
-            let _guard = lock.lock().await;
-
-            if let Some(runtime) = cached_managed_runtime(reporter).await {
-                log_runtime_selected(&runtime);
-                return Ok(runtime);
-            }
-
-            let runtime = install_managed_runtime_with_reporter(reporter).await?;
-            *managed_runtime_cache().lock().await = Some(runtime.clone());
-            log_runtime_selected(&runtime);
-            Ok(runtime)
-        }
+    if let Some(runtime) = cached_managed_runtime_unreported().await {
+        log_runtime_selected(&runtime);
+        return Ok(runtime);
     }
+
+    let lock = MANAGED_RUNTIME_INSTALL_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    let _guard = lock.lock().await;
+
+    if let Some(runtime) = cached_managed_runtime(reporter).await {
+        log_runtime_selected(&runtime);
+        return Ok(runtime);
+    }
+
+    let runtime = install_managed_runtime_with_reporter(reporter).await?;
+    *managed_runtime_cache().lock().await = Some(runtime.clone());
+    log_runtime_selected(&runtime);
+    Ok(runtime)
 }
 
 pub async fn ensure_runtime_command(command: &str) -> Result<ResolvedCommand, NodeRuntimeError> {
@@ -116,7 +105,8 @@ pub async fn ensure_runtime_command_with_reporter(
 
 fn runtime_source_label(source: ResolvedNodeSource) -> &'static str {
     match source {
-        ResolvedNodeSource::System => "system",
+        ResolvedNodeSource::Bundled => "bundled",
+        ResolvedNodeSource::DevLocal => "dev-local",
         ResolvedNodeSource::Managed => "managed",
     }
 }
@@ -145,10 +135,6 @@ fn log_runtime_selected(runtime: &ResolvedNodeRuntime) {
         npx = %runtime.npx_path.display(),
         "node runtime selected"
     );
-}
-
-fn log_system_runtime_rejected(error: &NodeRuntimeError) {
-    warn!(error = %error, "system node runtime rejected");
 }
 
 fn managed_runtime_cache() -> &'static tokio::sync::Mutex<Option<ResolvedNodeRuntime>> {
@@ -191,7 +177,7 @@ fn emit_runtime_ready(reporter: Option<&dyn NodeRuntimeProgressReporter>, runtim
 }
 
 pub fn doctor_snapshot() -> Vec<DoctorRow> {
-    if let Ok(runtime) = probe_system_runtime() {
+    if let Some(runtime) = managed::probe_preferred_local_runtime() {
         let source = runtime_source_label(runtime.source);
         return vec![
             DoctorRow {
@@ -404,7 +390,7 @@ mod tests {
     #[test]
     fn log_runtime_selected_emits_source_and_version() {
         let runtime = ResolvedNodeRuntime {
-            source: ResolvedNodeSource::System,
+            source: ResolvedNodeSource::Managed,
             root: PathBuf::from("/opt/node-v24"),
             version: semver::Version::new(24, 11, 0),
             node_path: PathBuf::from("/opt/node-v24/bin/node"),
@@ -421,26 +407,12 @@ mod tests {
             "missing selection log: {captured}"
         );
         assert!(
-            captured.contains("source=system") || captured.contains("source=\"system\""),
+            captured.contains("source=managed") || captured.contains("source=\"managed\""),
             "missing source field: {captured}"
         );
         assert!(
             captured.contains("version=24.11.0"),
             "missing version field: {captured}"
-        );
-    }
-
-    #[test]
-    fn log_system_runtime_rejected_emits_warning_with_error() {
-        let error = NodeRuntimeError::system_invalid("system node not found");
-        let captured = capture_logs(Level::WARN, || log_system_runtime_rejected(&error));
-        assert!(
-            captured.contains("system node runtime rejected"),
-            "missing warning: {captured}"
-        );
-        assert!(
-            captured.contains("system node not found"),
-            "missing rejection detail: {captured}"
         );
     }
 

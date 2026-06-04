@@ -6,12 +6,12 @@ use std::time::Duration;
 
 use flate2::read::GzDecoder;
 use fs2::FileExt;
-use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tracing::{info, warn};
 
 use crate::cache;
 use crate::http_client;
+use crate::managed_resources::{self, ManagedResourceSourceKind};
 
 use super::types::{
     NodeRuntimeError, NodeRuntimeFailureKind, NodeRuntimeProgress, NodeRuntimeProgressReporter, NodeRuntimeSupport,
@@ -19,7 +19,6 @@ use super::types::{
 };
 
 const MANAGED_NODE_VERSION: &str = "24.11.0";
-const MANAGED_NODE_CDN_BASE: &str = "https://static.aionui.com/managed/node";
 const MANAGED_NODE_CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 const MANAGED_NODE_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(600);
 const MANAGED_NODE_DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -47,18 +46,6 @@ impl PlatformSpec {
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct ManagedNodeManifest {
-    version: String,
-    artifacts: std::collections::BTreeMap<String, ManagedNodeArtifact>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ManagedNodeArtifact {
-    url: String,
-    sha256: String,
-}
-
 #[derive(Debug, Clone)]
 struct ManagedNodeDownloadSource {
     url: String,
@@ -77,6 +64,15 @@ pub fn probe_support() -> NodeRuntimeSupport {
             detail: error.to_string(),
         },
     }
+}
+
+pub(crate) fn probe_preferred_local_runtime() -> Option<ResolvedNodeRuntime> {
+    let spec = platform_spec().ok()?;
+    let source = managed_resources::node_sources(&spec.directory_name())
+        .into_iter()
+        .next()?;
+    let runtime = probe_runtime_root(&source.root, map_source_kind(source.kind)).ok()?;
+    Some(runtime)
 }
 
 pub async fn install_and_validate() -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
@@ -108,6 +104,24 @@ pub async fn install_and_validate_with_reporter(
                 "managed node runtime validation failed before install"
             );
         }
+    }
+
+    if let Some(runtime) = activate_local_runtime_source(&runtime_root, spec, reporter).await? {
+        emit_progress(
+            reporter,
+            NodeRuntimeProgress::ready(format!(
+                "{} Node runtime {} is ready",
+                source_label(runtime.source),
+                runtime.version
+            )),
+        );
+        info!(
+            version = %runtime.version,
+            root = %runtime.root.display(),
+            source = source_label(runtime.source),
+            "managed node runtime activated from local resources"
+        );
+        return Ok(runtime);
     }
 
     info!(
@@ -164,7 +178,7 @@ pub(crate) async fn validate_managed_runtime(
         reporter,
         NodeRuntimeProgress::validating(format!("validating managed Node runtime under {}", root.display())),
     );
-    let runtime = runtime_from_managed_root(root)?;
+    let runtime = runtime_from_root(root, ResolvedNodeSource::Managed)?;
     super::validate_runtime(runtime, None)
         .await
         .map_err(|error| validation_error(error, reporter))
@@ -202,7 +216,7 @@ fn platform_spec() -> Result<PlatformSpec, NodeRuntimeError> {
     }
 }
 
-fn runtime_from_managed_root(root: &Path) -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
+fn runtime_from_root(root: &Path, source: ResolvedNodeSource) -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
     if !root.is_dir() {
         return Err(NodeRuntimeError::managed_invalid(format!(
             "managed node runtime directory missing: {}",
@@ -260,7 +274,7 @@ fn runtime_from_managed_root(root: &Path) -> Result<ResolvedNodeRuntime, NodeRun
     };
 
     Ok(ResolvedNodeRuntime {
-        source: ResolvedNodeSource::Managed,
+        source,
         root: root.to_path_buf(),
         version: semver::Version::new(0, 0, 0),
         node_path,
@@ -270,6 +284,121 @@ fn runtime_from_managed_root(root: &Path) -> Result<ResolvedNodeRuntime, NodeRun
         npx_args_prefix,
         env: managed_env(root)?,
     })
+}
+
+fn probe_runtime_root(root: &Path, source: ResolvedNodeSource) -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
+    if !root.is_dir() {
+        return Err(NodeRuntimeError::managed_invalid(format!(
+            "managed node runtime directory missing: {}",
+            root.display()
+        )));
+    }
+
+    let node_path = if cfg!(windows) {
+        root.join("node.exe")
+    } else {
+        root.join("bin").join("node")
+    };
+    let npm_path = if cfg!(windows) {
+        root.join("npm.cmd")
+    } else {
+        root.join("bin").join("npm")
+    };
+    let npx_path = if cfg!(windows) {
+        root.join("npx.cmd")
+    } else {
+        root.join("bin").join("npx")
+    };
+
+    if !node_path.is_file() || !npm_path.exists() || !npx_path.exists() {
+        return Err(NodeRuntimeError::managed_invalid(format!(
+            "managed node runtime is incomplete under {}",
+            root.display()
+        )));
+    }
+
+    Ok(ResolvedNodeRuntime {
+        source,
+        root: root.to_path_buf(),
+        version: semver::Version::new(0, 0, 0),
+        node_path,
+        npm_path,
+        npm_args_prefix: vec![],
+        npx_path,
+        npx_args_prefix: vec![],
+        env: vec![],
+    })
+}
+
+async fn activate_local_runtime_source(
+    runtime_root: &Path,
+    spec: PlatformSpec,
+    reporter: Option<&dyn NodeRuntimeProgressReporter>,
+) -> Result<Option<ResolvedNodeRuntime>, NodeRuntimeError> {
+    let version_dir = runtime_root.join(spec.directory_name());
+
+    for source in managed_resources::node_sources(&spec.directory_name()) {
+        emit_progress(
+            reporter,
+            NodeRuntimeProgress::extracting(format!(
+                "activating {} Node runtime from {}",
+                source_kind_label(source.kind),
+                source.root.display()
+            )),
+        );
+
+        if let Err(error) = managed_resources::materialize_directory(&source.root, &version_dir) {
+            warn!(
+                source = source_kind_label(source.kind),
+                source_root = %source.root.display(),
+                target_root = %version_dir.display(),
+                error = %error,
+                "failed to activate local node runtime source"
+            );
+            continue;
+        }
+
+        match validate_managed_runtime(&version_dir, reporter).await {
+            Ok(mut runtime) => {
+                runtime.source = map_source_kind(source.kind);
+                return Ok(Some(runtime));
+            }
+            Err(error) => {
+                warn!(
+                    source = source_kind_label(source.kind),
+                    source_root = %source.root.display(),
+                    target_root = %version_dir.display(),
+                    error = %error,
+                    "local node runtime source failed validation"
+                );
+                let _ = fs::remove_dir_all(&version_dir);
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+fn source_label(source: ResolvedNodeSource) -> &'static str {
+    match source {
+        ResolvedNodeSource::Bundled => "bundled",
+        ResolvedNodeSource::DevLocal => "dev-local",
+        ResolvedNodeSource::Managed => "managed",
+    }
+}
+
+fn source_kind_label(kind: ManagedResourceSourceKind) -> &'static str {
+    match kind {
+        ManagedResourceSourceKind::Bundled => "bundled",
+        ManagedResourceSourceKind::DevLocal => "dev-local",
+    }
+}
+
+fn map_source_kind(kind: ManagedResourceSourceKind) -> ResolvedNodeSource {
+    match kind {
+        ManagedResourceSourceKind::Bundled => ResolvedNodeSource::Bundled,
+        ManagedResourceSourceKind::DevLocal => ResolvedNodeSource::DevLocal,
+    }
 }
 
 struct InstallLockGuard {
@@ -312,7 +441,7 @@ async fn install_archive(
     reporter: Option<&dyn NodeRuntimeProgressReporter>,
 ) -> Result<(), NodeRuntimeError> {
     let client = build_http_client()?;
-    let download_source = resolve_download_source(&client, spec).await;
+    let download_source = ManagedNodeDownloadSource::official(spec);
     let url = download_source.url.clone();
     let version_dir = runtime_root.join(spec.directory_name());
     let archive_path = archive_download_path(runtime_root, spec);
@@ -377,79 +506,6 @@ async fn install_archive(
 fn build_http_client() -> Result<reqwest::Client, NodeRuntimeError> {
     http_client::build_http_client(MANAGED_NODE_CONNECT_TIMEOUT, MANAGED_NODE_DOWNLOAD_TIMEOUT)
         .map_err(NodeRuntimeError::managed_invalid)
-}
-
-async fn resolve_download_source(client: &reqwest::Client, spec: PlatformSpec) -> ManagedNodeDownloadSource {
-    match fetch_managed_manifest(client).await {
-        Ok(manifest) => match download_source_from_manifest(spec, &manifest) {
-            Ok(source) => source,
-            Err(error) => {
-                warn!(
-                    version = MANAGED_NODE_VERSION,
-                    platform = spec.folder_suffix,
-                    error = %error,
-                    "managed node runtime manifest unavailable for platform; falling back to official source"
-                );
-                ManagedNodeDownloadSource::official(spec)
-            }
-        },
-        Err(error) => {
-            warn!(
-                version = MANAGED_NODE_VERSION,
-                platform = spec.folder_suffix,
-                error = %error,
-                "managed node runtime manifest fetch failed; falling back to official source"
-            );
-            ManagedNodeDownloadSource::official(spec)
-        }
-    }
-}
-
-async fn fetch_managed_manifest(client: &reqwest::Client) -> Result<ManagedNodeManifest, NodeRuntimeError> {
-    let url = versioned_manifest_url();
-    let manifest = client
-        .get(url.clone())
-        .send()
-        .await
-        .map_err(|error| reqwest_error("fetch managed node manifest", &url, &error))?
-        .error_for_status()
-        .map_err(|error| reqwest_error("fetch managed node manifest", &url, &error))?
-        .json::<ManagedNodeManifest>()
-        .await
-        .map_err(|error| {
-            NodeRuntimeError::managed_invalid(format!("parse managed node manifest failed for {url}: {error}"))
-        })?;
-    if manifest.version != MANAGED_NODE_VERSION {
-        return Err(NodeRuntimeError::managed_invalid(format!(
-            "managed node manifest version mismatch: expected {MANAGED_NODE_VERSION}, got {}",
-            manifest.version
-        )));
-    }
-    Ok(manifest)
-}
-
-fn versioned_manifest_url() -> String {
-    format!("{MANAGED_NODE_CDN_BASE}/v{MANAGED_NODE_VERSION}/manifest.json")
-}
-
-fn download_source_from_manifest(
-    spec: PlatformSpec,
-    manifest: &ManagedNodeManifest,
-) -> Result<ManagedNodeDownloadSource, NodeRuntimeError> {
-    let artifact = manifest.artifacts.get(spec.folder_suffix).ok_or_else(|| {
-        NodeRuntimeError::managed_invalid(format!("managed node manifest missing {}", spec.folder_suffix))
-    })?;
-    if artifact.sha256.trim().is_empty() {
-        return Err(NodeRuntimeError::managed_invalid(format!(
-            "managed node manifest missing sha256 for {}",
-            spec.folder_suffix
-        )));
-    }
-    Ok(ManagedNodeDownloadSource {
-        url: artifact.url.clone(),
-        sha256: Some(artifact.sha256.clone()),
-        source: "aionui-cdn",
-    })
 }
 
 fn verify_archive_checksum(path: &Path, expected_sha256: &str) -> Result<(), NodeRuntimeError> {
@@ -833,60 +889,18 @@ mod tests {
     }
 
     #[test]
-    fn managed_runtime_manifest_url_uses_versioned_cdn_path() {
-        assert_eq!(
-            versioned_manifest_url(),
-            "https://static.aionui.com/managed/node/v24.11.0/manifest.json"
-        );
-    }
+    fn managed_runtime_official_source_uses_nodejs_org() {
+        let source = ManagedNodeDownloadSource::official(PlatformSpec {
+            folder_suffix: "darwin-arm64",
+            archive_ext: "tar.gz",
+        });
 
-    #[test]
-    fn managed_runtime_prefers_manifest_artifact_url_and_checksum() {
-        let manifest = ManagedNodeManifest {
-            version: MANAGED_NODE_VERSION.to_owned(),
-            artifacts: std::collections::BTreeMap::from([(
-                "darwin-arm64".to_owned(),
-                ManagedNodeArtifact {
-                    url: "https://static.aionui.com/managed/node/v24.11.0/node-v24.11.0-darwin-arm64.tar.gz".to_owned(),
-                    sha256: "abc123".to_owned(),
-                },
-            )]),
-        };
-
-        let source = download_source_from_manifest(
-            PlatformSpec {
-                folder_suffix: "darwin-arm64",
-                archive_ext: "tar.gz",
-            },
-            &manifest,
-        )
-        .expect("source");
-
-        assert_eq!(source.source, "aionui-cdn");
+        assert_eq!(source.source, "nodejs.org");
         assert_eq!(
             source.url,
-            "https://static.aionui.com/managed/node/v24.11.0/node-v24.11.0-darwin-arm64.tar.gz"
+            "https://nodejs.org/dist/v24.11.0/node-v24.11.0-darwin-arm64.tar.gz"
         );
-        assert_eq!(source.sha256.as_deref(), Some("abc123"));
-    }
-
-    #[test]
-    fn managed_runtime_manifest_falls_back_to_official_when_platform_missing() {
-        let manifest = ManagedNodeManifest {
-            version: MANAGED_NODE_VERSION.to_owned(),
-            artifacts: std::collections::BTreeMap::new(),
-        };
-
-        let error = download_source_from_manifest(
-            PlatformSpec {
-                folder_suffix: "darwin-arm64",
-                archive_ext: "tar.gz",
-            },
-            &manifest,
-        )
-        .unwrap_err();
-
-        assert!(error.to_string().contains("darwin-arm64"));
+        assert_eq!(source.sha256, None);
     }
 
     #[test]
@@ -909,7 +923,7 @@ mod tests {
         std::fs::write(bin.join("npm"), b"").unwrap();
         std::fs::write(bin.join("npx"), b"").unwrap();
 
-        let runtime = runtime_from_managed_root(&root).expect("runtime");
+        let runtime = runtime_from_root(&root, ResolvedNodeSource::Managed).expect("runtime");
         let env: std::collections::HashMap<_, _> = runtime
             .npm_command()
             .env

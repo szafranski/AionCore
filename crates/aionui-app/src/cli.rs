@@ -52,7 +52,7 @@ pub(crate) struct Cli {
 // subcommand names (`mcp-bridge`, `mcp-guide-stdio`, `mcp-team-stdio`)
 // that external callers (ACP agent CLI, team MCP bridge spec) depend on
 // verbatim.
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub(crate) enum Command {
     /// Stdio ↔ TCP bridge for the team MCP server (spawned by the ACP agent CLI).
     McpBridge,
@@ -66,6 +66,17 @@ pub(crate) enum Command {
     /// app launched from confirms whether each backend is detectable
     /// before involving server logs.
     Doctor,
+    /// Prepare current-platform managed runtime resources under the dev-local
+    /// resource root so local development can run without network fetches.
+    PrepareManagedResources(PrepareManagedResourcesArgs),
+}
+
+#[derive(clap::Args, Debug, Clone)]
+pub(crate) struct PrepareManagedResourcesArgs {
+    /// Optional bundle output root. When set, aioncore writes the managed
+    /// resources under `<bundle-out>/{node,acp}/...` for packaging.
+    #[arg(long)]
+    pub bundle_out: Option<PathBuf>,
 }
 
 #[cfg(test)]
@@ -73,7 +84,7 @@ mod tests {
     use clap::Parser;
     use clap::error::ErrorKind;
 
-    use super::Cli;
+    use super::{Cli, Command};
 
     #[test]
     fn long_version_flag_uses_workspace_package_version() {
@@ -115,5 +126,25 @@ mod tests {
             "version output should contain package version {}, got: {rendered:?}",
             env!("CARGO_PKG_VERSION")
         );
+    }
+
+    #[test]
+    fn prepare_managed_resources_accepts_bundle_out() {
+        let cli = Cli::parse_from([
+            "aioncore",
+            "prepare-managed-resources",
+            "--bundle-out",
+            "/tmp/aioncore-bundle",
+        ]);
+
+        match cli.command {
+            Some(Command::PrepareManagedResources(args)) => {
+                assert_eq!(
+                    args.bundle_out.as_deref(),
+                    Some(std::path::Path::new("/tmp/aioncore-bundle"))
+                );
+            }
+            other => panic!("unexpected command parsed: {other:?}"),
+        }
     }
 }

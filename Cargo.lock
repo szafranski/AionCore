@@ -737,6 +737,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wait-timeout",
+ "walkdir",
  "which",
  "zip",
  "zstd",

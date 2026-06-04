@@ -13,7 +13,8 @@ pub enum NodeTool {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResolvedNodeSource {
-    System,
+    Bundled,
+    DevLocal,
     Managed,
 }
 

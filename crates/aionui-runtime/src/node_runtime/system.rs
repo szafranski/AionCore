@@ -1,8 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use semver::Version;
-
-use super::types::{NodeRuntimeError, NodeTool, ResolvedCommand, ResolvedNodeRuntime, ResolvedNodeSource};
+use super::types::{NodeRuntimeError, NodeTool, ResolvedCommand, ResolvedNodeRuntime};
 
 pub fn derive_runtime_root(node: &Path, windows: bool) -> Option<PathBuf> {
     if windows {
@@ -40,43 +38,6 @@ pub fn tool_command(tool: NodeTool, runtime: &ResolvedNodeRuntime) -> ResolvedCo
         NodeTool::Npm => runtime.npm_command(),
         NodeTool::Npx => runtime.npx_command(),
     }
-}
-
-pub fn probe_system_runtime() -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
-    let node =
-        crate::resolve_command_path("node").ok_or_else(|| NodeRuntimeError::system_invalid("system node not found"))?;
-    let node = std::fs::canonicalize(node).map_err(NodeRuntimeError::io_system)?;
-    let root = derive_runtime_root(&node, cfg!(windows))
-        .ok_or_else(|| NodeRuntimeError::system_invalid("cannot derive runtime root from node path"))?;
-
-    let npm = if cfg!(windows) {
-        root.join("npm.cmd")
-    } else {
-        root.join("bin").join("npm")
-    };
-    let npx = if cfg!(windows) {
-        root.join("npx.cmd")
-    } else {
-        root.join("bin").join("npx")
-    };
-
-    validate_same_root(&node, &npm, &npx)?;
-
-    Ok(ResolvedNodeRuntime {
-        source: ResolvedNodeSource::System,
-        root,
-        version: Version::new(0, 0, 0),
-        node_path: node,
-        npm_path: npm,
-        npm_args_prefix: vec![],
-        npx_path: npx,
-        npx_args_prefix: vec![],
-        env: vec![],
-    })
-}
-
-pub async fn detect_system_runtime() -> Result<ResolvedNodeRuntime, NodeRuntimeError> {
-    super::validate_runtime(probe_system_runtime()?, Some(22)).await
 }
 
 #[cfg(test)]

@@ -32,6 +32,13 @@ impl ManagedAcpToolId {
         }
     }
 
+    pub fn package_name(self) -> &'static str {
+        match self {
+            Self::CodexAcp => "@zed-industries/codex-acp",
+            Self::ClaudeAgentAcp => "@agentclientprotocol/claude-agent-acp",
+        }
+    }
+
     pub fn from_backend(backend: &str) -> Option<Self> {
         match backend {
             "codex" => Some(Self::CodexAcp),

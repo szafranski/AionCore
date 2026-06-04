@@ -317,7 +317,12 @@ mod tests {
         fs::create_dir_all(source.join("bin")).expect("create source");
         fs::create_dir_all(source.join("lib").join("node_modules").join("npm").join("bin")).expect("create npm bin");
         fs::write(
-            source.join("lib").join("node_modules").join("npm").join("bin").join("npm-cli.js"),
+            source
+                .join("lib")
+                .join("node_modules")
+                .join("npm")
+                .join("bin")
+                .join("npm-cli.js"),
             b"#!/usr/bin/env node\n",
         )
         .expect("write npm cli");

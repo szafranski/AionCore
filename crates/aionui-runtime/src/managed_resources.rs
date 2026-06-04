@@ -111,6 +111,14 @@ pub fn materialize_directory(source_root: &Path, target_root: &Path) -> std::io:
             continue;
         }
 
+        if entry.file_type().is_symlink() {
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            copy_symlink(entry.path(), &target_path)?;
+            continue;
+        }
+
         if let Some(parent) = target_path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -211,6 +219,29 @@ fn copy_permissions(source: &Path, target: &Path) -> std::io::Result<()> {
     fs::set_permissions(target, metadata.permissions())
 }
 
+fn copy_symlink(source: &Path, target: &Path) -> std::io::Result<()> {
+    let link_target = fs::read_link(source)?;
+    if target.exists() {
+        fs::remove_file(target)?;
+    }
+    create_symlink(&link_target, target, source)
+}
+
+#[cfg(unix)]
+fn create_symlink(link_target: &Path, target: &Path, _source: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(link_target, target)
+}
+
+#[cfg(windows)]
+fn create_symlink(link_target: &Path, target: &Path, source: &Path) -> std::io::Result<()> {
+    let file_type = fs::metadata(source)?;
+    if file_type.is_dir() {
+        std::os::windows::fs::symlink_dir(link_target, target)
+    } else {
+        std::os::windows::fs::symlink_file(link_target, target)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,5 +307,35 @@ mod tests {
         unsafe {
             std::env::remove_var(DEV_LOCAL_RESOURCES_ENV);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn materialize_directory_preserves_symlink_entries() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = temp.path().join("source-node");
+        fs::create_dir_all(source.join("bin")).expect("create source");
+        fs::create_dir_all(source.join("lib").join("node_modules").join("npm").join("bin")).expect("create npm bin");
+        fs::write(
+            source.join("lib").join("node_modules").join("npm").join("bin").join("npm-cli.js"),
+            b"#!/usr/bin/env node\n",
+        )
+        .expect("write npm cli");
+        std::os::unix::fs::symlink(
+            Path::new("../lib/node_modules/npm/bin/npm-cli.js"),
+            source.join("bin").join("npm"),
+        )
+        .expect("create symlink");
+
+        let target = temp.path().join("target-node");
+        materialize_directory(&source, &target).expect("materialize");
+
+        let copied_link = target.join("bin").join("npm");
+        let metadata = fs::symlink_metadata(&copied_link).expect("metadata");
+        assert!(metadata.file_type().is_symlink());
+        assert_eq!(
+            fs::read_link(&copied_link).expect("read link"),
+            PathBuf::from("../lib/node_modules/npm/bin/npm-cli.js")
+        );
     }
 }

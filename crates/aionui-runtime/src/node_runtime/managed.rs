@@ -355,6 +355,13 @@ async fn activate_local_runtime_source(
                 error = %error,
                 "failed to activate local node runtime source"
             );
+            if matches!(source.kind, ManagedResourceSourceKind::Bundled) {
+                return Err(NodeRuntimeError::managed_invalid(format!(
+                    "bundled Node runtime is invalid under {}: {}",
+                    source.root.display(),
+                    error
+                )));
+            }
             continue;
         }
 
@@ -372,6 +379,13 @@ async fn activate_local_runtime_source(
                     "local node runtime source failed validation"
                 );
                 let _ = fs::remove_dir_all(&version_dir);
+                if matches!(source.kind, ManagedResourceSourceKind::Bundled) {
+                    return Err(NodeRuntimeError::managed_invalid(format!(
+                        "bundled Node runtime failed validation under {}: {}",
+                        source.root.display(),
+                        error
+                    )));
+                }
             }
         }
     }
@@ -829,6 +843,12 @@ fn combined_retry_error(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[tokio::test]
     async fn managed_runtime_validation_uses_real_commands() {
@@ -947,5 +967,53 @@ mod tests {
             env.get("npm_config_prefix"),
             Some(&root.join("tools").join("global").display().to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn bundled_runtime_validation_failure_does_not_fallback_to_remote_download() {
+        let _guard = env_lock().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let bundled_root = tmp.path().join("bundled");
+        let runtime_root = bundled_root.join("node").join("node-v24.11.0-darwin-arm64");
+        let bin = runtime_root.join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+
+        let node = bin.join("node");
+        std::fs::write(&node, "#!/bin/sh\necho v24.11.0\n").unwrap();
+        let npm = bin.join("npm");
+        std::fs::write(&npm, "#!/bin/sh\nexit 1\n").unwrap();
+        let npx = bin.join("npx");
+        std::fs::write(&npx, "#!/bin/sh\nexit 1\n").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            for path in [&node, &npm, &npx] {
+                let mut perms = std::fs::metadata(path).unwrap().permissions();
+                perms.set_mode(0o755);
+                std::fs::set_permissions(path, perms).unwrap();
+            }
+        }
+
+        unsafe {
+            std::env::set_var("AIONUI_BUNDLED_MANAGED_RESOURCES", &bundled_root);
+        }
+        let runtime_root = tmp.path().join("runtime").join("node");
+        std::fs::create_dir_all(&runtime_root).unwrap();
+        let result = activate_local_runtime_source(
+            &runtime_root,
+            PlatformSpec {
+                folder_suffix: "darwin-arm64",
+                archive_ext: "tar.gz",
+            },
+            None,
+        )
+        .await;
+        unsafe {
+            std::env::remove_var("AIONUI_BUNDLED_MANAGED_RESOURCES");
+        }
+
+        let error = result.expect_err("bundled validation failure should abort");
+        assert!(error.to_string().contains("bundled Node runtime failed validation"));
     }
 }

@@ -20,7 +20,7 @@ impl ManagedAcpToolId {
 
     pub fn version(self) -> &'static str {
         match self {
-            Self::CodexAcp => "0.14.0",
+            Self::CodexAcp => "0.15.0",
             Self::ClaudeAgentAcp => "0.39.0",
         }
     }

@@ -994,7 +994,7 @@ mod tests {
         };
         let tool = ResolvedManagedAcpTool {
             id: ManagedAcpToolId::CodexAcp,
-            version: "0.14.0".into(),
+            version: "0.15.0".into(),
             root: PathBuf::from("/tmp/tool"),
             entrypoint: PathBuf::from("/tmp/tool/dist/index.js"),
             env_path_entries: vec![PathBuf::from("/tmp/tool/bin")],
@@ -1025,7 +1025,7 @@ mod tests {
     #[test]
     fn classify_error_detects_bundled_acp_validation_failure() {
         let error = ManagedAcpToolError::invalid(
-            "bundled managed Codex ACP artifact failed validation under /app/resources/managed-resources/acp/codex-acp/0.14.0/linux-x64: managed ACP entrypoint missing",
+            "bundled managed Codex ACP artifact failed validation under /app/resources/managed-resources/acp/codex-acp/0.15.0/linux-x64: managed ACP entrypoint missing",
         );
         let (kind, status_code) = classify_error(&error);
 
@@ -1208,7 +1208,7 @@ mod tests {
         let source_root = bundled_root
             .join("acp")
             .join("codex-acp")
-            .join("0.14.0")
+            .join("0.15.0")
             .join(spec.manifest_key);
         std::fs::create_dir_all(&source_root).unwrap();
         std::fs::write(
@@ -1218,7 +1218,7 @@ mod tests {
         .unwrap();
 
         let runtime_root = tmp.path().join("runtime");
-        let tool_root = runtime_root.join("codex-acp").join("0.14.0").join(spec.manifest_key);
+        let tool_root = runtime_root.join("codex-acp").join("0.15.0").join(spec.manifest_key);
 
         managed_resources::set_managed_resources_mode(managed_resources::ManagedResourcesMode::Bundled);
         let result = activate_local_tool_source(ManagedAcpToolId::CodexAcp, spec, &tool_root, None);
@@ -1248,7 +1248,7 @@ mod tests {
             bundle_root
                 .join("acp")
                 .join("codex-acp")
-                .join("0.14.0")
+                .join("0.15.0")
                 .join("win32-x64")
         );
     }

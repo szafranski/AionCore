@@ -456,8 +456,8 @@ impl CountingTaskManager {
         }
     }
 
-    fn reset(&self) {
-        self.inner.clear();
+    async fn reset(&self) {
+        self.inner.clear().await;
         *self.calls.lock().unwrap() = TaskManagerCalls::default();
     }
 
@@ -495,8 +495,8 @@ impl IWorkerTaskManager for CountingTaskManager {
         let _ = self.kill(conversation_id, reason);
         Box::pin(std::future::ready(()))
     }
-    fn clear(&self) {
-        self.inner.clear()
+    async fn clear(&self) {
+        self.inner.clear().await
     }
     fn active_count(&self) -> usize {
         self.inner.active_count()
@@ -822,9 +822,9 @@ fn two_agent_input() -> Vec<TeamAgentInput> {
     ]
 }
 
-fn reset_auto_started_session(svc: &Arc<TeamSessionService>, tm: &Arc<CountingTaskManager>, team_id: &str) {
+async fn reset_auto_started_session(svc: &Arc<TeamSessionService>, tm: &Arc<CountingTaskManager>, team_id: &str) {
     svc.stop_session(team_id);
-    tm.reset();
+    tm.reset().await;
 }
 
 // ===========================================================================
@@ -1676,7 +1676,7 @@ async fn d9_ensure_session_kills_and_rebuilds_every_agent() {
         .await
         .unwrap();
 
-    reset_auto_started_session(&svc, &tm, &created.id);
+    reset_auto_started_session(&svc, &tm, &created.id).await;
     svc.ensure_session(&created.id).await.unwrap();
 
     // Two agents → kill called 2x and get_or_build_task called 2x, each with
@@ -1750,7 +1750,7 @@ async fn d9_ensure_session_is_idempotent() {
         .await
         .unwrap();
 
-    reset_auto_started_session(&svc, &tm, &created.id);
+    reset_auto_started_session(&svc, &tm, &created.id).await;
     svc.ensure_session(&created.id).await.unwrap();
     svc.ensure_session(&created.id).await.unwrap();
 
@@ -1780,7 +1780,7 @@ async fn d9_ensure_session_rollbacks_when_build_fails() {
         .await
         .unwrap();
 
-    reset_auto_started_session(&svc, &tm, &created.id);
+    reset_auto_started_session(&svc, &tm, &created.id).await;
     let result = svc.ensure_session(&created.id).await;
     assert!(result.is_err(), "ensure_session should propagate build error");
 
@@ -1898,7 +1898,7 @@ async fn d115_remove_team_kills_every_agent_process() {
         .await
         .unwrap();
 
-    reset_auto_started_session(&svc, &tm, &created.id);
+    reset_auto_started_session(&svc, &tm, &created.id).await;
     // Bring two agents online — after ensure_session, active_count == 2.
     svc.ensure_session(&created.id).await.unwrap();
     assert_eq!(tm.active_count(), 2, "ensure_session must register 2 live agents");

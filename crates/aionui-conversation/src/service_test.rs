@@ -1633,7 +1633,7 @@ impl IWorkerTaskManager for DelayedFailingBuildTaskManager {
         Box::pin(std::future::ready(()))
     }
 
-    fn clear(&self) {}
+    async fn clear(&self) {}
 
     fn active_count(&self) -> usize {
         0
@@ -1670,7 +1670,7 @@ impl IWorkerTaskManager for FailingBuildTaskManager {
         Box::pin(std::future::ready(()))
     }
 
-    fn clear(&self) {}
+    async fn clear(&self) {}
 
     fn active_count(&self) -> usize {
         0
@@ -1720,7 +1720,7 @@ impl IWorkerTaskManager for MockTaskManager {
         Box::pin(std::future::ready(()))
     }
 
-    fn clear(&self) {
+    async fn clear(&self) {
         self.agents.lock().unwrap().clear();
     }
 
@@ -1779,7 +1779,7 @@ impl IWorkerTaskManager for SlowBuildTaskManager {
         Box::pin(std::future::ready(()))
     }
 
-    fn clear(&self) {}
+    async fn clear(&self) {}
 
     fn active_count(&self) -> usize {
         usize::from(self.was_built())
@@ -1842,7 +1842,7 @@ impl IWorkerTaskManager for MockTaskManagerWithWorkspace {
         Box::pin(std::future::ready(()))
     }
 
-    fn clear(&self) {
+    async fn clear(&self) {
         self.agents.lock().unwrap().clear();
     }
 

@@ -255,6 +255,29 @@ impl AgentRegistry {
         rows
     }
 
+    /// Like [`Self::list_all`] but, when `include_disabled` is set, also
+    /// re-surfaces rows hidden *solely* because the user disabled them
+    /// (`enabled = 0`) whose spawn command still resolves on `$PATH`.
+    ///
+    /// This is the "manage agents" settings view: a user-disabled custom
+    /// agent must stay listed (greyed, with a working re-enable toggle)
+    /// instead of vanishing from the only surface that can turn it back
+    /// on. Rows hidden because the binary is missing stay hidden in both
+    /// modes — we never advertise an unusable vendor. With
+    /// `include_disabled = false` this is identical to [`Self::list_all`].
+    pub async fn list_for_view(&self, include_disabled: bool) -> Vec<AgentMetadata> {
+        let mut rows: Vec<AgentMetadata> = self
+            .by_id
+            .read()
+            .await
+            .values()
+            .filter(|m| is_visible(m) || (include_disabled && is_disabled_but_installed(m)))
+            .cloned()
+            .collect();
+        rows.sort_by(|a, b| a.sort_order.cmp(&b.sort_order).then_with(|| a.name.cmp(&b.name)));
+        rows
+    }
+
     /// Unfiltered snapshot — used by internal paths that legitimately
     /// need to see user-disabled or missing rows (e.g. the UI's
     /// "manage agents" surface). Keep external API handlers on
@@ -310,6 +333,17 @@ impl AgentRegistry {
 /// only `claude` is on PATH) off the pill bar.
 fn is_visible(meta: &AgentMetadata) -> bool {
     meta.enabled && meta.available
+}
+
+/// A row that is hidden *only* because the user toggled it off, but is
+/// otherwise installed and spawnable. Note we cannot key off
+/// `meta.available`: [`probe_resolved_command`] short-circuits to
+/// `Disabled` for `!enabled` rows, so a disabled row always carries
+/// `available = false` regardless of whether its binary is present.
+/// We therefore re-probe the command via [`probe_command`], which
+/// skips the disabled guard and reports only the binary/runtime state.
+fn is_disabled_but_installed(meta: &AgentMetadata) -> bool {
+    !meta.enabled && probe_command(meta).is_ok()
 }
 
 /// Turn a DB row into the public `AgentMetadata`, probing the command
@@ -595,7 +629,18 @@ fn probe_resolved_command(meta: &AgentMetadata) -> Result<PathBuf, UnavailableRe
     if !meta.enabled {
         return Err(UnavailableReason::Disabled);
     }
+    probe_command(meta)
+}
 
+/// Resolve the spawn command exactly like [`probe_resolved_command`] but
+/// **without** the user-disabled guard. This isolates "is the binary
+/// installed?" from "did the user turn it off?", so the settings view can
+/// tell a disabled-but-installed row apart from a disabled-and-missing one
+/// (see [`is_disabled_but_installed`]). All binary/runtime probing logic
+/// lives here; [`probe_resolved_command`] is just this plus the disabled
+/// short-circuit, keeping existing callers (`available`, diagnostics)
+/// unchanged.
+fn probe_command(meta: &AgentMetadata) -> Result<PathBuf, UnavailableReason> {
     if meta.agent_source == AgentSource::Builtin
         && let Some(backend) = meta.backend.as_deref()
         && let Some(tool) = ManagedAcpToolId::from_backend(backend)
@@ -742,6 +787,120 @@ mod tests {
         assert!(
             visible.iter().any(|m| m.agent_type == AgentType::Aionrs),
             "internal aionrs row should survive the filter"
+        );
+    }
+
+    /// Insert a custom ACP agent row with the given spawn command and
+    /// enabled flag, then rehydrate so the registry recomputes
+    /// `available`. `command` is probed against the test host's `$PATH`.
+    async fn insert_custom_agent(reg: &Arc<AgentRegistry>, id: &str, command: &str, enabled: bool) {
+        let params = aionui_db::UpsertAgentMetadataParams {
+            id,
+            icon: None,
+            name: id,
+            name_i18n: None,
+            description: Some("custom test agent"),
+            description_i18n: None,
+            backend: Some("custom"),
+            agent_type: "acp",
+            agent_source: "custom",
+            agent_source_info: None,
+            enabled,
+            command: Some(command),
+            args: Some("[]"),
+            env: Some("[]"),
+            native_skills_dirs: None,
+            behavior_policy: None,
+            yolo_id: None,
+            agent_capabilities: None,
+            auth_methods: None,
+            config_options: None,
+            available_modes: None,
+            available_models: None,
+            available_commands: None,
+            sort_order: 100,
+        };
+        reg.repo_handle().upsert(&params).await.unwrap();
+        reg.invalidate_and_rehydrate().await.unwrap();
+    }
+
+    /// A user-disabled custom agent whose CLI is still installed must be
+    /// absent from the default (picker) view but present in the
+    /// `include_disabled` (settings) view. `sh` is guaranteed to be on
+    /// `$PATH` on every test host.
+    #[tokio::test]
+    async fn list_for_view_resurfaces_disabled_but_installed_rows() {
+        let reg = registry().await;
+        insert_custom_agent(&reg, "custom-disabled-installed", "sh", false).await;
+
+        let default_view = reg.list_for_view(false).await;
+        assert!(
+            !default_view.iter().any(|m| m.id == "custom-disabled-installed"),
+            "disabled agent must stay hidden from the default/picker view"
+        );
+
+        let managed_view = reg.list_for_view(true).await;
+        let row = managed_view
+            .iter()
+            .find(|m| m.id == "custom-disabled-installed")
+            .expect("disabled-but-installed agent must resurface with include_disabled=true");
+        // The row stays marked unavailable (probe short-circuits on the
+        // disabled guard); the renderer greys it off `enabled`, not
+        // `available`.
+        assert!(!row.enabled, "resurfaced row must report enabled = false");
+        assert!(!row.available, "resurfaced disabled row keeps available = false");
+    }
+
+    /// A custom agent whose binary is missing must stay hidden in *both*
+    /// views — `include_disabled` only re-surfaces user-disabled rows
+    /// that are otherwise installed, never uninstalled ones.
+    #[tokio::test]
+    async fn list_for_view_keeps_cli_missing_rows_hidden() {
+        let reg = registry().await;
+        insert_custom_agent(
+            &reg,
+            "custom-disabled-missing",
+            "definitely-not-a-real-binary-xyz",
+            false,
+        )
+        .await;
+
+        assert!(
+            !reg.list_for_view(false)
+                .await
+                .iter()
+                .any(|m| m.id == "custom-disabled-missing"),
+            "CLI-missing row must stay hidden in the default view"
+        );
+        assert!(
+            !reg.list_for_view(true)
+                .await
+                .iter()
+                .any(|m| m.id == "custom-disabled-missing"),
+            "CLI-missing row must stay hidden even with include_disabled=true"
+        );
+    }
+
+    /// An enabled + installed custom agent is present in both views and
+    /// re-enabling restores it everywhere — the picker contract.
+    #[tokio::test]
+    async fn list_for_view_includes_enabled_installed_rows_in_both_views() {
+        let reg = registry().await;
+        insert_custom_agent(&reg, "custom-enabled-installed", "sh", true).await;
+
+        assert!(
+            reg.list_for_view(false)
+                .await
+                .iter()
+                .any(|m| m.id == "custom-enabled-installed"),
+            "enabled + installed agent must appear in the default view"
+        );
+        assert!(
+            reg.list_for_view(true)
+                .await
+                .iter()
+                .any(|m| m.id == "custom-enabled-installed"),
+            "enabled + installed agent must appear in the management view"
         );
     }
 

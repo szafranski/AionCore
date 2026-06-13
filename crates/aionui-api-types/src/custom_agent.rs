@@ -51,6 +51,19 @@ pub struct SetEnabledRequest {
     pub enabled: bool,
 }
 
+/// Query parameters for `GET /api/agents`.
+///
+/// `include_disabled` is the opt-in management view used only by the
+/// Agent settings screen: when `true`, agents hidden solely because the
+/// user disabled them (but still installed) are re-surfaced so they stay
+/// listed with a working re-enable toggle. Defaults to `false`, which is
+/// the picker-safe filtered view.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ListAgentsQuery {
+    #[serde(default)]
+    pub include_disabled: bool,
+}
+
 /// Response body for `DELETE /api/agents/custom/{id}`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeleteCustomAgentResponse {

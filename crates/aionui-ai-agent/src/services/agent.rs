@@ -69,10 +69,17 @@ impl AgentService {
 
 // Agent operations
 impl AgentService {
-    pub async fn list_agents(&self) -> Result<Vec<AgentMetadata>, AgentError> {
+    /// List agents for `GET /api/agents`.
+    ///
+    /// `include_disabled` is the opt-in management view: when set, rows
+    /// hidden solely because the user disabled them (but still installed)
+    /// are re-surfaced so the Agent settings screen can show them greyed
+    /// with a working re-enable toggle. Pickers call this with `false`
+    /// and keep seeing only spawnable agents.
+    pub async fn list_agents(&self, include_disabled: bool) -> Result<Vec<AgentMetadata>, AgentError> {
         Ok(self
             .registry
-            .list_all()
+            .list_for_view(include_disabled)
             .await
             .into_iter()
             .filter(|agent| agent.agent_type.supports_new_conversation())

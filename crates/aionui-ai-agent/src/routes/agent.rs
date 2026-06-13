@@ -10,13 +10,13 @@
 
 use axum::Router;
 use axum::extract::rejection::JsonRejection;
-use axum::extract::{Extension, Json, Path, State};
+use axum::extract::{Extension, Json, Path, Query, State};
 use axum::routing::{get, patch, post, put};
 
 use aionui_api_types::{
     AcpHealthCheckRequest, AcpHealthCheckResponse, AgentMetadata, ApiResponse, CustomAgentUpsertRequest,
-    DeleteCustomAgentResponse, ProviderHealthCheckRequest, ProviderHealthCheckResponse, SetEnabledRequest,
-    TryConnectCustomAgentRequest, TryConnectCustomAgentResponse,
+    DeleteCustomAgentResponse, ListAgentsQuery, ProviderHealthCheckRequest, ProviderHealthCheckResponse,
+    SetEnabledRequest, TryConnectCustomAgentRequest, TryConnectCustomAgentResponse,
 };
 use aionui_auth::CurrentUser;
 use aionui_common::ApiError;
@@ -40,9 +40,14 @@ pub fn agent_routes(state: AgentRouterState) -> Router {
 async fn list_agents(
     State(state): State<AgentRouterState>,
     Extension(_user): Extension<CurrentUser>,
+    Query(query): Query<ListAgentsQuery>,
 ) -> Result<Json<ApiResponse<Vec<AgentMetadata>>>, ApiError> {
     Ok(Json(ApiResponse::ok(
-        state.service.list_agents().await.map_err(agent_error_to_api_error)?,
+        state
+            .service
+            .list_agents(query.include_disabled)
+            .await
+            .map_err(agent_error_to_api_error)?,
     )))
 }
 

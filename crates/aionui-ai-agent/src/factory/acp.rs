@@ -26,7 +26,7 @@ pub(super) async fn build(
     build_context: AcpSessionBuildContext,
     ctx: FactoryContext,
 ) -> Result<AgentInstance, AgentError> {
-    let belongs_to_team = build_context.belongs_to_team;
+    let belongs_to_team = build_context.team.is_some();
     let mut config = build_context.config;
 
     // Resolve the catalog row — prefer explicit agent_id, fall
@@ -58,7 +58,7 @@ pub(super) async fn build(
     } else if belongs_to_team {
         debug!(
             ctx.conversation_id,
-            "guide_mcp: skipped: conversation belongs to a team (extra.teamId)"
+            "guide_mcp: skipped: conversation belongs to a team"
         );
     } else if config.guide_mcp_config.is_some() {
         debug!(
@@ -677,7 +677,19 @@ mod tests {
             yolo_id: None,
             sort_order: 0,
             team_capable: false,
+            last_check_status: None,
+            last_check_kind: None,
+            last_check_error_code: None,
+            last_check_error_message: None,
+            last_check_error_details: None,
+            last_check_guidance: None,
+            last_check_latency_ms: None,
+            last_check_at: None,
+            last_success_at: None,
+            last_failure_at: None,
             handshake: aionui_api_types::AgentHandshake::default(),
+            has_command_override: false,
+            env_override_key_count: 0,
         };
 
         let spec = resolve_agent_command_spec(

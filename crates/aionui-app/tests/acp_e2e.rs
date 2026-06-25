@@ -188,13 +188,31 @@ async fn management_list_marks_rows_with_unavailable_snapshot() {
 }
 
 #[tokio::test]
-async fn legacy_agents_endpoint_is_not_found() {
+async fn agents_endpoint_returns_array() {
     let (mut app, services) = build_app().await;
     let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
 
     let req = get_with_token("/api/agents", &token);
     let resp = app.oneshot(req).await.unwrap();
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = body_json(resp).await;
+    assert_eq!(body["success"], true);
+    assert!(body["data"].is_array());
+}
+
+#[tokio::test]
+async fn agents_endpoint_accepts_include_disabled_query() {
+    let (mut app, services) = build_app().await;
+    let (token, _csrf) = setup_and_login(&mut app, &services, "user1", "pass123").await;
+
+    let req = get_with_token("/api/agents?include_disabled=true", &token);
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = body_json(resp).await;
+    assert_eq!(body["success"], true);
+    assert!(body["data"].is_array());
 }
 
 #[tokio::test]

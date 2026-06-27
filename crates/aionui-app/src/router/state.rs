@@ -446,6 +446,65 @@ pub fn build_mcp_state(services: &AppServices) -> McpRouterState {
     }
 }
 
+/// Build the channel `ConversationService` with every repository wired,
+/// including the three assistant repos required to resolve an assistant
+/// snapshot for channel-bound (e.g. Telegram) conversations.
+///
+/// Without the assistant repos, a platform bound to an assistant suppresses the
+/// explicit conversation `type` (see `aionui-channel` `message_service.rs`) but
+/// the service cannot produce a snapshot, so conversation creation fails with
+/// "Either `type` or `assistant.id` is required". This mirrors the MAIN
+/// (`services.rs`) and CRON ConversationService instances.
+///
+/// Extracted from `build_channel_state` so the wiring can be guarded by a
+/// regression test (`crates/aionui-app/tests/channel_conversation_service.rs`);
+/// the test fails if the assistant repos are dropped here again.
+pub fn build_channel_conversation_service(services: &AppServices) -> Arc<ConversationService> {
+    let conv_repo: Arc<dyn aionui_db::IConversationRepository> = Arc::new(
+        aionui_db::SqliteConversationRepository::new(services.database.pool().clone()),
+    );
+    let skill_resolver = Arc::new(aionui_conversation::skill_resolver::ExtensionSkillResolver::new(
+        services.skill_paths.clone(),
+        services.skill_repo.clone(),
+    ));
+    let agent_metadata_repo: Arc<dyn aionui_db::IAgentMetadataRepository> = Arc::new(
+        aionui_db::SqliteAgentMetadataRepository::new(services.database.pool().clone()),
+    );
+    let acp_session_repo: Arc<dyn aionui_db::IAcpSessionRepository> = Arc::new(
+        aionui_db::SqliteAcpSessionRepository::new(services.database.pool().clone()),
+    );
+    let conversation_svc = Arc::new(
+        ConversationService::new(
+            services.work_dir.clone(),
+            services.event_bus.clone(),
+            skill_resolver,
+            services.worker_task_manager.clone(),
+            conv_repo,
+            agent_metadata_repo,
+            acp_session_repo,
+        )
+        .with_runtime_state(services.conversation_runtime_state.clone()),
+    );
+    conversation_svc.with_mcp_server_repo(Arc::new(aionui_db::SqliteMcpServerRepository::new(
+        services.database.pool().clone(),
+    )));
+    // Assistant repos — the regressed wiring; see this function's doc comment
+    // for why channel-bound-assistant conversations require them.
+    conversation_svc.with_assistant_definition_repo(Arc::new(SqliteAssistantDefinitionRepository::new(
+        services.database.pool().clone(),
+    )));
+    conversation_svc.with_assistant_state_repo(Arc::new(SqliteAssistantOverlayRepository::new(
+        services.database.pool().clone(),
+    )));
+    conversation_svc.with_assistant_preference_repo(Arc::new(SqliteAssistantPreferenceRepository::new(
+        services.database.pool().clone(),
+    )));
+    if let Some(hook) = services.task_manager_delete_hook.clone() {
+        conversation_svc.with_delete_hook(hook);
+    }
+    conversation_svc
+}
+
 /// Build the default `ChannelRouterState` and orchestrator components.
 pub async fn build_channel_state(
     services: &AppServices,
@@ -500,37 +559,7 @@ pub async fn build_channel_state(
         Arc::clone(&channel_settings),
     ));
 
-    let conv_repo: Arc<dyn aionui_db::IConversationRepository> = Arc::new(
-        aionui_db::SqliteConversationRepository::new(services.database.pool().clone()),
-    );
-    let skill_resolver = Arc::new(aionui_conversation::skill_resolver::ExtensionSkillResolver::new(
-        services.skill_paths.clone(),
-        services.skill_repo.clone(),
-    ));
-    let agent_metadata_repo: Arc<dyn aionui_db::IAgentMetadataRepository> = Arc::new(
-        aionui_db::SqliteAgentMetadataRepository::new(services.database.pool().clone()),
-    );
-    let acp_session_repo: Arc<dyn aionui_db::IAcpSessionRepository> = Arc::new(
-        aionui_db::SqliteAcpSessionRepository::new(services.database.pool().clone()),
-    );
-    let conversation_svc = Arc::new(
-        ConversationService::new(
-            services.work_dir.clone(),
-            services.event_bus.clone(),
-            skill_resolver,
-            services.worker_task_manager.clone(),
-            conv_repo,
-            agent_metadata_repo,
-            acp_session_repo,
-        )
-        .with_runtime_state(services.conversation_runtime_state.clone()),
-    );
-    conversation_svc.with_mcp_server_repo(Arc::new(aionui_db::SqliteMcpServerRepository::new(
-        services.database.pool().clone(),
-    )));
-    if let Some(hook) = services.task_manager_delete_hook.clone() {
-        conversation_svc.with_delete_hook(hook);
-    }
+    let conversation_svc = build_channel_conversation_service(services);
 
     let owner_user_id = services
         .user_repo
